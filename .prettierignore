@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Package manager files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Git
+.git/
+
+# IDE
+.cursor/
+.vscode/
+
+# Public assets
+public/
+
+# Auto-generated files
+CLAUDE.md
+
+# Feature folders (maintain existing style)
+features/chat/
+features/map/
+features/route-analysis/
+features/sidebar/
+features/top-bar/
+
+# Other
+coverage/
+.DS_Store

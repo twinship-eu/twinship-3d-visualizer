@@ -1,0 +1,35 @@
+---
+description: TypeScript conventions for this project
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# TypeScript Patterns
+
+## DO
+
+- Use explicit types (never `any`)
+- Prefer `type` over `interface` (except declaration merging)
+- Use optional chaining (`?.`) and nullish coalescing (`??`)
+- Use proper type guards
+
+## DON'T
+
+- Use `any`
+- Use `interface` (unless declaration merging needed)
+- Use `as any`
+
+```typescript
+// ❌ DON'T
+function processData(data: any) { }
+const data = response as any;
+const port = route.destinationPort.name;
+
+// ✅ DO
+type RouteData = { id: string; points: Point[] };
+function processData(data: RouteData) { }
+const port = route.destinationPort?.name ?? 'Unknown';
+function isRouteData(data: unknown): data is RouteData {
+  return typeof data === 'object' && data !== null && 'id' in data;
+}
+```

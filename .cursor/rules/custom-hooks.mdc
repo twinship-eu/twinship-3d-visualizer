@@ -1,0 +1,46 @@
+---
+description: Custom hooks patterns
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Custom Hooks
+
+## DO
+
+- Put UI/behavior hooks in `features/[feature]/hooks/`
+- Put data fetching in `features/[feature]/queries/` (use SWR)
+- Name hooks: `use[Functionality]`
+- Return named object (not array)
+
+## DON'T
+
+- Put data fetching in `hooks/` folder
+- Create vague names (`useHelper`, `useUtils`)
+
+```typescript
+// ✅ DO - UI hook in hooks/
+export function useToggle(initialState = false) {
+  const [isOpen, setIsOpen] = useState(initialState);
+  const open = useCallback(() => setIsOpen(true), []);
+  const close = useCallback(() => setIsOpen(false), []);
+  // ...
+  return { isOpen, open, close, toggle };
+}
+
+// ✅ DO - Data fetching in queries/
+export function useUserQuery(userId: string) {
+  const { data, error, isLoading } = useSWR(`/api/users/${userId}`, fetcher);
+  return { user: data, isLoading, error };
+}
+
+// ❌ DON'T - Data fetching in hooks/
+export function useUserData(userId: string) {
+  const [user, setUser] = useState();
+  useEffect(() => { fetchUser(userId).then(setUser); }, [userId]);
+  return user;
+}
+```
+
+**hooks/ folder:** UI state, browser APIs, form validation, debounce, click outside  
+**queries/ folder:** Data fetching with SWR (always)

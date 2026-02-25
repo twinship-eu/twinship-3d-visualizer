@@ -1,0 +1,43 @@
+---
+description: React and Next.js component patterns
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# React & Next.js Patterns
+
+## DO
+
+- Props naming: `type Props` (internal) or `export type ComponentNameProps` (exported)
+- Component structure: Hooks → Derived state → Handlers → Effects → Render
+- Default to Server Components (no `'use client'`)
+- Extract reusable logic to hooks
+- Group related props
+- Format dates with explicit locale or date library
+
+## DON'T
+
+- Name internal props with component name
+- Pass too many props (5+)
+- Use `'use client'` unless needed (interactivity/hooks)
+- Use `toLocaleDateString()` without locale (hydration issues)
+
+```tsx
+// ❌ DON'T
+type MapProps = { routes: Route[] }; // internal, should be Props
+<Component prop1={a} prop2={b} prop3={c} prop4={d} prop5={e} />
+{user.createdAt.toLocaleDateString()} // hydration issue
+
+// ✅ DO
+type Props = { routes: Route[]; onSelect: (id: string) => void };
+export function Map({ routes, onSelect }: Props) {
+  const [selected, setSelected] = useState(null);
+  const handleSelect = useCallback((id: string) => {
+    // ...
+    onSelect(id);
+  }, [onSelect]);
+  return <div>{/* ... */}</div>;
+}
+<Component config={{ a, b, c }} actions={{ d, e }} />
+{format(user.createdAt, 'MMM d, yyyy')}
+```

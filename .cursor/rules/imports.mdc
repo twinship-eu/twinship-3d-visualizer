@@ -1,0 +1,35 @@
+---
+description: Import organization and structure
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Import Organization
+
+## DO
+
+- Order: External → Internal (@/) → Relative → Types → Styles
+- Use named exports (better refactoring)
+- Use `import type` for type-only imports
+- Direct imports (avoid barrel exports)
+
+## DON'T
+
+- Use default exports (except Next.js pages)
+- Create barrel exports (`export * from`)
+
+```typescript
+// ✅ DO
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { RouteCard } from './components/route-card';
+import type { Route } from '@/lib/models';
+import './styles.css';
+
+export function Map() { }
+export function MapMarker() { }
+
+// ❌ DON'T
+export * from './component-a'; // barrel export
+export default function Map() { } // default export (not a page)
+```

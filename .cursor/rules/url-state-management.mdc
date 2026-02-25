@@ -1,0 +1,42 @@
+---
+description: URL state management using nuqs
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# URL State Management
+
+## DO
+
+- Use nuqs for filters, pagination, tabs, modals (shareable state)
+- Use parsers for type safety (`parseAsInteger`, `parseAsString`, etc.)
+- Use `useQueryStates` for multiple params
+- Use `history: 'replace'` for filters (avoid history spam)
+- Set `null` to clear param
+
+## DON'T
+
+- Use for temporary UI state (hover, focus)
+- Use for sensitive data (tokens, passwords)
+- Use for large data (URL length limits)
+
+```tsx
+// ✅ DO
+'use client';
+const [search, setSearch] = useQueryState('search', { defaultValue: '' });
+const [page, setPage] = useQueryState('page', parseAsInteger.withDefault(1));
+
+// Multiple params
+const [filters, setFilters] = useQueryStates({
+  search: parseAsString.withDefault(''),
+  page: parseAsInteger.withDefault(1),
+}, { history: 'replace' });
+
+setSearch(null); // Clear param
+
+// ❌ DON'T
+const searchParams = useSearchParams(); // use nuqs instead
+const search = searchParams.get('search'); // verbose
+```
+
+**Parsers:** `parseAsInteger`, `parseAsFloat`, `parseAsBoolean`, `parseAsStringEnum`, `parseAsArrayOf`, `parseAsIsoDateTime`

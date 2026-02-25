@@ -1,0 +1,68 @@
+---
+description: State management patterns with zustand
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# State Management
+
+## Strategy
+
+| State Type        | Solution | When                              |
+| ----------------- | -------- | --------------------------------- |
+| **Server data**   | SWR      | API data                          |
+| **URL state**     | nuqs     | Filters, pagination, tabs, modals |
+| **Local state**   | useState | Component-specific, temporary     |
+| **Global client** | zustand  | Cross-page persistent (RARE)      |
+
+## DO
+
+- Use SWR for server data (always)
+- Use nuqs for URL-shareable state
+- Use useState for local state (default)
+- Use zustand ONLY when: client-side + cross-page + shared by 3+ components + not URL-appropriate
+
+## DON'T
+
+- Use zustand for API data (use SWR)
+- Use zustand for filters/pagination (use nuqs)
+- Use zustand for local state (use useState)
+- Create multiple stores per feature
+
+```typescript
+// ✅ DO - Zustand for cross-page state
+type RouteBuilderStore = {
+  draftRoute: { waypoints: Point[] } | null;
+  setDraftRoute: (route: RouteBuilderStore['draftRoute']) => void;
+  // ...
+};
+
+export const useRouteBuilderStore = create<RouteBuilderStore>()(
+  persist(
+    (set) => ({
+      draftRoute: null,
+      setDraftRoute: (draftRoute) => set({ draftRoute }),
+      // ...
+    }),
+    { name: 'route-builder-storage' }
+  )
+);
+
+// Use in components - select only needed state
+const waypoints = useRouteBuilderStore((state) => state.draftRoute?.waypoints);
+
+// ❌ DON'T
+const useRoutesStore = create(() => ({ routes: [], fetchRoutes: async () => {} })); // Use SWR
+const useFiltersStore = create(() => ({ search: '', page: 1 })); // Use nuqs
+const useModalStore = create(() => ({ isOpen: false })); // Use useState
+```
+
+**Decision tree:**
+
+1. API data? → SWR
+2. In URL? → nuqs
+3. Local to component? → useState
+4. Cross-page persistent client state? → zustand (rare)
+
+**File:** `features/[feature]/[feature]-state.ts`  
+**Naming:** `use[Feature]Store`

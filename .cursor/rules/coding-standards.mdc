@@ -1,0 +1,39 @@
+---
+description: Core coding standards for the project
+alwaysApply: true
+---
+
+# Coding Standards
+
+## DO
+
+- Be explicit over implicit
+- Extract reusable logic (DRY)
+- Single responsibility per function/component
+- Fail fast with meaningful errors
+- Colocate related files
+- Keep files under 300 lines
+- Extract magic numbers to named constants
+
+## DON'T
+
+- Silent error handling (`console.log` only)
+- Use magic numbers inline
+- Create files over 300 lines
+
+```typescript
+// ❌ DON'T
+try { await fetchData(); } catch (e) { console.log(e); }
+if (speed > 50) { }
+
+// ✅ DO
+try {
+  await fetchData();
+} catch (error) {
+  logger.error('Failed to fetch data', { error });
+  throw new DataFetchError('Unable to retrieve data', { cause: error });
+}
+
+const MAX_SAFE_SPEED = 50;
+if (speed > MAX_SAFE_SPEED) { }
+```

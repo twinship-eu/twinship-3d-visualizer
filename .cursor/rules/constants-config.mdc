@@ -1,0 +1,48 @@
+---
+description: Constants and configuration management
+alwaysApply: true
+---
+
+# Constants and Configuration
+
+## DO
+
+- Store feature-wide constants in `[feature-name]-config.ts`
+- Store local constants at top of file (if used only there)
+- Use `UPPER_SNAKE_CASE` for constants
+- Use `as const` for type safety
+- Group related constants in objects
+
+## DON'T
+
+- Use magic numbers inline
+- Duplicate constants across files
+
+```typescript
+// ✅ DO
+export const USER_API_ENDPOINTS = {
+  list: '/api/users',
+  detail: (id: string) => `/api/users/${id}`,
+} as const;
+
+export const USER_LIMITS = {
+  MAX_BIO_LENGTH: 500,
+  SPENDING_LIMIT_WARNING: 1000,
+} as const;
+
+// ❌ DON'T
+if (file.size > 5242880) { } // magic number
+const API_BASE = '/api/users'; // repeated across files
+```
+
+**When to use config file:**
+
+- Constants used in multiple files
+- API endpoints, routes
+- Feature-wide settings/defaults
+- Magic numbers
+
+**When to keep at top of file:**
+
+- Used only in that file
+- Component-specific values

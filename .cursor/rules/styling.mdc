@@ -1,0 +1,40 @@
+---
+description: Styling conventions using Tailwind CSS
+globs: "**/*.{tsx,css}"
+alwaysApply: false
+---
+
+# Styling Conventions
+
+## DO
+
+- Use Prettier for automatic class sorting (don't worry about order)
+- Use `cn()` utility for conditional classes
+- Use CSS custom properties for theme values
+- Define variants for reusable components
+- Use mobile-first responsive classes
+
+## DON'T
+
+- Use string concatenation for classes
+- Hardcode values in custom CSS that belong in Tailwind
+
+```tsx
+// ❌ DON'T
+<button className={`px-4 py-2 ${isActive ? 'bg-blue-500' : ''}`} />
+
+// ✅ DO
+<button className={cn(
+  "px-4 py-2 rounded",
+  isActive && "bg-blue-500 text-white"
+)} />
+
+// Variants
+const buttonVariants = {
+  primary: 'bg-blue-500 hover:bg-blue-600',
+  ghost: 'hover:bg-gray-100',
+};
+export function Button({ variant = 'primary' }) {
+  return <button className={cn(buttonVariants[variant])} />;
+}
+```

@@ -1,0 +1,28 @@
+{
+  "servers": {
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": ["next-devtools-mcp@latest"]
+    },
+    "figma-desktop": {
+      "type": "sse",
+      "url": "http://127.0.0.1:3845/mcp"
+    },
+    "figma-cloud": {
+       "url": "https://mcp.figma.com/mcp",
+       "type": "http"
+     },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    }
+  }
+}

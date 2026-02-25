@@ -1,0 +1,57 @@
+---
+description: Data fetching patterns using SWR
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Data Fetching Patterns
+
+## DO
+
+- Use SWR for all data fetching
+- Organize in `features/[feature]/queries/` folder
+- Name hooks: `use[Resource]Query` or `use[Resource]Mutation`
+- Support `enabled` option for conditional fetching
+- Handle errors properly
+
+## DON'T
+
+- Put data fetching in `hooks/` folder (use `queries/`)
+- Fetch data without error handling
+
+```typescript
+// ❌ DON'T - Wrong folder, no error handling
+// hooks/use-user-data.ts
+export function useUserData(userId: string) {
+  const [user, setUser] = useState();
+  useEffect(() => { fetchUser(userId).then(setUser); }, [userId]);
+  return user;
+}
+
+// ✅ DO - queries folder, SWR, error handling
+// queries/use-user-query.ts
+export function useUserQuery(userId: string, options?: { enabled?: boolean }) {
+  const { data, error, isLoading } = useSWR(
+    enabled && userId ? `/api/users/${userId}` : null,
+    async (url) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return response.json();
+    }
+  );
+  return { user: data, isLoading, error };
+}
+
+// Mutation
+export function useUpdateUserMutation(userId: string) {
+  const { trigger, isMutating } = useSWRMutation(
+    `/api/users/${userId}`,
+    async (url, { arg }) => {
+      const response = await fetch(url, { method: 'PUT', body: JSON.stringify(arg) });
+      if (!response.ok) throw new Error('Failed');
+      return response.json();
+    }
+  );
+  return { updateUser: trigger, isUpdating: isMutating };
+}
+```

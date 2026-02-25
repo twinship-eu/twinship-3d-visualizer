@@ -1,0 +1,54 @@
+---
+description: Shared components and layout wrappers
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# Shared Components
+
+## DO
+
+- Use `PageWrapper` for consistent page layout
+- Store reusable layout components in `components/ui/`
+- Provide customization props with sensible defaults
+- Define standard spacing in wrapper
+
+## DON'T
+
+- Repeat layout styles across pages
+- Use PageWrapper for modals/dialogs
+
+```tsx
+// ✅ DO
+export default function DashboardPage() {
+  return (
+    <PageWrapper title="Dashboard" description="View analytics">
+      <DashboardContent />
+    </PageWrapper>
+  );
+}
+
+<PageWrapper maxWidth="full" noPadding>
+  <CustomFullWidthLayout />
+</PageWrapper>
+
+// ❌ DON'T - Repeat layout
+export default function DashboardPage() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="border-b bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-6">
+          <h1>Dashboard</h1>
+        </div>
+      </header>
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        <DashboardContent />
+      </main>
+    </div>
+  );
+}
+```
+
+**Location:** `components/ui/page-wrapper.tsx`  
+**When:** Full page layouts, consistent headers, standard width/padding  
+**Not for:** Modals, nested sections, custom layouts

@@ -1,0 +1,37 @@
+---
+description: File, function, and variable naming conventions
+alwaysApply: true
+---
+
+# Naming Conventions
+
+## DO
+
+- Files/folders: `kebab-case`
+- Components/Types: `PascalCase`
+- Functions/variables: `camelCase`
+- Constants: `UPPER_SNAKE_CASE`
+- Booleans: `is`/`has`/`should` prefix
+- Props: `Props` (internal) or `ComponentNameProps` (exported)
+- Types: Group in `[feature-name]-types.ts`
+
+## DON'T
+
+- Use `PascalCase` for files
+- Use abbreviations in variables
+- Use Hungarian notation (`TRoute`, `IWeather`)
+
+```typescript
+// ✅ DO (File: route-card.tsx)
+export function RouteCard() { }
+type Props = { id: string };
+const MAX_POINTS = 100;
+const isActive = true;
+function hasData() { }
+
+// ❌ DON'T
+type RouteCardProps = { id: string }; // internal, should be Props
+const maxPoints = 100; // should be UPPER_SNAKE_CASE
+const rtId = '123'; // abbreviation
+type TRoute = { }; // Hungarian notation
+```

@@ -1,0 +1,54 @@
+---
+description: Next.js page structure and organization
+globs: "**/app/**/page.tsx"
+alwaysApply: false
+---
+
+# Page Structure
+
+## DO
+
+- Compose components directly (multiple components, not single container)
+- Use PageWrapper for layout
+- Fetch data in server components (async/await)
+- Import mock data from `[feature-name]-mock.ts`
+- Handle params/searchParams at page level
+
+## DON'T
+
+- Delegate to single container component
+- Put logic, state (useState), or handlers in pages
+- Define mock data inline
+- Use hooks in server components
+
+```tsx
+// ✅ DO - Compose components
+export default function DashboardPage() {
+  return (
+    <PageWrapper title="Dashboard">
+      <DashboardStats data={MOCK_DATA.stats} />
+      <DashboardCharts data={MOCK_DATA.charts} />
+    </PageWrapper>
+  );
+}
+
+// Server component with data fetching
+export default async function RoutePage({ params }: { params: { id: string } }) {
+  const route = await fetchRoute(params.id);
+  return <RouteDetails route={route} />;
+}
+
+// ❌ DON'T
+export default function DashboardPage() {
+  return <DashboardContainer />; // Too much abstraction
+}
+
+export default function Page() {
+  const [data, setData] = useState(); // No state
+  const handleClick = () => {}; // No handlers
+  return <div onClick={handleClick}>...</div>;
+}
+```
+
+**Pages SHOULD:** Compose, fetch data, read params, pass props  
+**Pages SHOULD NOT:** Have state, handlers, logic, inline mock data
