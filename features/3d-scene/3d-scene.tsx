@@ -1,16 +1,26 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { cn } from "@/lib/utils";
-import { ACESFilmicToneMapping, HalfFloatType, PCFShadowMap, Vector3 } from "three";
-import { DEFAULT_CAMERA_POSITION } from "../ship-visualizer/ship-visualizer-config";
-import { OrbitControls } from "@react-three/drei";
+import {
+  ACESFilmicToneMapping,
+  HalfFloatType,
+  PCFShadowMap,
+  Vector3,
+} from "three";
+import {
+  DEFAULT_CAMERA_POSITION,
+} from "../ship-visualizer/ship-visualizer-config";
+import {  OrbitControls } from "@react-three/drei";
 import { SCENE_BACKGROUND_COLOR } from "./lib/3d-scene-config";
-import { SceneLights } from "./scene-lights";
-import { SceneSky } from "./scene-sky";
-import { SceneWater } from "./scene-water";
-import { useState } from "react";
-import { SceneInteractionProvider } from "./scene-interaction-context";
+import { SceneLights } from "./components/scene-lights";
+import { SceneSky } from "./components/scene-sky";
+import { SceneWater } from "./components/scene-water";
+import {  useState } from "react";
+import { SceneInteractionProvider } from "./components/scene-interaction-context";
+import { StageControlHints } from "./components/stage-control-hints";
+import ZoomControlsOverlay from "./components/zoom-controls-overlay";
+
 
 /** Tone mapping exposure; higher for midday (0.1 = dusk, ~0.3 = noon). */
 const TONE_MAPPING_EXPOSURE = 0.3;
@@ -27,14 +37,14 @@ type Props = {
 export function Scene({
   className,
   children,
-  sceneScale = 1,
 }: Props) {
   return (
     <div
-      className={cn(className ?? "h-full min-h-0 w-full")}
+      className={cn("relative", className ?? "h-full min-h-0 w-full")}
       style={{ backgroundColor: SCENE_BACKGROUND_COLOR }}
     >
       <SceneWithInteraction>{children}</SceneWithInteraction>
+      <StageControlHints />
     </div>
   );
 }
@@ -77,7 +87,10 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           onStart={() => setIsOrbitControlsActive(true)}
           onEnd={() => setIsOrbitControlsActive(false)}
         />
+        <ZoomControlsOverlay />
       </Canvas>
     </SceneInteractionProvider>
   );
 }
+
+

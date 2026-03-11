@@ -1,19 +1,28 @@
-import { Suspense, useCallback, useRef } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { Object3D } from "three";
-import { findNodeByHitObject } from "../lib/3d-model";
+import { easeOutCubic, findNodeByHitObject } from "../lib/3d-model";
 import {
   FLOATING_BOB_AMPLITUDE,
   FLOATING_BOB_SPEED,
   FLOATING_PITCH_AMPLITUDE,
   FLOATING_ROLL_AMPLITUDE,
   FLOATING_TILT_SPEED,
+  SHIP_IDLE_RESET_MS,
+  SHIP_INTERACTION_Y_OFFSET,
+  SHIP_TRANSITION_DURATION_MS,
   SHIP_VERTICAL_OFFSET,
 } from "../ship-visualizer-config";
 import ShipModel from "./ship-model";
-import { useSceneInteraction } from "@/features/3d-scene/scene-interaction-context";
+import { useSceneInteraction } from "@/features/3d-scene/components/scene-interaction-context";
+
+type ShipDisplayMode =
+  | "animated"
+  | "transitioning-to-interaction"
+  | "interaction"
+  | "transitioning-to-animated";
 
 export default function Ship({
   modelPath,
@@ -38,16 +47,98 @@ export default function Ship({
   const floatGroupRef = useRef<Group>(null);
   const { isOrbitControlsActive } = useSceneInteraction();
 
-  const DRAG_THRESHOLD_PX = 4;
+  const [displayMode, setDisplayMode] = useState<ShipDisplayMode>("animated");
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionStartTimeRef = useRef(0);
+  const transitionStartCapturedRef = useRef(false);
+  const transitionStartYRef = useRef(0);
+  const transitionStartRotRef = useRef({ x: 0, z: 0 });
 
-  useFrame((_, delta) => {
+  const DRAG_THRESHOLD_PX = 4;
+  const hasInteraction =
+    selectedStructureNode !== null || hoveredStructureNode !== null;
+
+  useEffect(() => {
+    if (hasInteraction && displayMode === "animated") {
+      setDisplayMode("transitioning-to-interaction");
+      transitionStartCapturedRef.current = false;
+    }
+  }, [hasInteraction, displayMode]);
+
+  useEffect(() => {
+    if (displayMode !== "interaction" || hasInteraction) {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      return;
+    }
+    idleTimerRef.current = setTimeout(() => {
+      idleTimerRef.current = null;
+      setDisplayMode("transitioning-to-animated");
+      transitionStartTimeRef.current = performance.now();
+    }, SHIP_IDLE_RESET_MS);
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, [displayMode, hasInteraction]);
+
+  useFrame((state) => {
     const group = floatGroupRef.current;
     if (!group) return;
-    const t = performance.now() * 0.001;
-    group.position.y =
-      SHIP_VERTICAL_OFFSET + FLOATING_BOB_AMPLITUDE * Math.sin(t * FLOATING_BOB_SPEED);
-    group.rotation.x = FLOATING_PITCH_AMPLITUDE * Math.sin(t * FLOATING_TILT_SPEED);
-    group.rotation.z = FLOATING_ROLL_AMPLITUDE * Math.cos(t * FLOATING_TILT_SPEED * 1.1);
+
+    const now = performance.now();
+    const elapsed = now - transitionStartTimeRef.current;
+    const t = Math.min(elapsed / SHIP_TRANSITION_DURATION_MS, 1);
+    const eased = easeOutCubic(t);
+
+    if (displayMode === "transitioning-to-interaction") {
+      if (!transitionStartCapturedRef.current) {
+        transitionStartYRef.current = group.position.y;
+        transitionStartRotRef.current = { x: group.rotation.x, z: group.rotation.z };
+        transitionStartTimeRef.current = now;
+        transitionStartCapturedRef.current = true;
+        return;
+      }
+      const startY = transitionStartYRef.current;
+      const startRot = transitionStartRotRef.current;
+      group.position.y = startY + eased * (SHIP_INTERACTION_Y_OFFSET - startY);
+      group.rotation.x = startRot.x + eased * (0 - startRot.x);
+      group.rotation.z = startRot.z + eased * (0 - startRot.z);
+      if (t >= 1) {
+        setDisplayMode("interaction");
+      }
+      return;
+    }
+
+    if (displayMode === "interaction") {
+      group.position.y = SHIP_INTERACTION_Y_OFFSET;
+      group.rotation.x = 0;
+      group.rotation.z = 0;
+      return;
+    }
+
+    if (displayMode === "transitioning-to-animated") {
+      group.position.y =
+        SHIP_INTERACTION_Y_OFFSET +
+        eased * (SHIP_VERTICAL_OFFSET - SHIP_INTERACTION_Y_OFFSET);
+      group.rotation.x = 0;
+      group.rotation.z = 0;
+      if (t >= 1) {
+        setDisplayMode("animated");
+      }
+      return;
+    }
+
+    if (displayMode === "animated") {
+      const time = state.clock.getElapsedTime();
+      group.position.y =
+        SHIP_VERTICAL_OFFSET + FLOATING_BOB_AMPLITUDE * Math.sin(time * FLOATING_BOB_SPEED);
+      group.rotation.x = FLOATING_PITCH_AMPLITUDE * Math.sin(time * FLOATING_TILT_SPEED);
+      group.rotation.z = FLOATING_ROLL_AMPLITUDE * Math.cos(time * FLOATING_TILT_SPEED * 1.1);
+    }
   });
 
   const getClientCoords = (e: { nativeEvent?: { clientX: number; clientY: number }; clientX?: number; clientY?: number }) => {
@@ -143,8 +234,12 @@ export default function Ship({
         >
           <ShipModel
             path={modelPath}
-            selectedStructureNode={selectedStructureNode}
-            hoveredStructureNode={hoveredStructureNode ?? null}
+            selectedStructureNode={
+              displayMode === "interaction" ? selectedStructureNode : null
+            }
+            hoveredStructureNode={
+              displayMode === "interaction" ? (hoveredStructureNode ?? null) : null
+            }
             onModelTreeLoaded={onModelTreeLoaded}
           />
         </Suspense>

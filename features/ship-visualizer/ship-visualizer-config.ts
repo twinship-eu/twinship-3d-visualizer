@@ -8,13 +8,14 @@ export const SHIP_MODEL_PATH = "/ship/TwinShip.glb";
 /** TwinShip V4 FBX model. */
 export const SHIP_MODEL_V4 = "/ship/TwinShipv4.fbx";
 export const SHIP_MODEL_JOINED = "/ship/TwinShip_Joined.fbx";
+export const SHIP_MODEL_W_ENGINE = "/ship/TwinShip_WEngine.fbx";
 export const SHIP_MODEL_JOINED_GLB = "/ship/TwinShipv12_Joined.glb";
 
 /** TwinShip V4 Solar FBX model. */
 export const SHIP_MODEL_V4_SOLAR = "/ship/TwinShipv4_Solar.fbx";
 
 /** Default model when opening the ship visualizer (first subroute). */
-export const DEFAULT_SHIP_MODEL_PATH = SHIP_MODEL_JOINED;
+export const DEFAULT_SHIP_MODEL_PATH = SHIP_MODEL_W_ENGINE;
 
 /** Default ship texture (Atlas_Twinship), same folder as ship models. */
 export const SHIP_TEXTURE_PATH = "/ship/Atlas_Twinship.png";
@@ -56,3 +57,12 @@ export const FLOATING_PITCH_AMPLITUDE = 0.015;
 export const FLOATING_ROLL_AMPLITUDE = 0.02;
 /** Floating animation: pitch/roll cycle speed multiplier (phase variation). */
 export const FLOATING_TILT_SPEED = 0.96;
+
+/** Y position when ship is in interaction mode (out of water). */
+export const SHIP_INTERACTION_Y_OFFSET = 2;
+
+/** Duration in ms for ship translate in/out of water. */
+export const SHIP_TRANSITION_DURATION_MS = 400;
+
+/** Idle time in ms before translating back to animated state (no hover, no selection). */
+export const SHIP_IDLE_RESET_MS = 2000;

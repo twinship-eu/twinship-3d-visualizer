@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+const SHIP_MODEL_SECTION_ID = "ship-model" as const;
+
 const ONTOLOGY_COLOR_CLASSES = [
   "bg-ontology-1",
   "bg-ontology-2",
@@ -45,10 +47,12 @@ export default function TreeNode({
   onSelect,
   selectedNodeId,
 }: Props) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpandedInternal, setIsExpandedInternal] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedNodeId === node.id;
   const colorClass = getCategoryColorClass(categoryIndex);
+  const isShipModelSection = node.id === SHIP_MODEL_SECTION_ID;
+  const isExpanded = isShipModelSection ? true : isExpandedInternal;
 
   return (
     <div
@@ -65,7 +69,8 @@ export default function TreeNode({
         )}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={() => {
-          if (hasChildren) setIsExpanded((e) => !e);
+          if (hasChildren && !isShipModelSection)
+            setIsExpandedInternal((e) => !e);
           onSelect?.(node);
         }}
       >
@@ -76,7 +81,8 @@ export default function TreeNode({
             aria-label={isExpanded ? "Collapse" : "Expand"}
             onClick={(e) => {
               e.stopPropagation();
-              setIsExpanded((e2) => !e2);
+              if (!isShipModelSection)
+                setIsExpandedInternal((e2) => !e2);
             }}
           >
             {isExpanded ? (
@@ -100,7 +106,7 @@ export default function TreeNode({
         >
           {node.label}
         </span>
-        {hasChildren && (
+        {hasChildren && !isShipModelSection && (
           <button
             type="button"
             className="shrink-0 rounded p-0.5 text-primary hover:bg-primary/10"
@@ -120,7 +126,7 @@ export default function TreeNode({
       </div>
       {hasChildren && isExpanded && (
         <>
-          {depth === 0 && (
+          {depth === 0 && !isShipModelSection && (
             <div
               className="mb-1 mt-0.5 px-2 py-1"
               style={{ paddingLeft: `${14 + 8}px` }}
