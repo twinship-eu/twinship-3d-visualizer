@@ -49,6 +49,7 @@ export function ShipVisualizer() {
   }, []);
 
   const handleSelectByClick = useCallback((node: ShipTreeNode | null) => {
+    console.log(node)
     setSelectedStructureNode(node);
   }, []);
 

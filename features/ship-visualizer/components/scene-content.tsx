@@ -13,6 +13,7 @@ import {
   SHIP_VERTICAL_OFFSET,
 } from "../ship-visualizer-config";
 import ShipModel from "./ship-model";
+import { useSceneInteraction } from "@/features/3d-scene/scene-interaction-context";
 
 export default function Ship({
   modelPath,
@@ -35,6 +36,7 @@ export default function Ship({
   const isDragging = useRef(false);
   const pointerDownAt = useRef({ x: 0, y: 0 });
   const floatGroupRef = useRef<Group>(null);
+  const { isOrbitControlsActive } = useSceneInteraction();
 
   const DRAG_THRESHOLD_PX = 4;
 
@@ -70,12 +72,18 @@ export default function Ship({
       clientX?: number;
       clientY?: number;
     }) => {
+      if (isOrbitControlsActive) {
+        if (onHover) onHover(null);
+        return;
+      }
+
       if (isPointerDown.current && !isDragging.current) {
         const { x, y } = getClientCoords(e);
         const dx = x - pointerDownAt.current.x;
         const dy = y - pointerDownAt.current.y;
         if (Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
           isDragging.current = true;
+          if (onHover) onHover(null);
         }
       }
       if (isDragging.current) return;
@@ -88,11 +96,12 @@ export default function Ship({
       const node = findNodeByHitObject(tree, hit);
       onHover(node ?? null);
     },
-    [tree, onHover]
+    [tree, onHover, isOrbitControlsActive]
   );
 
   const handlePointerUp = useCallback(() => {
     isPointerDown.current = false;
+    isDragging.current = false;
   }, []);
 
   const handlePointerLeave = useCallback(() => {
@@ -107,6 +116,7 @@ export default function Ship({
       if (!tree?.length || !onSelectByClick || e.intersections.length === 0)
         return;
       const hit = e.intersections[0].object;
+      console.log(hit)
       const node = findNodeByHitObject(tree, hit);
       if (node) onSelectByClick(node);
     },

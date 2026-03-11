@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import {
   applySelectionOpacity,
   buildTreeFromModel,
+  ensureUniqueMaterialsPerMesh,
   setMaterialsDoubleSide,
 } from "../lib/3d-model";
 import { Group } from "three";
@@ -25,6 +26,7 @@ export default function FbxShipModel({
   const cloned = useMemo(() => {
     const clone = fbx.clone(true);
     setMaterialsDoubleSide(clone);
+    ensureUniqueMaterialsPerMesh(clone);
     return clone;
   }, [fbx]);
 

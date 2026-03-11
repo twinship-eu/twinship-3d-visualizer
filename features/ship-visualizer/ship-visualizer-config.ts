@@ -29,7 +29,7 @@ export const SELECTED_PART_COLOR = "#7f56d9";
 export const SHIP_MODEL_SCALE = 0.005;
 
 /** Opacity of ship parts when another part is selected (0 = invisible, 1 = opaque). */
-export const UNSELECTED_PART_OPACITY = 0.05;
+export const UNSELECTED_PART_OPACITY = 0.35;
 
 /** Default camera position when viewing the full ship. */
 export const DEFAULT_CAMERA_POSITION: [number, number, number] = [70, 50, 70];

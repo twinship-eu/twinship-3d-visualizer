@@ -1,12 +1,12 @@
 import { useGLTF } from "@react-three/drei";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { useEffect, useMemo } from "react";
-import { Color, Group } from "three";
-import { SHIP_COLOR, SHIP_MODEL_SCALE, UNSELECTED_PART_OPACITY } from "../ship-visualizer-config";
+import { Group } from "three";
+import { SHIP_MODEL_SCALE, UNSELECTED_PART_OPACITY } from "../ship-visualizer-config";
 import {
   applySelectionOpacity,
-  applyShipMaterial,
   buildTreeFromModel,
+  ensureUniqueMaterialsPerMesh,
   setMaterialsDoubleSide,
 } from "../lib/3d-model";
 import CameraFitToSelection from "./camera-fit-to-section";
@@ -26,8 +26,8 @@ export default function GltfShipModel({
 
   const cloned = useMemo(() => {
     const clone = gltf.scene.clone();
-    // applyShipMaterial(clone, new Color(SHIP_COLOR));
     setMaterialsDoubleSide(clone);
+    ensureUniqueMaterialsPerMesh(clone);
     return clone;
   }, [gltf.scene]);
 

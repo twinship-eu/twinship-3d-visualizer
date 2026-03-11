@@ -23,9 +23,35 @@ export function setMaterialsDoubleSide(root: Object3D): void {
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       materials.forEach((m: Material) => {
         (m as Material & { side?: number }).side = DoubleSide;
-        // (m as Material).transparent = true;
       });
     }
+  });
+}
+
+/**
+ * Gives each mesh its own material clone and captures base opacity state.
+ * Required so selection/hover can set opacity per mesh without affecting
+ * other meshes that shared the same material.
+ */
+export function ensureUniqueMaterialsPerMesh(root: Object3D): void {
+  root.traverse((child) => {
+    if (!("material" in child) || !(child as Mesh).material) return;
+    const mesh = child as Mesh;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const cloned = materials.map((m: Material) => {
+      const clone = m.clone();
+      const mat = clone as Material & {
+        userData: { __baseState?: { opacity: number; transparent: boolean; depthWrite: boolean } };
+      };
+      mat.userData ??= {};
+      mat.userData.__baseState = {
+        opacity: typeof m.opacity === "number" ? m.opacity : 1,
+        transparent: Boolean(m.transparent),
+        depthWrite: m.depthWrite !== undefined ? m.depthWrite : true,
+      };
+      return clone;
+    });
+    mesh.material = cloned.length === 1 ? cloned[0] : cloned;
   });
 }
 
@@ -90,6 +116,29 @@ export function applyShipMaterial(
   });
 }
 
+type MaterialBaseState = {
+  opacity: number;
+  transparent: boolean;
+  depthWrite: boolean;
+};
+
+function getOrInitMaterialBaseState(m: Material): MaterialBaseState {
+  const anyMat = m as Material & {
+    userData: { __baseState?: MaterialBaseState } & Record<string, unknown>;
+    opacity?: number;
+    transparent?: boolean;
+    depthWrite?: boolean;
+  };
+  if (!anyMat.userData.__baseState) {
+    anyMat.userData.__baseState = {
+      opacity: typeof anyMat.opacity === "number" ? anyMat.opacity : 1,
+      transparent: Boolean(anyMat.transparent),
+      depthWrite: anyMat.depthWrite !== undefined ? anyMat.depthWrite : true,
+    };
+  }
+  return anyMat.userData.__baseState;
+}
+
 export function getObjectByUuid(root: Object3D, uuid: string): Object3D | null {
   let found: Object3D | null = null;
   root.traverse((obj) => {
@@ -104,20 +153,15 @@ export function collectMeshUuids(obj: Object3D, set: Set<string>): void {
   });
 }
 
-/** Returns the set of mesh uuids that should be highlighted (selected node + adjacent siblings). */
+/** Returns the set of mesh uuids that belong to the given node (the node's object and its descendants only). */
 export function getMatchingMeshUuids(root: Group, node: ShipTreeNode): Set<string> {
   const set = new Set<string>();
   if (node.objectUuid !== undefined) {
     const obj = getObjectByUuid(root, node.objectUuid);
     if (obj) {
-      const parent = obj.parent;
-      if (parent && parent !== root) {
-        parent.children.forEach((child) => collectMeshUuids(child, set));
-      } else {
-        collectMeshUuids(obj, set);
-      }
+      collectMeshUuids(obj, set);
+      if (set.size > 0) return set;
     }
-    if (set.size > 0) return set;
   }
   root.traverse((o) => {
     if ((o as Mesh).isMesh && meshMatchesNodeByName(o as Mesh, node)) {
@@ -157,15 +201,17 @@ export function applySelectionOpacity(
   hoveredNode: ShipTreeNode | null,
   unselectedOpacity: number
 ) {
-
   if (selectedNode === null && hoveredNode === null) {
     root.traverse((child) => {
       if ("material" in child && (child as Mesh).material) {
         const mesh = child as Mesh;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         materials.forEach((m: Material) => {
-          if ("opacity" in m) (m as Material & { opacity: number }).opacity = 1;
-          // (m as Material & { depthWrite?: boolean }).depthWrite = true;
+          const base = getOrInitMaterialBaseState(m);
+          (m as Material & { opacity: number }).opacity = base.opacity;
+          (m as Material & { transparent: boolean }).transparent = base.transparent;
+          (m as Material & { depthWrite: boolean }).depthWrite = base.depthWrite;
+          (m as Material & { needsUpdate?: boolean }).needsUpdate = true;
         });
       }
     });
@@ -187,25 +233,25 @@ export function applySelectionOpacity(
       const isSelected = selectedUuids.has(meshId);
       const isHovered = hoveredUuids.has(meshId);
 
-      let opacity: number;
-      if (isSelected && isHovered) {
-        opacity = unselectedOpacity;
-        // color = selectedColor;
-      } else if (isSelected) {
-        opacity = 1;
-        // color = selectedColor;
-      } else if (isHovered) {
-        opacity = 1;
-        // color = selectedColor;
-      } else {
-        opacity = unselectedOpacity;
-        // color = white;
-      }
+      const opacity: number =
+        isSelected && isHovered
+          ? unselectedOpacity
+          : isSelected || isHovered
+            ? 1
+            : unselectedOpacity;
 
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       materials.forEach((m: Material) => {
-        if ("opacity" in m) (m as Material & { opacity: number }).opacity = opacity;
-        // (m as Material & { depthWrite?: boolean })
+        const base = getOrInitMaterialBaseState(m);
+        const isDimmed = opacity < 1;
+        const targetOpacity = isDimmed ? base.opacity * opacity : base.opacity;
+        const targetTransparent = isDimmed ? true : base.transparent;
+        const targetDepthWrite = isDimmed ? false : base.depthWrite;
+
+        (m as Material & { opacity: number }).opacity = targetOpacity;
+        (m as Material & { transparent: boolean }).transparent = targetTransparent;
+        (m as Material & { depthWrite: boolean }).depthWrite = targetDepthWrite;
+        (m as Material & { needsUpdate?: boolean }).needsUpdate = true;
       });
     }
   });
