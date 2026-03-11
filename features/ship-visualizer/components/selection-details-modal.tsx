@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, Link2, Settings, X } from "lucide-react";
+import { Info, Link2, Maximize2, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ShipTreeNode } from "../ship-visualizer-types";
 import { getObjectDetails } from "../selection-details-mock";
@@ -21,7 +21,14 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
   if (selectedNode === null) return null;
 
   const details = getObjectDetails(selectedNode.id);
-  const { description, parameters, connectedComponents } = details;
+  const {
+    title,
+    tags,
+    description,
+    parameters,
+    connectedComponents,
+  } = details;
+  const displayTitle = title ?? selectedNode.label;
 
   return (
     <div
@@ -41,18 +48,39 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
               id="selection-details-title"
               className="truncate text-lg font-semibold text-gray-900"
             >
-              {selectedNode.label}
+              {displayTitle}
             </h2>
           </div>
+          {tags && tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close and deselect"
-          className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        >
-          <X className="h-5 w-5" aria-hidden />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            aria-label="Expand"
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <Maximize2 className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close and deselect"
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
       </header>
 
       <div className="flex max-h-[60vh] flex-col overflow-y-auto px-4 py-3">

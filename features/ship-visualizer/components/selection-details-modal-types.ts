@@ -10,6 +10,8 @@ export type ConnectedComponent = {
 };
 
 export type ObjectDetails = {
+  title?: string;
+  tags?: string[];
   description: string;
   parameters: ObjectDetailParameter[];
   connectedComponents: ConnectedComponent[];
