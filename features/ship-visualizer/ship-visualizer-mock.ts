@@ -1,5 +1,5 @@
 import type { ShipTreeNode } from "./ship-visualizer-types";
-import { SHIP_MODEL_V4, SHIP_MODEL_V4_SOLAR } from "./ship-visualizer-config";
+import { SHIP_MODEL_JOINED, SHIP_MODEL_V4, SHIP_MODEL_V4_SOLAR } from "./ship-visualizer-config";
 
 export const MOCK_SHIP_TREE: ShipTreeNode[] = [
   {
@@ -8,6 +8,8 @@ export const MOCK_SHIP_TREE: ShipTreeNode[] = [
     children: [
       { id: "model-v4", label: "TwinShip V4", modelPath: SHIP_MODEL_V4 },
       { id: "model-v4-solar", label: "TwinShip V4 Solar", modelPath: SHIP_MODEL_V4_SOLAR },
+      { id: "model-joined", label: "TwinShip V4 Joined", modelPath: SHIP_MODEL_JOINED },
+
     ],
   },
   {

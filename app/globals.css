@@ -16,6 +16,11 @@
   --color-text-quaternary: var(--text-quaternary);
   --color-text-tertiary: var(--text-tertiary);
   --color-chart-1: var(--chart-1);
+  --color-ontology-1: var(--ontology-1);
+  --color-ontology-2: var(--ontology-2);
+  --color-ontology-3: var(--ontology-3);
+  --color-ontology-4: var(--ontology-4);
+  --color-ontology-5: var(--ontology-5);
   --font-display: var(--font-display);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -48,6 +53,11 @@
   --text-quaternary: #717680;
   --black: #000000;
   --chart-1: #0086c9;
+  --ontology-1: #0086c9;
+  --ontology-2: #ea580c;
+  --ontology-3: #ca8a04;
+  --ontology-4: #16a34a;
+  --ontology-5: #7f56d9;
   --sidebar: hsl(0 0% 98%);
   --sidebar-foreground: hsl(240 5.3% 26.1%);
   --sidebar-primary: hsl(240 5.9% 10%);
@@ -71,6 +81,11 @@
   --text-quaternary: #717680;
   --black: #000000;
   --chart-1: #0086c9;
+  --ontology-1: #0086c9;
+  --ontology-2: #ea580c;
+  --ontology-3: #ca8a04;
+  --ontology-4: #16a34a;
+  --ontology-5: #7f56d9;
   --sidebar: hsl(240 5.9% 10%);
   --sidebar-foreground: hsl(240 4.8% 95.9%);
   --sidebar-primary: hsl(224.3 76.3% 48%);
