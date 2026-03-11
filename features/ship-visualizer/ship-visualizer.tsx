@@ -11,6 +11,7 @@ import {
 } from "./ship-visualizer-config";
 import type { ShipTreeNode } from "./ship-visualizer-types";
 import { OntologyExplorer } from "../ontology-explorrer/ontology-explorer";
+import { SelectionDetailsModal } from "./components/selection-details-modal";
 
 const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
 
@@ -76,7 +77,7 @@ export function ShipVisualizer() {
           selectedNodeId={selectedStructureNode?.id ?? null}
         />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         <SceneErrorFallback
           fallback={
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg bg-gray-900 text-gray-400">
@@ -100,6 +101,10 @@ export function ShipVisualizer() {
             />
           </Scene>
         </SceneErrorFallback>
+        <SelectionDetailsModal
+          selectedNode={selectedStructureNode}
+          onClose={() => setSelectedStructureNode(null)}
+        />
       </div>
     </div>
   );

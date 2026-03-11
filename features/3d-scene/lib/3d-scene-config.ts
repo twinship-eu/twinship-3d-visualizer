@@ -35,6 +35,9 @@ export const SKY_UNIFORMS = {
   cloudElevation: 0.5,
 } as const;
 
+/** Cloud animation speed multiplier (1 = real-time; lower = slower). */
+export const CLOUD_ANIMATION_SPEED = 0.00002;
+
 /** Water plane size (XZ); match three.js ocean example scale. */
 export const WATER_PLANE_SIZE = 10_000;
 /** Water options from three.js ocean example. */

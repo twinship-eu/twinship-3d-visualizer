@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Sky as ThreeSky } from "three/examples/jsm/objects/Sky.js";
 import {
+  CLOUD_ANIMATION_SPEED,
   getSunDirection,
   SKY_SCALE,
   SKY_UNIFORMS,
@@ -42,7 +43,8 @@ export function SceneSky() {
   useFrame((_, delta) => {
     const s = skyRef.current ?? sky;
     const mat = s?.material as unknown as { uniforms: SkyUniforms } | undefined;
-    if (mat?.uniforms?.time) mat.uniforms.time.value += delta;
+    if (mat?.uniforms?.time)
+      mat.uniforms.time.value += delta * CLOUD_ANIMATION_SPEED;
   });
 
   return <primitive ref={skyRef} object={sky} />;
