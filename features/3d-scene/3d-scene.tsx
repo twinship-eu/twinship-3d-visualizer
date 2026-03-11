@@ -19,7 +19,11 @@ import { SceneWater } from "./components/scene-water";
 import {  useState } from "react";
 import { SceneInteractionProvider } from "./components/scene-interaction-context";
 import { StageControlHints } from "./components/stage-control-hints";
-import ZoomControlsOverlay from "./components/zoom-controls-overlay";
+import {
+  ZoomControlsBridge,
+  ZoomControlsOverlay,
+  ZoomControlsProvider,
+} from "./components/zoom-controls-overlay";
 
 
 /** Tone mapping exposure; higher for midday (0.1 = dusk, ~0.3 = noon). */
@@ -54,41 +58,44 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
 
   return (
     <SceneInteractionProvider value={{ isOrbitControlsActive }}>
-      <Canvas
-        shadows
-        onCreated={({ gl }) => {
-          gl.shadowMap.type = PCFShadowMap;
-        }}
-        camera={{
-          position: new Vector3(...DEFAULT_CAMERA_POSITION),
-          fov: 45,
-        }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          powerPreference: "high-performance",
-          failIfMajorPerformanceCaveat: false,
-          toneMapping: ACESFilmicToneMapping,
-          toneMappingExposure: TONE_MAPPING_EXPOSURE,
-          outputBufferType: HalfFloatType,
-        }}
-      >
-        <SceneSky />
-        <SceneWater />
-        <SceneLights />
-        {children}
-        <OrbitControls
-          makeDefault
-          enableDamping
-          dampingFactor={0.05}
-          minDistance={5}
-          maxDistance={400}
-          maxPolarAngle={Math.PI / 2}
-          onStart={() => setIsOrbitControlsActive(true)}
-          onEnd={() => setIsOrbitControlsActive(false)}
-        />
+      <ZoomControlsProvider>
+        <Canvas
+          shadows
+          onCreated={({ gl }) => {
+            gl.shadowMap.type = PCFShadowMap;
+          }}
+          camera={{
+            position: new Vector3(...DEFAULT_CAMERA_POSITION),
+            fov: 45,
+          }}
+          gl={{
+            antialias: true,
+            alpha: true,
+            powerPreference: "high-performance",
+            failIfMajorPerformanceCaveat: false,
+            toneMapping: ACESFilmicToneMapping,
+            toneMappingExposure: TONE_MAPPING_EXPOSURE,
+            outputBufferType: HalfFloatType,
+          }}
+        >
+          <SceneSky />
+          <SceneWater />
+          <SceneLights />
+          {children}
+          <OrbitControls
+            makeDefault
+            enableDamping
+            dampingFactor={0.05}
+            minDistance={5}
+            maxDistance={400}
+            maxPolarAngle={Math.PI / 2}
+            onStart={() => setIsOrbitControlsActive(true)}
+            onEnd={() => setIsOrbitControlsActive(false)}
+          />
+          <ZoomControlsBridge />
+        </Canvas>
         <ZoomControlsOverlay />
-      </Canvas>
+      </ZoomControlsProvider>
     </SceneInteractionProvider>
   );
 }

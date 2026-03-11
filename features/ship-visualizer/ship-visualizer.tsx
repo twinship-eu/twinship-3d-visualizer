@@ -29,6 +29,16 @@ export function ShipVisualizer() {
     setModelTree(null);
   }, [selectedModelPath]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedStructureNode !== null) {
+        setSelectedStructureNode(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedStructureNode]);
+
   const handleModelTreeLoaded = useCallback((tree: ShipTreeNode[]) => {
     setModelTree([SHIP_MODEL_SECTION, ...tree]);
     setSelectedStructureNode(null);
