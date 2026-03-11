@@ -116,7 +116,6 @@ export default function Ship({
       if (!tree?.length || !onSelectByClick || e.intersections.length === 0)
         return;
       const hit = e.intersections[0].object;
-      console.log(hit)
       const node = findNodeByHitObject(tree, hit);
       if (node) onSelectByClick(node);
     },

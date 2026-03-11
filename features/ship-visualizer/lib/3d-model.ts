@@ -199,7 +199,8 @@ export function applySelectionOpacity(
   root: Group,
   selectedNode: ShipTreeNode | null,
   hoveredNode: ShipTreeNode | null,
-  unselectedOpacity: number
+  unselectedOpacity: number,
+  hoveredWhenOtherSelectedOpacity: number
 ) {
   if (selectedNode === null && hoveredNode === null) {
     root.traverse((child) => {
@@ -234,11 +235,13 @@ export function applySelectionOpacity(
       const isHovered = hoveredUuids.has(meshId);
 
       const opacity: number =
-        isSelected && isHovered
-          ? unselectedOpacity
-          : isSelected || isHovered
-            ? 1
-            : unselectedOpacity;
+        isSelected
+          ? 1
+          : isHovered && hasSelection
+            ? hoveredWhenOtherSelectedOpacity
+            : isHovered
+              ? 1
+              : unselectedOpacity;
 
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       materials.forEach((m: Material) => {

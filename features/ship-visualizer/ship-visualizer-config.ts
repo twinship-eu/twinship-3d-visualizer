@@ -31,6 +31,9 @@ export const SHIP_MODEL_SCALE = 0.005;
 /** Opacity of ship parts when another part is selected (0 = invisible, 1 = opaque). */
 export const UNSELECTED_PART_OPACITY = 0.35;
 
+/** Opacity of a hovered part when a different part is selected (0 = invisible, 1 = opaque). */
+export const HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED = 0.85;
+
 /** Default camera position when viewing the full ship. */
 export const DEFAULT_CAMERA_POSITION: [number, number, number] = [70, 50, 70];
 

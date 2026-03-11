@@ -8,7 +8,11 @@ import {
   setMaterialsDoubleSide,
 } from "../lib/3d-model";
 import { Group } from "three";
-import { SHIP_MODEL_SCALE, UNSELECTED_PART_OPACITY } from "../ship-visualizer-config";
+import {
+  HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED,
+  SHIP_MODEL_SCALE,
+  UNSELECTED_PART_OPACITY,
+} from "../ship-visualizer-config";
 import CameraFitToSelection from "./camera-fit-to-section";
 
 export default function FbxShipModel({
@@ -42,7 +46,8 @@ export default function FbxShipModel({
       cloned,
       selectedStructureNode,
       hoveredStructureNode,
-      UNSELECTED_PART_OPACITY
+      UNSELECTED_PART_OPACITY,
+      HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED
     );
   }, [cloned, selectedStructureNode, hoveredStructureNode]);
 

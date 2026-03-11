@@ -2,7 +2,11 @@ import { useGLTF } from "@react-three/drei";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { useEffect, useMemo } from "react";
 import { Group } from "three";
-import { SHIP_MODEL_SCALE, UNSELECTED_PART_OPACITY } from "../ship-visualizer-config";
+import {
+  HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED,
+  SHIP_MODEL_SCALE,
+  UNSELECTED_PART_OPACITY,
+} from "../ship-visualizer-config";
 import {
   applySelectionOpacity,
   buildTreeFromModel,
@@ -43,7 +47,8 @@ export default function GltfShipModel({
       cloned,
       selectedStructureNode,
       hoveredStructureNode,
-      UNSELECTED_PART_OPACITY
+      UNSELECTED_PART_OPACITY,
+      HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED
     );
   }, [cloned, selectedStructureNode, hoveredStructureNode]);
 
