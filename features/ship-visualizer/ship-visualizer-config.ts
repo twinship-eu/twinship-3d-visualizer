@@ -36,7 +36,7 @@ export const UNSELECTED_PART_OPACITY = 0.35;
 export const HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED = 0.85;
 
 /** Default camera position when viewing the full ship. */
-export const DEFAULT_CAMERA_POSITION: [number, number, number] = [70, 50, 70];
+export const DEFAULT_CAMERA_POSITION: [number, number, number] = [60, 30, 60];
 
 /** Default camera target (look-at point) when viewing the full ship. */
 export const DEFAULT_CAMERA_TARGET: [number, number, number] = [0, 0, 0];

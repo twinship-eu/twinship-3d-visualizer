@@ -59,8 +59,7 @@ export function OntologyExplorer({
 
   return (
     <div
-      className="flex h-full min-h-0 w-full max-w-full flex-col border-r border-border bg-white dark:bg-sidebar"
-      style={{ maxWidth: MAX_WIDTH }}
+      className={`flex h-full min-h-0 w-full max-w-full flex-col border-r border-border bg-white dark:bg-sidebar max-w-[${MAX_WIDTH}px]`}
     >
       <div className="shrink-0 border-b border-border px-3 py-3">
         <div className="mb-3 flex items-center justify-center gap-2">
