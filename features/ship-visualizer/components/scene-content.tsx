@@ -58,7 +58,9 @@ export default function Ship({
 
   const DRAG_THRESHOLD_PX = 4;
   const hasInteraction =
-    selectedStructureNode !== null || hoveredStructureNode !== null;
+    selectedStructureNode !== null ||
+    hoveredStructureNode !== null ||
+    (hiddenNodeIds !== undefined && hiddenNodeIds.size > 0);
 
   useEffect(() => {
     if (hasInteraction && displayMode === "animated") {
