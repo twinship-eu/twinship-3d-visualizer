@@ -195,6 +195,21 @@ export function buildTreeFromModel(root: Group): ShipTreeNode[] {
   return root.children.map((child) => buildNode(child));
 }
 
+
+const ALWAYS_HIDDEN_OBJECT_NAME = "Engine";
+
+
+export function applyVisibility(
+  root: Group,
+  hiddenNodeIds: Set<string>
+): void {
+  root.traverse((obj) => {
+    const isAlwaysHidden = obj.name === ALWAYS_HIDDEN_OBJECT_NAME;
+    const isHiddenByToggle = hiddenNodeIds.has(String(obj.uuid));
+    obj.visible = !isAlwaysHidden && !isHiddenByToggle;
+  });
+}
+
 export function applySelectionOpacity(
   root: Group,
   selectedNode: ShipTreeNode | null,

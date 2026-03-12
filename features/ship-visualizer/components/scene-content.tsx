@@ -28,6 +28,7 @@ export default function Ship({
   modelPath,
   selectedStructureNode,
   hoveredStructureNode,
+  hiddenNodeIds,
   onModelTreeLoaded,
   tree,
   onHover,
@@ -36,6 +37,7 @@ export default function Ship({
   modelPath: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
+  hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
   tree?: ShipTreeNode[] | null;
   onHover?: (node: ShipTreeNode | null) => void;
@@ -183,11 +185,19 @@ export default function Ship({
         onHover(null);
         return;
       }
-      const hit = e.intersections[0].object;
-      const node = findNodeByHitObject(tree, hit);
-      onHover(node ?? null);
+
+      let hoveredNode: ShipTreeNode | null = null;
+      for (const { object } of e.intersections) {
+        const node = findNodeByHitObject(tree, object);
+        if (!node) continue;
+        if (hiddenNodeIds?.has(node.id)) continue;
+        hoveredNode = node;
+        break;
+      }
+
+      onHover(hoveredNode);
     },
-    [tree, onHover, isOrbitControlsActive]
+    [tree, onHover, isOrbitControlsActive, hiddenNodeIds]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -206,11 +216,19 @@ export default function Ship({
       if (isDragging.current) return;
       if (!tree?.length || !onSelectByClick || e.intersections.length === 0)
         return;
-      const hit = e.intersections[0].object;
-      const node = findNodeByHitObject(tree, hit);
-      if (node) onSelectByClick(node);
+
+      let clickedNode: ShipTreeNode | null = null;
+      for (const { object } of e.intersections) {
+        const node = findNodeByHitObject(tree, object);
+        if (!node) continue;
+        if (hiddenNodeIds?.has(node.id)) continue;
+        clickedNode = node;
+        break;
+      }
+
+      if (clickedNode) onSelectByClick(clickedNode);
     },
-    [tree, onSelectByClick]
+    [tree, onSelectByClick, hiddenNodeIds]
   );
 
   return (
@@ -240,6 +258,7 @@ export default function Ship({
             hoveredStructureNode={
               displayMode === "interaction" ? (hoveredStructureNode ?? null) : null
             }
+            hiddenNodeIds={hiddenNodeIds}
             onModelTreeLoaded={onModelTreeLoaded}
           />
         </Suspense>

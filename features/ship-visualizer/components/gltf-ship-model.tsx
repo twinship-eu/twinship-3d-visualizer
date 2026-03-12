@@ -9,6 +9,7 @@ import {
 } from "../ship-visualizer-config";
 import {
   applySelectionOpacity,
+  applyVisibility,
   buildTreeFromModel,
   ensureUniqueMaterialsPerMesh,
   setMaterialsDoubleSide,
@@ -19,11 +20,13 @@ export default function GltfShipModel({
   path,
   selectedStructureNode,
   hoveredStructureNode,
+  hiddenNodeIds,
   onModelTreeLoaded,
 }: {
   path: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
+  hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
 }) {
   const gltf = useGLTF(path);
@@ -51,6 +54,11 @@ export default function GltfShipModel({
       HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED
     );
   }, [cloned, selectedStructureNode, hoveredStructureNode]);
+
+  useEffect(() => {
+    if (!cloned) return;
+    applyVisibility(cloned, hiddenNodeIds ?? new Set());
+  }, [cloned, hiddenNodeIds]);
 
   return (
     <>

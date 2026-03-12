@@ -3,6 +3,7 @@ import { ShipTreeNode } from "../ship-visualizer-types";
 import { useEffect, useMemo } from "react";
 import {
   applySelectionOpacity,
+  applyVisibility,
   buildTreeFromModel,
   ensureUniqueMaterialsPerMesh,
   setMaterialsDoubleSide,
@@ -19,11 +20,13 @@ export default function FbxShipModel({
   path,
   selectedStructureNode,
   hoveredStructureNode,
+  hiddenNodeIds,
   onModelTreeLoaded,
 }: {
   path: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
+  hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
 }) {
   const fbx = useFBX(path);
@@ -50,6 +53,11 @@ export default function FbxShipModel({
       HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED
     );
   }, [cloned, selectedStructureNode, hoveredStructureNode]);
+
+  useEffect(() => {
+    if (!cloned) return;
+    applyVisibility(cloned, hiddenNodeIds ?? new Set());
+  }, [cloned, hiddenNodeIds]);
 
   return (
     <>

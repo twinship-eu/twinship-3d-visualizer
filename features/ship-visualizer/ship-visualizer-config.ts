@@ -66,3 +66,14 @@ export const SHIP_TRANSITION_DURATION_MS = 400;
 
 /** Idle time in ms before translating back to animated state (no hover, no selection). */
 export const SHIP_IDLE_RESET_MS = 2000;
+
+/** Side nav: max height per section before showing scroll. */
+export const SHIP_TREE_SECTION_MAX_HEIGHT_PX = 300;
+
+/** Section definitions for mapping flat model tree into Hull / Superstructure / Deck / Propulsion. */
+export const SHIP_TREE_SECTIONS = [
+  { id: "hull", label: "Hull" },
+  { id: "superstructure", label: "Superstructure" },
+  { id: "deck", label: "Deck equipment" },
+  { id: "propulsion", label: "Propulsion" },
+] as const;

@@ -32,7 +32,7 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
 
   return (
     <div
-      className="absolute bottom-4 right-4 z-20 flex flex-col rounded-lg bg-white shadow-lg"
+      className="absolute bottom-16 right-4 z-20 flex flex-col rounded-lg bg-white shadow-lg max-h-[60vh]"
       style={{ width: MODAL_WIDTH_PX, maxWidth: "calc(100vw - 2rem)" }}
       role="dialog"
       aria-labelledby="selection-details-title"

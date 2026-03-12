@@ -1,6 +1,7 @@
 "use client";
 
 import { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
+import { SHIP_TREE_SECTION_MAX_HEIGHT_PX } from "@/features/ship-visualizer/ship-visualizer-config";
 import { cn } from "@/lib/utils";
 import {
   ChevronDownIcon,
@@ -28,9 +29,9 @@ type Props = {
   node: ShipTreeNode;
   depth: number;
   categoryIndex: number;
-  isSectionVisible: boolean;
+  getIsVisible: (nodeId: string) => boolean;
   opacity: number;
-  onToggleVisible: (nodeId: string, visible: boolean) => void;
+  onToggleSectionVisible: (node: ShipTreeNode, visible: boolean) => void;
   onOpacityChange: (nodeId: string, value: number) => void;
   onSelect?: (node: ShipTreeNode) => void;
   selectedNodeId?: string | null;
@@ -40,9 +41,9 @@ export default function TreeNode({
   node,
   depth,
   categoryIndex,
-  isSectionVisible,
+  getIsVisible,
   opacity,
-  onToggleVisible,
+  onToggleSectionVisible,
   onOpacityChange,
   onSelect,
   selectedNodeId,
@@ -50,6 +51,7 @@ export default function TreeNode({
   const [isExpandedInternal, setIsExpandedInternal] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedNodeId === node.id;
+  const isVisible = getIsVisible(node.id);
   const colorClass = getCategoryColorClass(categoryIndex);
   const isShipModelSection = node.id === SHIP_MODEL_SECTION_ID;
   const isExpanded = isShipModelSection ? true : isExpandedInternal;
@@ -62,16 +64,18 @@ export default function TreeNode({
       )}
     >
       <div
+        data-node-id={node.id}
         className={cn(
-          "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-sidebar-accent",
-          "text-sm text-text-primary",
-          !isSectionVisible && "opacity-50 text-text-tertiary"
+          "flex items-center gap-2 rounded px-2 py-1.5 text-sm text-text-primary",
+          isVisible
+            ? "cursor-pointer hover:bg-sidebar-accent"
+            : "cursor-not-allowed opacity-50 text-text-tertiary"
         )}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={() => {
           if (hasChildren && !isShipModelSection)
             setIsExpandedInternal((e) => !e);
-          onSelect?.(node);
+          if (isVisible) onSelect?.(node);
         }}
       >
         {hasChildren ? (
@@ -110,13 +114,13 @@ export default function TreeNode({
           <button
             type="button"
             className="shrink-0 rounded p-0.5 text-primary hover:bg-primary/10"
-            aria-label={isSectionVisible ? "Hide section" : "Show section"}
+            aria-label={isVisible ? "Hide section" : "Show section"}
             onClick={(e) => {
               e.stopPropagation();
-              onToggleVisible(node.id, !isSectionVisible);
+              onToggleSectionVisible(node, !isVisible);
             }}
           >
-            {isSectionVisible ? (
+            {isVisible ? (
               <EyeIcon className="size-4" />
             ) : (
               <EyeOffIcon className="size-4 text-text-tertiary" />
@@ -126,50 +130,29 @@ export default function TreeNode({
       </div>
       {hasChildren && isExpanded && (
         <>
-          {depth === 0 && !isShipModelSection && (
-            <div
-              className="mb-1 mt-0.5 px-2 py-1"
-              style={{ paddingLeft: `${14 + 8}px` }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-primary">
-                Opacity
-              </p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={opacity}
-                  onChange={(e) =>
-                    onOpacityChange(node.id, Number(e.target.value))
-                  }
-                  className="h-1.5 flex-1 appearance-none rounded-full bg-border [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:bg-primary"
-                  style={{
-                    background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${opacity}%, var(--border) ${opacity}%, var(--border) 100%)`,
-                  }}
-                  aria-label="Opacity"
-                />
-                <span className="w-8 shrink-0 text-right text-sm font-medium text-text-primary">
-                  {opacity}%
-                </span>
-              </div>
-            </div>
-          )}
-          {node.children!.map((child) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              categoryIndex={categoryIndex}
-              isSectionVisible={isSectionVisible}
-              opacity={opacity}
-              onToggleVisible={onToggleVisible}
-              onOpacityChange={onOpacityChange}
-              onSelect={onSelect}
-              selectedNodeId={selectedNodeId}
-            />
-          ))}
+          <div
+            className={cn(depth === 0 && "min-h-0 overflow-y-auto")}
+            style={
+              depth === 0
+                ? { maxHeight: SHIP_TREE_SECTION_MAX_HEIGHT_PX }
+                : undefined
+            }
+          >
+            {node.children!.map((child) => (
+              <TreeNode
+                key={child.id}
+                node={child}
+                depth={depth + 1}
+                categoryIndex={categoryIndex}
+                getIsVisible={getIsVisible}
+                opacity={opacity}
+                onToggleSectionVisible={onToggleSectionVisible}
+                onOpacityChange={onOpacityChange}
+                onSelect={onSelect}
+                selectedNodeId={selectedNodeId}
+              />
+            ))}
+          </div>
         </>
       )}
     </div>
