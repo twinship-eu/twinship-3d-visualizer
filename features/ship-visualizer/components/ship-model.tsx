@@ -7,11 +7,13 @@ export default function ShipModel({
   path,
   selectedStructureNode,
   hoveredStructureNode,
+  hiddenNodeIds,
   onModelTreeLoaded,
 }: {
   path: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
+  hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
 }) {
   const isFbx = path.toLowerCase().endsWith(FBX_EXT);
@@ -20,6 +22,7 @@ export default function ShipModel({
       path={path}
       selectedStructureNode={selectedStructureNode}
       hoveredStructureNode={hoveredStructureNode}
+      hiddenNodeIds={hiddenNodeIds}
       onModelTreeLoaded={onModelTreeLoaded}
     />
   ) : (
@@ -27,6 +30,7 @@ export default function ShipModel({
       path={path}
       selectedStructureNode={selectedStructureNode}
       hoveredStructureNode={hoveredStructureNode}
+      hiddenNodeIds={hiddenNodeIds}
       onModelTreeLoaded={onModelTreeLoaded}
     />
   );

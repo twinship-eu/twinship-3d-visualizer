@@ -9,9 +9,9 @@ import {
 } from "../ship-visualizer-config";
 import {
   applySelectionOpacity,
+  applyVisibility,
   buildTreeFromModel,
   ensureUniqueMaterialsPerMesh,
-  setMaterialsDoubleSide,
 } from "../lib/3d-model";
 import CameraFitToSelection from "./camera-fit-to-section";
 
@@ -19,18 +19,19 @@ export default function GltfShipModel({
   path,
   selectedStructureNode,
   hoveredStructureNode,
+  hiddenNodeIds,
   onModelTreeLoaded,
 }: {
   path: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
+  hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
 }) {
   const gltf = useGLTF(path);
 
   const cloned = useMemo(() => {
     const clone = gltf.scene.clone();
-    setMaterialsDoubleSide(clone);
     ensureUniqueMaterialsPerMesh(clone);
     return clone;
   }, [gltf.scene]);
@@ -51,6 +52,11 @@ export default function GltfShipModel({
       HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED
     );
   }, [cloned, selectedStructureNode, hoveredStructureNode]);
+
+  useEffect(() => {
+    if (!cloned) return;
+    applyVisibility(cloned, hiddenNodeIds ?? new Set());
+  }, [cloned, hiddenNodeIds]);
 
   return (
     <>

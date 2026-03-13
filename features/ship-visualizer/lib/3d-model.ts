@@ -1,21 +1,49 @@
-import {
-  Color,
-  DoubleSide,
-  Group,
-  Material,
-  Mesh,
-  Object3D,
-  SRGBColorSpace,
-  Texture,
-} from "three";
+import { Color, DoubleSide, Group, Material, Mesh, Object3D, SRGBColorSpace, Texture } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 
-/**
- * Traverses the scene and sets material.side = DoubleSide on every mesh.
- * Does not set transparent: true — that causes depth-sorting artifacts (hull
- * appearing see-through from some angles). Transparency is enabled only when
- * needed in applySelectionOpacity.
- */
+const FRIENDLY_LABELS: Record<string, string> = {
+  Base_LP: "Base Hull",
+  Base_Top_LP: "Hull top towers",
+  ControlRoom_LP: "Control room",
+  Radio_LP: "Radio",
+  Container_LP: "Container",
+  Crane_LP: "Crane",
+  Crane_lp: "Crane",
+  Propellers_LP: "Propellers",
+  Engine_LP: "Engine",
+  WindTurbines_LP: "Wind Towers",
+};
+export function applyObjectColorOverrides(
+  root: Object3D,
+  overrides: Record<string, string>
+): void {
+  if (Object.keys(overrides).length === 0) return;
+  const colorCache = new Map<string, Color>();
+  function getColor(hex: string): Color {
+    let c = colorCache.get(hex);
+    if (!c) {
+      c = new Color(hex);
+      colorCache.set(hex, c);
+    }
+    return c;
+  }
+  root.traverse((obj) => {
+    const hex = overrides[obj.name];
+    if (!hex) return;
+    const color = getColor(hex);
+    obj.traverse((descendant) => {
+      if (!("material" in descendant) || !(descendant as Mesh).material) return;
+      const mesh = descendant as Mesh;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((m: Material) => {
+        if ("color" in m && (m as Material & { color: Color }).color instanceof Color) {
+          (m as Material & { color: Color }).color.copy(color);
+        }
+      });
+    });
+  });
+}
+
 export function setMaterialsDoubleSide(root: Object3D): void {
   root.traverse((child) => {
     if ("material" in child && (child as Mesh).material) {
@@ -185,7 +213,7 @@ export function buildNode(obj: Object3D): ShipTreeNode {
   const uuid = String(obj.uuid);
   return {
     id: uuid,
-    label: (obj.name && obj.name.trim()) || "Unnamed",
+    label: FRIENDLY_LABELS[(obj.name && obj.name.trim()) || ""] ?? (obj.name && obj.name.trim()) ?? "Unnamed",
     objectUuid: uuid,
     children,
   };
@@ -193,6 +221,23 @@ export function buildNode(obj: Object3D): ShipTreeNode {
 
 export function buildTreeFromModel(root: Group): ShipTreeNode[] {
   return root.children.map((child) => buildNode(child));
+}
+
+
+const ALWAYS_HIDDEN_OBJECT_NAME = "Engine";
+
+
+export function applyVisibility(
+  root: Group,
+  hiddenNodeIds: Set<string>
+): void {
+  root.traverse((obj) => {
+    const isHiddenByToggle = hiddenNodeIds.has(String(obj.uuid));
+    const nameLower = obj.name?.toLowerCase() ?? "";
+    const isSuperstructure =
+      nameLower === "superstructure" || nameLower.includes("superstructure");
+    obj.visible = !isHiddenByToggle && !isSuperstructure;
+  });
 }
 
 export function applySelectionOpacity(

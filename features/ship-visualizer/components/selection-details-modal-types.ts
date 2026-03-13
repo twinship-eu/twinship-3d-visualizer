@@ -1,6 +1,7 @@
 export type ObjectDetailParameter = {
   name: string;
   value: string;
+  href?: string;
 };
 
 export type ConnectedComponent = {
@@ -11,6 +12,7 @@ export type ConnectedComponent = {
 
 export type ObjectDetails = {
   title?: string;
+  titleHref?: string;
   tags?: string[];
   description: string;
   parameters: ObjectDetailParameter[];

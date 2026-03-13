@@ -19,7 +19,7 @@ export function StageControlHints() {
   return (
     <div
       className={cn(
-        "absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md bg-white px-4 py-2 shadow-md",
+        "absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md bg-white px-4 py-2 shadow-md w-[630px]",
         "pointer-events-none"
       )}
       aria-label="Stage interaction controls"

@@ -23,3 +23,12 @@ export function filterShipTree(nodes: ShipTreeNode[], query: string): ShipTreeNo
 
   return nodes.map(filterNode).filter((n): n is ShipTreeNode => n !== null);
 }
+
+
+export function collectNodeIds(node: ShipTreeNode): string[] {
+  const ids = [node.id];
+  for (const child of node.children ?? []) {
+    ids.push(...collectNodeIds(child));
+  }
+  return ids;
+}

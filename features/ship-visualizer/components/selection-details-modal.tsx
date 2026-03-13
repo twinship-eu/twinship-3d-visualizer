@@ -1,9 +1,9 @@
 "use client";
 
-import { Info, Link2, Maximize2, Settings, X } from "lucide-react";
+import { ExternalLink, Info, Link2, Maximize2, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ShipTreeNode } from "../ship-visualizer-types";
-import { getObjectDetails } from "../selection-details-mock";
+import { getObjectDetailsForNode } from "../selection-details";
 import type { ConnectedComponent } from "./selection-details-modal-types";
 
 const MODAL_WIDTH_PX = 380;
@@ -15,14 +15,20 @@ const CONNECTED_HEADER_CLASS =
 type Props = {
   selectedNode: ShipTreeNode | null;
   onClose: () => void;
+  onSelectConnectedComponent?: (targetLabel: string) => void;
 };
 
-export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
+export function SelectionDetailsModal({
+  selectedNode,
+  onClose,
+  onSelectConnectedComponent,
+}: Props) {
   if (selectedNode === null) return null;
 
-  const details = getObjectDetails(selectedNode.id);
+  const details = getObjectDetailsForNode(selectedNode);
   const {
     title,
+    titleHref,
     tags,
     description,
     parameters,
@@ -32,7 +38,7 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
 
   return (
     <div
-      className="absolute bottom-4 right-4 z-20 flex flex-col rounded-lg bg-white shadow-lg"
+      className="absolute bottom-16 right-4 z-20 flex flex-col rounded-lg bg-white shadow-lg max-h-[60vh]"
       style={{ width: MODAL_WIDTH_PX, maxWidth: "calc(100vw - 2rem)" }}
       role="dialog"
       aria-labelledby="selection-details-title"
@@ -46,9 +52,25 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
             />
             <h2
               id="selection-details-title"
-              className="truncate text-lg font-semibold text-gray-900"
+              className={cn(
+                "min-w-0 text-lg font-semibold text-gray-900",
+                titleHref ? "truncate" : ""
+              )}
             >
-              {displayTitle}
+              {titleHref ? (
+                <a
+                  href={titleHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-w-0 items-center gap-1 truncate text-primary underline decoration-primary/50 underline-offset-2 hover:decoration-primary"
+                  aria-label={`${displayTitle} (opens in new tab)`}
+                >
+                  <span className="min-w-0 truncate">{displayTitle}</span>
+                  <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+                </a>
+              ) : (
+                displayTitle
+              )}
             </h2>
           </div>
           {tags && tags.length > 0 && (
@@ -101,11 +123,28 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
             <dl className="space-y-1.5 text-sm">
               {parameters.map((p) => (
                 <div
-                  key={p.name}
-                  className="flex justify-between gap-4 border-b border-gray-100 pb-1 last:border-0"
+                  key={p.name + (p.href ?? "")}
+                  className="flex items-baseline justify-between gap-4 border-b border-gray-100 pb-1.5 last:border-0"
                 >
-                  <dt className="text-gray-600">{p.name}</dt>
-                  <dd className="font-medium text-gray-900">{p.value}</dd>
+                  <dt className="min-w-0 shrink-0 text-gray-600">
+                    {p.href ? (
+                      <a
+                        href={p.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary underline decoration-primary/50 underline-offset-2 hover:decoration-primary"
+                        aria-label={`${p.name} (opens in new tab)`}
+                      >
+                        {p.name}
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      </a>
+                    ) : (
+                      p.name
+                    )}
+                  </dt>
+                  <dd className="min-w-0 shrink text-right font-medium text-gray-900">
+                    {p.value || "—"}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -119,7 +158,11 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
           </h3>
           <ul className="space-y-2">
             {connectedComponents.map((comp) => (
-              <ConnectedComponentRow key={comp.id} component={comp} />
+              <ConnectedComponentRow
+                key={comp.id}
+                component={comp}
+                onSelect={onSelectConnectedComponent}
+              />
             ))}
           </ul>
         </section>
@@ -128,12 +171,18 @@ export function SelectionDetailsModal({ selectedNode, onClose }: Props) {
   );
 }
 
-function ConnectedComponentRow({ component }: { component: ConnectedComponent }) {
+type ConnectedComponentRowProps = {
+  component: ConnectedComponent;
+  onSelect?: (targetLabel: string) => void;
+};
+
+function ConnectedComponentRow({ component, onSelect }: ConnectedComponentRowProps) {
   return (
     <li>
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        onClick={() => onSelect?.(component.id)}
+        className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         <span
           className="h-2 w-2 shrink-0 rounded-full bg-red-500"

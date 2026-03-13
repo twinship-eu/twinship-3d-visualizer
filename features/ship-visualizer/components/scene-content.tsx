@@ -4,6 +4,7 @@ import { Group } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { Object3D } from "three";
 import { easeOutCubic, findNodeByHitObject } from "../lib/3d-model";
+import { isNodeInNonSelectableSection } from "../lib/map-tree-to-sections";
 import {
   FLOATING_BOB_AMPLITUDE,
   FLOATING_BOB_SPEED,
@@ -28,6 +29,7 @@ export default function Ship({
   modelPath,
   selectedStructureNode,
   hoveredStructureNode,
+  hiddenNodeIds,
   onModelTreeLoaded,
   tree,
   onHover,
@@ -36,6 +38,7 @@ export default function Ship({
   modelPath: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
+  hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
   tree?: ShipTreeNode[] | null;
   onHover?: (node: ShipTreeNode | null) => void;
@@ -56,7 +59,9 @@ export default function Ship({
 
   const DRAG_THRESHOLD_PX = 4;
   const hasInteraction =
-    selectedStructureNode !== null || hoveredStructureNode !== null;
+    selectedStructureNode !== null ||
+    hoveredStructureNode !== null ||
+    (hiddenNodeIds !== undefined && hiddenNodeIds.size > 0);
 
   useEffect(() => {
     if (hasInteraction && displayMode === "animated") {
@@ -183,11 +188,20 @@ export default function Ship({
         onHover(null);
         return;
       }
-      const hit = e.intersections[0].object;
-      const node = findNodeByHitObject(tree, hit);
-      onHover(node ?? null);
+
+      let hoveredNode: ShipTreeNode | null = null;
+      for (const { object } of e.intersections) {
+        const node = findNodeByHitObject(tree, object);
+        if (!node) continue;
+        if (hiddenNodeIds?.has(node.id)) continue;
+        if (isNodeInNonSelectableSection(node)) continue;
+        hoveredNode = node;
+        break;
+      }
+
+      onHover(hoveredNode);
     },
-    [tree, onHover, isOrbitControlsActive]
+    [tree, onHover, isOrbitControlsActive, hiddenNodeIds]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -206,11 +220,20 @@ export default function Ship({
       if (isDragging.current) return;
       if (!tree?.length || !onSelectByClick || e.intersections.length === 0)
         return;
-      const hit = e.intersections[0].object;
-      const node = findNodeByHitObject(tree, hit);
-      if (node) onSelectByClick(node);
+
+      let clickedNode: ShipTreeNode | null = null;
+      for (const { object } of e.intersections) {
+        const node = findNodeByHitObject(tree, object);
+        if (!node) continue;
+        if (hiddenNodeIds?.has(node.id)) continue;
+        if (isNodeInNonSelectableSection(node)) continue;
+        clickedNode = node;
+        break;
+      }
+
+      if (clickedNode) onSelectByClick(clickedNode);
     },
-    [tree, onSelectByClick]
+    [tree, onSelectByClick, hiddenNodeIds]
   );
 
   return (
@@ -240,6 +263,7 @@ export default function Ship({
             hoveredStructureNode={
               displayMode === "interaction" ? (hoveredStructureNode ?? null) : null
             }
+            hiddenNodeIds={hiddenNodeIds}
             onModelTreeLoaded={onModelTreeLoaded}
           />
         </Suspense>

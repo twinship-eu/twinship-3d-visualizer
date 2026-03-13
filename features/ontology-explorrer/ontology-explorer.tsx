@@ -1,26 +1,35 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { SearchIcon, Ship } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ShipTreeNode } from "../ship-visualizer/ship-visualizer-types";
 import { filterShipTree } from "../ship-visualizer/lib/filter-tree";
 import { SHIP_VISUALIZER_LAYOUT } from "../ship-visualizer/ship-visualizer-config";
 import TreeNode from "./components/three-node";
+import { OntologyExplorerSkeleton } from "./components/ontology-explorer-skeleton";
 
 const MAX_WIDTH = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
 
 type Props = {
   tree: ShipTreeNode[];
+  visibleNodeIds: Record<string, boolean>;
+  onToggleSectionVisible: (node: ShipTreeNode, visible: boolean) => void;
   onSelect?: (node: ShipTreeNode) => void;
   selectedNodeId?: string | null;
+  /** When true, show skeleton instead of tree (e.g. while ship model is loading). */
+  isLoading?: boolean;
 };
 
-export function OntologyExplorer({ tree, onSelect, selectedNodeId }: Props) {
+export function OntologyExplorer({
+  tree,
+  visibleNodeIds,
+  onToggleSectionVisible,
+  onSelect,
+  selectedNodeId,
+  isLoading = false,
+}: Props) {
   const [search, setSearch] = useState("");
-  const [visibleNodeIds, setVisibleNodeIds] = useState<Record<string, boolean>>(
-    () => ({} as Record<string, boolean>)
-  );
   const [opacityByNodeId, setOpacityByNodeId] = useState<Record<string, number>>(
     () => ({} as Record<string, number>)
   );
@@ -38,17 +47,27 @@ export function OntologyExplorer({ tree, onSelect, selectedNodeId }: Props) {
     (nodeId: string) => opacityByNodeId[nodeId] ?? 100,
     [opacityByNodeId]
   );
-  const setVisible = useCallback((nodeId: string, visible: boolean) => {
-    setVisibleNodeIds((prev) => ({ ...prev, [nodeId]: visible }));
-  }, []);
   const setOpacity = useCallback((nodeId: string, value: number) => {
     setOpacityByNodeId((prev) => ({ ...prev, [nodeId]: value }));
   }, []);
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!selectedNodeId || !scrollContainerRef.current) return;
+    const el = scrollContainerRef.current.querySelector(
+      `[data-node-id="${selectedNodeId}"]`
+    );
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedNodeId]);
+
+  if (isLoading) {
+    return <OntologyExplorerSkeleton />;
+  }
+
   return (
     <div
-      className="flex h-full min-h-0 w-full max-w-full flex-col border-r border-border bg-white dark:bg-sidebar"
-      style={{ maxWidth: MAX_WIDTH }}
+      className={`flex h-full min-h-0 w-full max-w-full flex-col border-r border-border bg-white dark:bg-sidebar max-w-[${MAX_WIDTH}px]`}
     >
       <div className="shrink-0 border-b border-border px-3 py-3">
         <div className="mb-3 flex items-center justify-center gap-2">
@@ -68,7 +87,10 @@ export function OntologyExplorer({ tree, onSelect, selectedNodeId }: Props) {
           aria-label="Search ship components"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div
+        ref={scrollContainerRef}
+        className="min-h-0 flex-1 overflow-y-auto p-3"
+      >
         {filteredTree.length === 0 ? (
           <p className="text-sm text-text-tertiary">No matches</p>
         ) : (
@@ -78,9 +100,9 @@ export function OntologyExplorer({ tree, onSelect, selectedNodeId }: Props) {
               node={node}
               depth={0}
               categoryIndex={index}
-              isSectionVisible={isVisible(node.id)}
+              getIsVisible={isVisible}
               opacity={getOpacity(node.id)}
-              onToggleVisible={(id, visible) => setVisible(id, visible)}
+              onToggleSectionVisible={onToggleSectionVisible}
               onOpacityChange={setOpacity}
               onSelect={onSelect}
               selectedNodeId={selectedNodeId}
