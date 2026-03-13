@@ -4,6 +4,7 @@ import { Group } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { Object3D } from "three";
 import { easeOutCubic, findNodeByHitObject } from "../lib/3d-model";
+import { isNodeInNonSelectableSection } from "../lib/map-tree-to-sections";
 import {
   FLOATING_BOB_AMPLITUDE,
   FLOATING_BOB_SPEED,
@@ -193,6 +194,7 @@ export default function Ship({
         const node = findNodeByHitObject(tree, object);
         if (!node) continue;
         if (hiddenNodeIds?.has(node.id)) continue;
+        if (isNodeInNonSelectableSection(node)) continue;
         hoveredNode = node;
         break;
       }
@@ -224,6 +226,7 @@ export default function Ship({
         const node = findNodeByHitObject(tree, object);
         if (!node) continue;
         if (hiddenNodeIds?.has(node.id)) continue;
+        if (isNodeInNonSelectableSection(node)) continue;
         clickedNode = node;
         break;
       }

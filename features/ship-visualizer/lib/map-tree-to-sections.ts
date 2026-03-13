@@ -1,18 +1,37 @@
 import type { ShipTreeNode } from "../ship-visualizer-types";
-import { SHIP_TREE_SECTIONS } from "../ship-visualizer-config";
+import {
+  NON_SELECTABLE_SECTION_IDS,
+  SHIP_TREE_SECTIONS,
+} from "../ship-visualizer-config";
 
 type SectionId = (typeof SHIP_TREE_SECTIONS)[number]["id"];
 
-
 function getSectionIdForLabel(label: string): SectionId {
   const lower = label.toLowerCase();
-  if (lower === "engine" || lower.startsWith("engine")) return "propulsion";
+  if (lower.includes("propeller")) return "propeller";
+  if (lower === "engine" || lower.startsWith("engine")) return "energy";
+  if (
+    lower.includes("windturbine") ||
+    lower.includes("wind turbine") ||
+    lower.includes("wind tower")
+  ) {
+    return "windAssisted";
+  }
+  if (lower.includes("crane") || lower.includes("container")) return "deck";
   if (lower.includes("solar")) return "hull";
   if (lower.includes("decal")) return "hull";
   if (lower.startsWith("base")) return "hull";
   if (lower.includes("balcony")) return "superstructure";
-  if (lower.includes("container")) return "deck";
   return "hull";
+}
+
+export function getSectionIdForNode(node: ShipTreeNode): SectionId {
+  return getSectionIdForLabel(node.label);
+}
+
+export function isNodeInNonSelectableSection(node: ShipTreeNode): boolean {
+  const sectionId = getSectionIdForNode(node);
+  return NON_SELECTABLE_SECTION_IDS.includes(sectionId);
 }
 
 export function mapModelTreeToSections(flatNodes: ShipTreeNode[]): ShipTreeNode[] {
@@ -23,7 +42,6 @@ export function mapModelTreeToSections(flatNodes: ShipTreeNode[]): ShipTreeNode[
   }
 
   for (const node of flatNodes) {
-    if (node.label === "Engine") continue;
     const sectionId = getSectionIdForLabel(node.label);
     const list = bySection.get(sectionId);
     if (list) list.push(node);

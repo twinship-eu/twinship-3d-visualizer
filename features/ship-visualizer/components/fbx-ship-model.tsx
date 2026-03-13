@@ -6,7 +6,6 @@ import {
   applyVisibility,
   buildTreeFromModel,
   ensureUniqueMaterialsPerMesh,
-  setMaterialsDoubleSide,
 } from "../lib/3d-model";
 import { Group } from "three";
 import {
@@ -32,7 +31,6 @@ export default function FbxShipModel({
   const fbx = useFBX(path);
   const cloned = useMemo(() => {
     const clone = fbx.clone(true);
-    setMaterialsDoubleSide(clone);
     ensureUniqueMaterialsPerMesh(clone);
     return clone;
   }, [fbx]);

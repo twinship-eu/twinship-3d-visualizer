@@ -12,7 +12,6 @@ import {
   applyVisibility,
   buildTreeFromModel,
   ensureUniqueMaterialsPerMesh,
-  setMaterialsDoubleSide,
 } from "../lib/3d-model";
 import CameraFitToSelection from "./camera-fit-to-section";
 
@@ -33,7 +32,6 @@ export default function GltfShipModel({
 
   const cloned = useMemo(() => {
     const clone = gltf.scene.clone();
-    setMaterialsDoubleSide(clone);
     ensureUniqueMaterialsPerMesh(clone);
     return clone;
   }, [gltf.scene]);

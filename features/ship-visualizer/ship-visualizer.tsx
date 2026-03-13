@@ -5,7 +5,10 @@ import { Scene } from "@/features/3d-scene/3d-scene";
 import { SceneErrorFallback } from "./components/scene-error-fallback";
 import Ship from "./components/scene-content";
 import { MOCK_SHIP_TREE } from "./ship-visualizer-mock";
-import { mapModelTreeToSections } from "./lib/map-tree-to-sections";
+import {
+  isNodeInNonSelectableSection,
+  mapModelTreeToSections,
+} from "./lib/map-tree-to-sections";
 import { collectNodeIds } from "./lib/filter-tree";
 import {
   SHIP_VISUALIZER_LAYOUT,
@@ -46,7 +49,11 @@ export function ShipVisualizer() {
   }, [selectedStructureNode]);
 
   const handleModelTreeLoaded = useCallback((tree: ShipTreeNode[]) => {
-    const sectioned = mapModelTreeToSections(tree);
+    const topLevelOnly = tree.map((node) => ({
+      ...node,
+      children: undefined,
+    }));
+    const sectioned = mapModelTreeToSections(topLevelOnly);
     setModelTree([SHIP_MODEL_SECTION, ...sectioned]);
     setSelectedStructureNode(null);
   }, []);
@@ -56,6 +63,7 @@ export function ShipVisualizer() {
       setSelectedModelPath(node.modelPath);
       return;
     }
+    if (isNodeInNonSelectableSection(node)) return;
     setSelectedStructureNode((prev) =>
       prev?.id === node.id ? null : node
     );
@@ -92,6 +100,29 @@ export function ShipVisualizer() {
   );
 
   const tree = modelTree ?? MOCK_SHIP_TREE;
+
+  const handleSelectConnectedComponent = useCallback(
+    (targetLabel: string) => {
+      const searchTree = (nodes: ShipTreeNode[]): ShipTreeNode | null => {
+        for (const node of nodes) {
+          if (node.label === targetLabel) {
+            return node;
+          }
+          if (node.children) {
+            const found = searchTree(node.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const targetNode = searchTree(tree);
+      if (!targetNode) return;
+      if (isNodeInNonSelectableSection(targetNode)) return;
+      setSelectedStructureNode(targetNode);
+    },
+    [tree]
+  );
 
   return (
     <div className="flex h-full w-full min-h-0 gap-0">
@@ -135,6 +166,7 @@ export function ShipVisualizer() {
         <SelectionDetailsModal
           selectedNode={selectedStructureNode}
           onClose={() => setSelectedStructureNode(null)}
+          onSelectConnectedComponent={handleSelectConnectedComponent}
         />
       </div>
     </div>

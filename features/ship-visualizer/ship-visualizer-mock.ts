@@ -1,12 +1,12 @@
+import { DEFAULT_SHIP_MODEL_PATH } from "./ship-visualizer-config";
 import type { ShipTreeNode } from "./ship-visualizer-types";
-import { SHIP_MODEL_JOINED, SHIP_MODEL_V4, SHIP_MODEL_V4_SOLAR, SHIP_MODEL_W_ENGINE } from "./ship-visualizer-config";
 
 export const MOCK_SHIP_TREE: ShipTreeNode[] = [
   {
     id: "ship-model",
     label: "Ship model",
     children: [
-      { id: "model-joined", label: "TwinShip V4", modelPath: SHIP_MODEL_W_ENGINE },
+      { id: "model-joined", label: "TwinShip VESSEL", modelPath: DEFAULT_SHIP_MODEL_PATH },
 
     ],
   },
