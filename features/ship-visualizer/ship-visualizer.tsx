@@ -136,6 +136,7 @@ export function ShipVisualizer() {
           onToggleSectionVisible={setSectionVisible}
           onSelect={handleSelectNode}
           selectedNodeId={selectedStructureNode?.id ?? null}
+          isLoading={modelTree === null}
         />
       </div>
       <div className="relative flex min-w-0 flex-1 flex-col">

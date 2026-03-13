@@ -7,6 +7,7 @@ import { ShipTreeNode } from "../ship-visualizer/ship-visualizer-types";
 import { filterShipTree } from "../ship-visualizer/lib/filter-tree";
 import { SHIP_VISUALIZER_LAYOUT } from "../ship-visualizer/ship-visualizer-config";
 import TreeNode from "./components/three-node";
+import { OntologyExplorerSkeleton } from "./components/ontology-explorer-skeleton";
 
 const MAX_WIDTH = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
 
@@ -16,6 +17,8 @@ type Props = {
   onToggleSectionVisible: (node: ShipTreeNode, visible: boolean) => void;
   onSelect?: (node: ShipTreeNode) => void;
   selectedNodeId?: string | null;
+  /** When true, show skeleton instead of tree (e.g. while ship model is loading). */
+  isLoading?: boolean;
 };
 
 export function OntologyExplorer({
@@ -24,6 +27,7 @@ export function OntologyExplorer({
   onToggleSectionVisible,
   onSelect,
   selectedNodeId,
+  isLoading = false,
 }: Props) {
   const [search, setSearch] = useState("");
   const [opacityByNodeId, setOpacityByNodeId] = useState<Record<string, number>>(
@@ -56,6 +60,10 @@ export function OntologyExplorer({
     );
     el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedNodeId]);
+
+  if (isLoading) {
+    return <OntologyExplorerSkeleton />;
+  }
 
   return (
     <div

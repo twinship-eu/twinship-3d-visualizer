@@ -1,5 +1,5 @@
 export const SHIP_VISUALIZER_LAYOUT = {
-  MAX_LEFT_PANEL_WIDTH_PX: 400,
+  MAX_LEFT_PANEL_WIDTH_PX: 330,
 } as const;
 
 /** TwinShip V4 FBX model. */
