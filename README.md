@@ -244,6 +244,12 @@ You can also deploy the Next.js app to any platform that supports Node (e.g. [Ve
 
 ---
 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
 ## Learn more
 
 - [Next.js documentation](https://nextjs.org/docs)
