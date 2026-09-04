@@ -14,6 +14,7 @@ import {
   SHIP_VISUALIZER_LAYOUT,
   DEFAULT_SHIP_MODEL_PATH,
   IS_MODEL_VARIANT_TOGGLE_ENABLED,
+  IS_DEPTH_VEIL_HARNESS_ENABLED,
   RAW_SHIP_MODEL_GLB,
   PREVIOUS_SHIP_MODEL_GLB,
 } from "./ship-visualizer-config";
@@ -24,6 +25,8 @@ import {
   ModelVariantToggle,
   type ModelVariant,
 } from "./components/model-variant-toggle";
+import { DepthVeil } from "@/features/3d-scene/components/depth-veil";
+import { DepthVeilHarness } from "./components/depth-veil-harness";
 
 const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
 
@@ -49,6 +52,8 @@ export function ShipVisualizer() {
   >({});
   const [modelVariant, setModelVariant] =
     useState<ModelVariant>("optimized");
+  // Temporary: Task 8 replaces this pin with the real load-progress machine.
+  const [pinnedDepth, setPinnedDepth] = useState(1);
 
   // Only the default model has alternate builds to compare against; any other
   // model the tree points at is shown as-is.
@@ -185,6 +190,9 @@ export function ShipVisualizer() {
               onHover={handleHover}
               onSelectByClick={handleSelectByClick}
             />
+            {IS_DEPTH_VEIL_HARNESS_ENABLED && (
+              <DepthVeil depth={pinnedDepth} opacity={1} />
+            )}
           </Scene>
         </SceneErrorFallback>
         {IS_MODEL_VARIANT_TOGGLE_ENABLED && isDefaultModel && (
@@ -192,6 +200,13 @@ export function ShipVisualizer() {
             value={modelVariant}
             onChange={setModelVariant}
             isLoading={modelTree === null}
+          />
+        )}
+        {IS_DEPTH_VEIL_HARNESS_ENABLED && (
+          <DepthVeilHarness
+            depth={pinnedDepth}
+            onDepthChange={setPinnedDepth}
+            onReplay={() => setPinnedDepth(1)}
           />
         )}
         <SelectionDetailsModal

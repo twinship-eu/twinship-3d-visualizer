@@ -67,6 +67,23 @@ export const WATER_RESOLUTION_SCALE = 0.5;
 export const WATER_NORMALS_URL =
   "https://threejs.org/examples/textures/waternormals.jpg";
 
+/**
+ * Timing for the loading veil. Read by both the phase machine and the component
+ * that interpolates toward its targets, so it lives here rather than in either.
+ */
+export const DEPTH_VEIL_TIMING = {
+  /** Grace period before the veil appears at all; a warm load never shows it. */
+  SHOW_DELAY_MS: 120,
+  /** Once shown, stay up at least this long so a fast load still reads as a rise. */
+  MIN_VISIBLE_MS: 700,
+  /** Breaking the surface. */
+  SURFACE_MS: 500,
+  /** Cross-fade into the live scene. */
+  DISSOLVE_MS: 800,
+  /** Exponential smoothing rate for depth and opacity, per second. */
+  SMOOTHING_RATE: 6,
+} as const;
+
 /** The backend readout is a development diagnostic, not product UI. */
 export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
 
