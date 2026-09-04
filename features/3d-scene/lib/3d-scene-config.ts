@@ -58,6 +58,9 @@ export const WATER_OPTIONS = {
 export const WATER_NORMALS_URL =
   "https://threejs.org/examples/textures/waternormals.jpg";
 
+/** The backend readout is a development diagnostic, not product UI. */
+export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
+
 export const SCENE_BACKGROUND_COLOR = "#c8d4e0";
 
 export const SCENE_FOG_COLOR = "#c8d4e0";

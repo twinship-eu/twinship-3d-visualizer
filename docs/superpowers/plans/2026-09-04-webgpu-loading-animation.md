@@ -38,6 +38,7 @@
 | Modify `features/3d-scene/lib/3d-scene-config.ts` | Add `cloudScale`/`cloudSpeed`, `WATER_RESOLUTION_SCALE`, `DEPTH_VEIL_TIMING`. |
 | Modify `features/3d-scene/components/scene-environment-map.tsx` | `PMREMGenerator` import moves to `three/webgpu`. |
 | Modify `features/ship-visualizer/lib/3d-model.ts` | Guard `needsUpdate` so it fires only on a real blend-state change. |
+| Modify `features/ship-visualizer/components/gltf-ship-model.tsx` | Drop the `gl.capabilities` query, which exists only on `WebGLRenderer`. |
 
 **Phase 2 — loading animation**
 
@@ -268,12 +269,54 @@ Add to `features/3d-scene/lib/3d-scene-config.ts`:
 export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
 ```
 
+- [ ] **Step 3b: Replace the WebGL-only capabilities query**
+
+`features/ship-visualizer/components/gltf-ship-model.tsx:37` reads
+`state.gl.capabilities.getMaxAnisotropy()`. `.capabilities` exists only on
+`WebGLRenderer`, so on a `WebGPURenderer` this throws
+`Cannot read properties of undefined (reading 'getMaxAnisotropy')` and the whole
+scene falls into `SceneErrorFallback`.
+
+The node renderer exposes `renderer.getMaxAnisotropy()` directly, but the WebGPU
+backend's implementation is an empty stub returning `undefined` — WebGPU has no
+queryable limit and three's WebGPU sampler path ignores `texture.anisotropy`
+entirely. So it needs a fallback, not just a rename. Add to
+`features/3d-scene/lib/webgpu-renderer.ts`:
+
+```ts
+/** Cap the WebGPU spec places on sampler maxAnisotropy; inert on that backend. */
+const ASSUMED_MAX_ANISOTROPY = 16;
+
+export function getMaxTextureAnisotropy(renderer: unknown): number {
+  const reported = (
+    renderer as { getMaxAnisotropy?: () => number | undefined }
+  )?.getMaxAnisotropy?.();
+  return reported ?? ASSUMED_MAX_ANISOTROPY;
+}
+```
+
+and in `gltf-ship-model.tsx`:
+
+```tsx
+const maxAnisotropy = useThree((state) => getMaxTextureAnisotropy(state.gl));
+```
+
 - [ ] **Step 4: Typecheck**
 
 Run: `npx tsc --noEmit`
 Expected: exit 0, no output.
 
-If `createSceneRenderer` is rejected by `gl`'s type, the cast in Step 1 (`as unknown as Renderer`) is the fix — do not widen `GLProps` or reach for `any`.
+Two type problems will surface here, both with a specific fix — do not reach for
+`any` for either:
+
+1. **`DefaultGLProps` is not exported** from the `@react-three/fiber` package
+   root (only `GLProps` is). Declare the one field the factory needs locally
+   instead of importing it.
+2. **R3F declares its own stub `interface OffscreenCanvas extends EventTarget {}`**,
+   which shadows the DOM type, so a `HTMLCanvasElement | OffscreenCanvas`
+   parameter rejects the very props R3F passes. Type the factory's `canvas` as
+   `HTMLCanvasElement | EventTarget` and cast to `HTMLCanvasElement` at the
+   `WebGPURenderer` call, where R3F has always supplied a real canvas.
 
 - [ ] **Step 5: Verify in the browser, both backends**
 
@@ -292,7 +335,8 @@ git add features/3d-scene/lib/webgpu-renderer.ts \
         features/3d-scene/components/renderer-backend-probe.tsx \
         features/3d-scene/components/renderer-backend-badge.tsx \
         features/3d-scene/3d-scene.tsx \
-        features/3d-scene/lib/3d-scene-config.ts
+        features/3d-scene/lib/3d-scene-config.ts \
+        features/ship-visualizer/components/gltf-ship-model.tsx
 git commit -m "Render the scene with WebGPURenderer and a WebGL2 fallback
 
 TSL needs the node-material pipeline, which the classic WebGLRenderer

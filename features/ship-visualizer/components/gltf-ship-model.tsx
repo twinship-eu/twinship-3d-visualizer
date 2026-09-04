@@ -3,6 +3,7 @@ import { useThree } from "@react-three/fiber";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { useEffect, useMemo } from "react";
 import { Group } from "three";
+import { getMaxTextureAnisotropy } from "@/features/3d-scene/lib/webgpu-renderer";
 import {
   HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED,
   PROPELLERS_OBJECT_NAME,
@@ -34,7 +35,9 @@ export default function GltfShipModel({
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
 }) {
   const gltf = useGLTF(path);
-  const maxAnisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
+  const maxAnisotropy = useThree((state) =>
+    getMaxTextureAnisotropy(state.gl)
+  );
 
   const { cloned, propellerSpinners } = useMemo(() => {
     const clone = gltf.scene.clone();

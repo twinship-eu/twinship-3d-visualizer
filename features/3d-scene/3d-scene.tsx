@@ -1,22 +1,20 @@
 "use client";
 
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { cn } from "@/lib/utils";
-import {
-  ACESFilmicToneMapping,
-  HalfFloatType,
-  PCFShadowMap,
-  Vector3,
-} from "three";
+import { Vector3 } from "three";
 import {
   DEFAULT_CAMERA_POSITION,
 } from "../ship-visualizer/ship-visualizer-config";
 import {  OrbitControls } from "@react-three/drei";
-import { SCENE_BACKGROUND_COLOR } from "./lib/3d-scene-config";
+import {
+  IS_RENDERER_BADGE_ENABLED,
+  SCENE_BACKGROUND_COLOR,
+} from "./lib/3d-scene-config";
 import { SceneLights } from "./components/scene-lights";
-import { SceneSky } from "./components/scene-sky";
-import { SceneEnvironmentMap } from "./components/scene-environment-map";
-import { SceneWater } from "./components/scene-water";
+import { createSceneRenderer } from "./lib/webgpu-renderer";
+import { RendererBackendProbe } from "./components/renderer-backend-probe";
+import { RendererBackendBadge } from "./components/renderer-backend-badge";
 import {  useState } from "react";
 import { SceneInteractionProvider } from "./components/scene-interaction-context";
 import { StageControlHints } from "./components/stage-control-hints";
@@ -26,9 +24,6 @@ import {
   ZoomControlsProvider,
 } from "./components/zoom-controls-overlay";
 
-
-/** Tone mapping exposure; higher for midday (0.1 = dusk, ~0.3 = noon). */
-const TONE_MAPPING_EXPOSURE = 0.3;
 
 type Props = {
   className?: string;
@@ -56,32 +51,20 @@ export function Scene({
 
 function SceneWithInteraction({ children }: { children: React.ReactNode }) {
   const [isOrbitControlsActive, setIsOrbitControlsActive] = useState(false);
+  const [isWebGPU, setIsWebGPU] = useState<boolean | null>(null);
 
   return (
     <SceneInteractionProvider value={{ isOrbitControlsActive }}>
       <ZoomControlsProvider>
         <Canvas
           shadows
-          onCreated={({ gl }) => {
-            gl.shadowMap.type = PCFShadowMap;
-          }}
           camera={{
             position: new Vector3(...DEFAULT_CAMERA_POSITION),
             fov: 45,
           }}
-          gl={{
-            antialias: true,
-            alpha: true,
-            powerPreference: "high-performance",
-            failIfMajorPerformanceCaveat: false,
-            toneMapping: ACESFilmicToneMapping,
-            toneMappingExposure: TONE_MAPPING_EXPOSURE,
-            outputBufferType: HalfFloatType,
-          }}
+          gl={createSceneRenderer}
         >
-          <SceneSky />
-          <SceneEnvironmentMap />
-          <SceneWater />
+          <RendererBackendProbe onResolved={setIsWebGPU} />
           <SceneLights />
           {children}
           <OrbitControls
@@ -97,6 +80,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           <ZoomControlsBridge />
         </Canvas>
         <ZoomControlsOverlay />
+        {IS_RENDERER_BADGE_ENABLED && <RendererBackendBadge isWebGPU={isWebGPU} />}
       </ZoomControlsProvider>
     </SceneInteractionProvider>
   );
