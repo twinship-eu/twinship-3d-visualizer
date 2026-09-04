@@ -247,14 +247,7 @@ export default function Ship({
         onPointerLeave={handlePointerLeave}
         onClick={handleClick}
       >
-        <Suspense
-          fallback={
-            <mesh position={[0, 0, 0]}>
-              <boxGeometry args={[2, 2, 2]} />
-              <meshStandardMaterial color="gray" />
-            </mesh>
-          }
-        >
+        <Suspense fallback={null}>
           <ShipModel
             path={modelPath}
             selectedStructureNode={

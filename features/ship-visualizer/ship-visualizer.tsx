@@ -27,6 +27,7 @@ import {
 } from "./components/model-variant-toggle";
 import { DepthVeil } from "@/features/3d-scene/components/depth-veil";
 import { DepthVeilHarness } from "./components/depth-veil-harness";
+import { useModelLoadProgress } from "./hooks/use-model-load-progress";
 
 const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
 
@@ -52,11 +53,14 @@ export function ShipVisualizer() {
   >({});
   const [modelVariant, setModelVariant] =
     useState<ModelVariant>("optimized");
-  // Temporary: Task 8 replaces this pin with the real load-progress machine.
-  const [pinnedDepth, setPinnedDepth] = useState(1);
+  // null = follow the real load; a number = the dev harness has taken over.
+  const [pinnedDepth, setPinnedDepth] = useState<number | null>(null);
 
   // Only the default model has alternate builds to compare against; any other
   // model the tree points at is shown as-is.
+  const isModelReady = modelTree !== null;
+  const veil = useModelLoadProgress(isModelReady);
+
   const isDefaultModel = selectedModelPath === DEFAULT_SHIP_MODEL_PATH;
   const renderedModelPath = isDefaultModel
     ? MODEL_PATH_BY_VARIANT[modelVariant]
@@ -190,8 +194,13 @@ export function ShipVisualizer() {
               onHover={handleHover}
               onSelectByClick={handleSelectByClick}
             />
-            {IS_DEPTH_VEIL_HARNESS_ENABLED && (
-              <DepthVeil depth={pinnedDepth} opacity={1} />
+            {(veil.isVeilVisible || pinnedDepth !== null) && (
+              <SceneErrorFallback fallback={null}>
+                <DepthVeil
+                  depth={pinnedDepth ?? veil.depth}
+                  opacity={pinnedDepth !== null ? 1 : veil.opacity}
+                />
+              </SceneErrorFallback>
             )}
           </Scene>
         </SceneErrorFallback>
@@ -204,9 +213,9 @@ export function ShipVisualizer() {
         )}
         {IS_DEPTH_VEIL_HARNESS_ENABLED && (
           <DepthVeilHarness
-            depth={pinnedDepth}
+            depth={pinnedDepth ?? veil.depth}
             onDepthChange={setPinnedDepth}
-            onReplay={() => setPinnedDepth(1)}
+            onReplay={() => setPinnedDepth(null)}
           />
         )}
         <SelectionDetailsModal
