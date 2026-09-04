@@ -1,0 +1,14 @@
+# chart/values.yaml
+replicaCount: 1
+
+image:
+  repository: harbor.vessel-ai.eu/sintef/twinship-3d-visualizer
+  tag: latest
+  pullPolicy: Always
+
+service:
+  port: 80
+  targetPort: 3000
+
+ingress:
+  host: twinship-visualization.vessel-ai.eu

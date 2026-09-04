@@ -1,0 +1,6 @@
+# chart/Chart.yaml
+apiVersion: v2
+name: partner-app
+description: Vessel-AI partner component
+version: 0.1.0
+appVersion: "1.0.0"

@@ -1,0 +1,27 @@
+services:
+  twinship-3d-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: twinship-3d-viewer:latest
+    container_name: twinship-3d-viewer
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./public/ship:/app/public/ship:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - twinship_network
+
+networks:
+  twinship_network:
+    driver: bridge
