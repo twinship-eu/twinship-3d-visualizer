@@ -82,15 +82,30 @@ bugs.
 On failure the factory retries once with `forceWebGL: true`; if that also fails
 it throws a named error rather than logging and leaving a dead canvas.
 
+### Only two symbols actually need `three/webgpu`
+
+`three.module.js` and `three.webgpu.js` both re-export from the same
+`three.core.js`, so `Mesh`, `PlaneGeometry`, `Group`, `Object3D`, `Vector3` and
+friends are **the same class objects** through either entry point. There is no
+dual-identity hazard and no sweeping import rewrite: every existing
+`import { Group } from "three"` stays exactly as it is.
+
+Only genuinely renderer-specific classes differ, and we use two:
+`WebGPURenderer` and `PMREMGenerator`.
+
+This also means **no `extend()` call and no `ThreeElements` module
+augmentation.** R3F's default catalogue is built from `three`, and since the core
+classes are shared it already drives the WebGPU renderer correctly. `extend()`
+would only be needed to write node materials as JSX tags — which we avoid by
+building the veil's material in `createDepthVeilMaterial()` and attaching it with
+`<primitive object={material} attach="material" />`.
+
 ### Changed files
 
-- **`features/3d-scene/3d-scene.tsx`** — `gl={createSceneRenderer}`; `three`
-  imports move to `three/webgpu`. `outputBufferType` is dropped (not a
-  `WebGPURenderer` parameter; MSAA is `antialias`/`samples`).
-- **New: `features/3d-scene/lib/three-webgpu-elements.ts`** — the one-time
-  `extend(THREE)` call plus the `ThreeElements` module augmentation R3F needs to
-  accept `three/webgpu` classes as JSX. Imported once for its side effect, so
-  the augmentation is not scattered across components.
+- **`features/3d-scene/3d-scene.tsx`** — `gl={createSceneRenderer}`.
+  `outputBufferType` is dropped (not a `WebGPURenderer` parameter; MSAA is
+  `antialias`/`samples`). Its `ACESFilmicToneMapping` and `PCFShadowMap` imports
+  move into `webgpu-renderer.ts` along with the renderer configuration.
 - **`features/3d-scene/components/scene-sky.tsx`** — `Sky` → `SkyMesh`; uniform
   access moves from `material.uniforms.x.value` to `mesh.x.value`; the `useFrame`
   time advance is **deleted** in favour of the built-in `cloudSpeed`, which
@@ -102,12 +117,22 @@ it throws a named error rather than logging and leaving a dead canvas.
   `cloudScale` and `cloudSpeed`.
 - **`features/3d-scene/components/scene-environment-map.tsx`** — import moves to
   `three/webgpu`. `createSky()` keeps its second job of feeding the IBL bake.
-- **`features/ship-visualizer/lib/3d-model.ts`** — remove
-  `material.needsUpdate = true` from the opacity and highlight paths (lines 318
-  and 360). Under `WebGLRenderer` that is a cheap re-upload; under WebGPU it
-  invalidates the render pipeline and forces a shader recompile on **every
-  hover**. Plain uniform writes are correct for both renderers, so this is a fix
-  either way, not a WebGPU concession.
+- **`features/ship-visualizer/lib/3d-model.ts`** — guard
+  `material.needsUpdate = true` in the opacity and highlight paths (lines 318 and
+  360) so it fires only when `transparent` actually flips:
+
+  ```ts
+  if (mat.transparent !== targetTransparent) mat.needsUpdate = true;
+  ```
+
+  It cannot be removed outright: `transparent` and `depthWrite` change alongside
+  `opacity` here, and a blend-state change does need the material revalidated.
+  But `transparent` flips only between dimmed and undimmed, whereas `opacity`
+  changes on every hover — so the guard eliminates nearly every recompile while
+  staying correct. Under `WebGLRenderer` an unguarded write is a cheap
+  re-upload; under WebGPU it invalidates the render pipeline and forces a shader
+  recompile on every hover. Correct for both renderers, so this is a fix either
+  way rather than a WebGPU concession.
 
 ### Verification
 
@@ -245,7 +270,7 @@ function of `depth` cannot be tuned during a load that shows each depth for
 | Failure | Handling |
 | --- | --- |
 | WebGPU init fails | Factory retries once with `forceWebGL: true`, then throws a named error. |
-| Model load fails | `useProgress().errors` non-empty → veil unmounts, existing `SceneErrorFallback` takes the viewport. |
+| Model load fails | Handled structurally, with no error polling: `useGLTF` throws during render, and the veil sits inside `<Scene>`, itself inside the existing outer `SceneErrorFallback`, so that boundary replaces the viewport and the veil with it. |
 | The veil itself breaks | Wrapped in the existing `SceneErrorFallback` with `fallback={null}`. A decorative overlay must never break the scene it decorates; worst case is an ordinary load with no animation. |
 
 ## Accepted limitations
