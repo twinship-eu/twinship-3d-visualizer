@@ -1,5 +1,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
+import { IS_SCENE_INSPECTOR_ENABLED } from "@/features/3d-scene/lib/webgpu-renderer";
+import { LOADING_RING_PREVIEW } from "@/features/3d-scene/lib/loading-ring-particles";
 import { Group } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { Object3D } from "three";
@@ -93,6 +95,12 @@ export default function Ship({
   useFrame((state) => {
     const group = floatGroupRef.current;
     if (!group) return;
+
+    // While the dev loop preview runs there is nothing to load, so the ship
+    // would sit in front of the very animation being previewed. Hide it.
+    if (IS_SCENE_INSPECTOR_ENABLED) {
+      group.visible = !LOADING_RING_PREVIEW.isLooping;
+    }
 
     const now = performance.now();
     const elapsed = now - transitionStartTimeRef.current;

@@ -25,10 +25,6 @@ export const RAW_SHIP_MODEL_GLB = "/ship/TwinShip_Update/TwinShip_Update.glb";
  */
 export const PREVIOUS_SHIP_MODEL_GLB = "/ship/twinship v2.glb";
 
-/** The veil harness is a tuning tool, never product UI. */
-export const IS_DEPTH_VEIL_HARNESS_ENABLED =
-  process.env.NODE_ENV === "development";
-
 /** The raw reference model is far too large to offer outside local development. */
 export const IS_MODEL_VARIANT_TOGGLE_ENABLED =
   process.env.NODE_ENV === "development";

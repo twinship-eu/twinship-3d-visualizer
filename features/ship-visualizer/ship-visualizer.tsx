@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Scene } from "@/features/3d-scene/3d-scene";
+import { IS_SCENE_INSPECTOR_ENABLED } from "@/features/3d-scene/lib/webgpu-renderer";
 import { SceneErrorFallback } from "./components/scene-error-fallback";
 import Ship from "./components/scene-content";
 import { MOCK_SHIP_TREE } from "./ship-visualizer-mock";
@@ -14,7 +15,6 @@ import {
   SHIP_VISUALIZER_LAYOUT,
   DEFAULT_SHIP_MODEL_PATH,
   IS_MODEL_VARIANT_TOGGLE_ENABLED,
-  IS_DEPTH_VEIL_HARNESS_ENABLED,
   RAW_SHIP_MODEL_GLB,
   PREVIOUS_SHIP_MODEL_GLB,
 } from "./ship-visualizer-config";
@@ -25,8 +25,11 @@ import {
   ModelVariantToggle,
   type ModelVariant,
 } from "./components/model-variant-toggle";
-import { DepthVeil } from "@/features/3d-scene/components/depth-veil";
-import { DepthVeilHarness } from "./components/depth-veil-harness";
+import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
+import {
+  SceneInspector,
+  type LoadingRingControls,
+} from "@/features/3d-scene/components/scene-inspector";
 import { useModelLoadProgress } from "./hooks/use-model-load-progress";
 
 const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
@@ -53,13 +56,14 @@ export function ShipVisualizer() {
   >({});
   const [modelVariant, setModelVariant] =
     useState<ModelVariant>("optimized");
-  // null = follow the real load; a number = the dev harness has taken over.
-  const [pinnedDepth, setPinnedDepth] = useState<number | null>(null);
 
   // Only the default model has alternate builds to compare against; any other
   // model the tree points at is shown as-is.
   const isModelReady = modelTree !== null;
   const veil = useModelLoadProgress(isModelReady);
+  // Held so the dev Inspector can bind controls straight to the ring's tunables.
+  const [ringControls, setRingControls] =
+    useState<LoadingRingControls | null>(null);
 
   const isDefaultModel = selectedModelPath === DEFAULT_SHIP_MODEL_PATH;
   const renderedModelPath = isDefaultModel
@@ -194,14 +198,16 @@ export function ShipVisualizer() {
               onHover={handleHover}
               onSelectByClick={handleSelectByClick}
             />
-            {(veil.isVeilVisible || pinnedDepth !== null) && (
+            {(veil.isRingVisible || IS_SCENE_INSPECTOR_ENABLED) && (
               <SceneErrorFallback fallback={null}>
-                <DepthVeil
-                  depth={pinnedDepth ?? veil.depth}
-                  opacity={pinnedDepth !== null ? 1 : veil.opacity}
+                <LoadingRing
+                  progress={veil.progress}
+                  dispersion={veil.isRingVisible ? veil.dispersion : 1}
+                  onControlsReady={setRingControls}
                 />
               </SceneErrorFallback>
             )}
+            <SceneInspector ringControls={ringControls} />
           </Scene>
         </SceneErrorFallback>
         {IS_MODEL_VARIANT_TOGGLE_ENABLED && isDefaultModel && (
@@ -209,13 +215,6 @@ export function ShipVisualizer() {
             value={modelVariant}
             onChange={setModelVariant}
             isLoading={modelTree === null}
-          />
-        )}
-        {IS_DEPTH_VEIL_HARNESS_ENABLED && (
-          <DepthVeilHarness
-            depth={pinnedDepth ?? veil.depth}
-            onDepthChange={setPinnedDepth}
-            onReplay={() => setPinnedDepth(null)}
           />
         )}
         <SelectionDetailsModal

@@ -1,8 +1,43 @@
 # WebGPU migration and TSL loading animation
 
 **Date:** 2026-09-04
-**Status:** Approved design, not yet implemented
+**Status:** Phase 1 implemented as designed. **Phase 2 superseded** — see
+"Phase 2 superseded" below.
 **Branch base:** `model-v2-update` @ `e72d4f6`
+
+## Phase 2 superseded
+
+The renderer migration (Phase 1) shipped exactly as designed and is unchanged.
+
+Phase 2's fullscreen "surfacing from the depths" veil was built, reviewed and
+**rejected**: an opaque quad covering the viewport hides the sky, the ocean and
+the reflections, which is the wrong trade for a scene whose whole appeal is that
+it is a scene. The design offered a choice between covering the viewport and
+covering the page, and never offered the option that was actually wanted —
+leaving the scene visible and putting the loader *inside* it.
+
+It was replaced by an in-scene particle ring: a tilted circle of instanced
+sprites at the waterline, with a bright arc fixed in world space that grows with
+load progress, bursting outward as the ship appears. The scene behind it is
+untouched and the water reflects it.
+
+What carried over unchanged: the phase machine and its `useProgress`-positions /
+`modelTree`-completes split, the monotonic clamp, the grace period and minimum
+visible floor, the React-owns-phases / `useFrame`-owns-frames rule, and handling
+load failure structurally through the existing error boundary. What did not: the
+veil shader, the fullscreen quad, and the depth/opacity uniform pair.
+
+Two facts found during that work are worth keeping, because both are invisible
+until a pipeline fails:
+
+- `pointUV` generates the literal GLSL `gl_PointCoord`, so it cannot compile
+  under WGSL and invalidates the entire render pipeline on WebGPU. Rounding off
+  particles therefore requires instanced quads with a real `uv` attribute, not
+  `Points`.
+- three's Inspector must be assigned **before** `renderer.init()`. The renderer
+  calls `inspector.init()` from inside its own `init()`, and the `inspector`
+  setter does not re-run it, so a later assignment leaves the panel silently
+  detached.
 
 ## Goal
 

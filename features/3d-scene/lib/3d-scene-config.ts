@@ -68,21 +68,35 @@ export const WATER_NORMALS_URL =
   "https://threejs.org/examples/textures/waternormals.jpg";
 
 /**
- * Timing for the loading veil. Read by both the phase machine and the component
+ * Timing for the loading ring. Read by both the phase machine and the component
  * that interpolates toward its targets, so it lives here rather than in either.
  */
-export const DEPTH_VEIL_TIMING = {
-  /** Grace period before the veil appears at all; a warm load never shows it. */
+export const LOADING_RING_TIMING = {
+  /** Grace period before the ring appears at all; a warm load never shows it. */
   SHOW_DELAY_MS: 120,
-  /** Once shown, stay up at least this long so a fast load still reads as a rise. */
+  /** Once shown, stay up at least this long so a fast load still reads as a fill. */
   MIN_VISIBLE_MS: 700,
-  /** Breaking the surface. */
-  SURFACE_MS: 500,
-  /** Cross-fade into the live scene. */
-  DISSOLVE_MS: 800,
-  /** Exponential smoothing rate for depth and opacity, per second. */
+  /** Holding the closed ring at 100% before it bursts. */
+  COMPLETE_MS: 320,
+  /** Particles flying outward and fading as the ship appears beneath. */
+  BURST_MS: 800,
+  /** Exponential smoothing rate for progress and dispersion, per second. */
   SMOOTHING_RATE: 6,
 } as const;
+
+/**
+ * Height of the loading ring. Just above the water plane at -5, so the ocean
+ * reflects it rather than clipping through it.
+ */
+export const RING_WATERLINE_Y = -4;
+
+/**
+ * three's built-in Inspector, which hosts the loading-ring controls and its own
+ * performance and console tabs. Development only: it injects a panel beside the
+ * canvas, and enables GPU timestamp queries.
+ */
+export const IS_SCENE_INSPECTOR_ENABLED =
+  process.env.NODE_ENV === "development";
 
 /** The backend readout is a development diagnostic, not product UI. */
 export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
