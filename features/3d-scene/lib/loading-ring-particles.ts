@@ -1,4 +1,8 @@
-import { IS_SCENE_INSPECTOR_ENABLED } from "./3d-scene-config";
+import {
+  IS_SCENE_INSPECTOR_ENABLED,
+  LOADING_RING_TIMING,
+  RING_WATERLINE_Y,
+} from "./3d-scene-config";
 import {
   Color,
   InstancedBufferAttribute,
@@ -28,8 +32,24 @@ import {
 
 const TAU = Math.PI * 2;
 
-/** Particle count is baked into the geometry, so it is the one thing the GUI cannot change live. */
-const PARTICLE_COUNT = 2400;
+/**
+ * Baked into the geometry, so it is the one thing the GUI cannot change live.
+ *
+ * High because these particles have to read as a 200m ship at the end, not just
+ * as a ring: at a couple of thousand the assembled hull looks like scattered
+ * dust rather than a silhouette.
+ */
+const PARTICLE_COUNT = 12000;
+
+/**
+ * Distinct positions around the ring. Fewer than PARTICLE_COUNT: several
+ * particles share each slot, so the ring keeps the density it was tuned at
+ * while still having enough particles to trace a whole ship afterwards.
+ */
+const RING_SLOT_COUNT = 2400;
+
+/** Particles per ring slot. */
+const RING_STACK = PARTICLE_COUNT / RING_SLOT_COUNT;
 
 /** Dim particles outside the completed arc; hot ones inside it. */
 const RING_DIM_COLOR = new Color("#3f6f8f");
@@ -50,6 +70,15 @@ const BURST_LATERAL = 0.45;
 const BURST_WOBBLE_RATE = 2.3;
 /** How much bubbles swell as they rise. */
 const BURST_GROWTH = 0.8;
+/**
+ * Share of the assembly spent staggering arrivals, so particles land in a
+ * sweep rather than all snapping into the hull on the same frame.
+ */
+const ASSEMBLY_DELAY_SPREAD = 0.4;
+/** Height of the arc particles travel on their way to the hull. */
+const ASSEMBLY_ARC_LIFT = 6;
+/** How much smaller particles get once settled on the hull. */
+const ASSEMBLY_SHRINK = 0.45;
 /** Extra brightness and size right at the arc's leading edge. */
 const EDGE_BOOST = 2.2;
 const EDGE_SIZE_BOOST = 0.9;
@@ -86,21 +115,50 @@ type FloatUniform = ReturnType<typeof floatUniform>;
  * and nothing should re-render when it changes.
  */
 export type LoadingRingOverride = {
-  /** Replay the whole fill-then-burst cycle forever, for looking at it. */
+  /** Replay the whole sequence forever, for looking at it. */
   isLooping: boolean;
-  /** Seconds for one full loop, fill plus burst. */
-  loopSeconds: number;
-  /** Freeze the ring at the `progress` and `dispersion` below. */
+  /**
+   * Duration of one sweep of the arc. The fill repeats in whole cycles of this
+   * length, in the real sequence as well as in the preview.
+   */
+  fillSeconds: number;
+  /** Particles flying from the ring onto the hull. Its own timing, not a share
+   * of the fill. */
+  convergeSeconds: number;
+  /** The assembled particle silhouette holding still. */
+  holdSeconds: number;
+  /** Particles fading out over the newly revealed ship. */
+  revealSeconds: number;
+  /**
+   * Written by the ring every frame, read by the ship: 0 = hidden, 1 = fully
+   * opaque. Not a setting.
+   *
+   * A shared mutable rather than React state because it changes per frame and
+   * has to cross the tree — routing it through state would re-render the scene
+   * at frame rate during the handover it exists to smooth.
+   */
+  shipReveal: number;
+  /** Freeze the ring at the values below, so any moment can be inspected. */
   isPinned: boolean;
   progress: number;
   dispersion: number;
+  assembly: number;
+  fade: number;
 };
 
 export type LoadingRingUniforms = {
+  /** 0 = particles on the ring, 1 = particles on their sampled ship points. */
+  assembly: FloatUniform;
+  /** Ring height above the water. Held here because the mesh sits at the origin,
+   * so that ship targets can stay in world space. */
+  waterline: FloatUniform;
   /** 0 -> 1 as the model loads. Drives how far the bright arc has swept. */
   progress: FloatUniform;
-  /** 0 = intact ring, 1 = fully burst and faded. */
+  /** 0 = intact ring, 1 = fully burst and faded. Tuning only; the real
+   * sequence assembles instead of bursting. */
   dispersion: FloatUniform;
+  /** 1 = particles visible, 0 = faded out over the revealed ship. */
+  fade: FloatUniform;
   radius: FloatUniform;
   tilt: FloatUniform;
   spinSpeed: FloatUniform;
@@ -132,12 +190,27 @@ function createRingGeometry(): InstancedBufferGeometry {
   const ring = new Float32Array(PARTICLE_COUNT * 4);
   const burst = new Float32Array(PARTICLE_COUNT * 4);
 
+  // One set of ring slots, reused across the stack: particles sharing a slot sit
+  // on top of each other in ring form and only separate once they fly to the
+  // ship, where each has its own target.
+  const slots = new Float32Array(RING_SLOT_COUNT * 4);
+  for (let slot = 0; slot < RING_SLOT_COUNT; slot++) {
+    const o = slot * 4;
+    slots[o] = Math.random() * TAU; // angle around the ring
+    slots[o + 1] = Math.random() * 2 - 1; // band jitter
+    slots[o + 2] = 0.8 + Math.random() * 0.4; // orbit speed
+    slots[o + 3] = 0.5 + Math.random() * 1.1; // sprite size
+  }
+
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const r = i * 4;
-    ring[r] = Math.random() * TAU; // angle around the ring
-    ring[r + 1] = Math.random() * 2 - 1; // band jitter
-    ring[r + 2] = 0.8 + Math.random() * 0.4; // orbit speed
-    ring[r + 3] = 0.5 + Math.random() * 1.1; // sprite size
+    // Modulo rather than division, so each slot's stack is spread through the
+    // buffer instead of sitting in one contiguous run.
+    const o = (i % RING_SLOT_COUNT) * 4;
+    ring[r] = slots[o];
+    ring[r + 1] = slots[o + 1];
+    ring[r + 2] = slots[o + 2];
+    ring[r + 3] = slots[o + 3];
 
     burst[r] = Math.random(); // wobble phase
     burst[r + 1] = Math.random(); // burst start delay
@@ -147,6 +220,12 @@ function createRingGeometry(): InstancedBufferGeometry {
 
   geometry.setAttribute("aRing", new InstancedBufferAttribute(ring, 4));
   geometry.setAttribute("aBurst", new InstancedBufferAttribute(burst, 4));
+  // Filled in once the model loads; until then every target is the origin and
+  // the assembly uniform stays at 0, so it is never read.
+  geometry.setAttribute(
+    "aTarget",
+    new InstancedBufferAttribute(new Float32Array(PARTICLE_COUNT * 3), 3)
+  );
   return geometry;
 }
 
@@ -170,15 +249,21 @@ function createRingGeometry(): InstancedBufferGeometry {
  * scene unrelated to the ring need to read it — hiding the ship while the loop
  * preview runs, for one. Only ever touched by development tooling.
  */
-export const LOADING_RING_PREVIEW: LoadingRingOverride = {
+export const LOADING_RING_STATE: LoadingRingOverride = {
   // On by default in development so a refresh always shows the loading
   // animation, with the ship hidden. Must never be on in production, or the
   // loader would replay forever and never hand over to the scene.
   isLooping: IS_SCENE_INSPECTOR_ENABLED,
-  loopSeconds: 3.5,
+  fillSeconds: LOADING_RING_TIMING.FILL_MS / 1000,
+  convergeSeconds: LOADING_RING_TIMING.CONVERGE_MS / 1000,
+  holdSeconds: LOADING_RING_TIMING.HOLD_MS / 1000,
+  revealSeconds: LOADING_RING_TIMING.REVEAL_MS / 1000,
   isPinned: false,
   progress: 0.5,
   dispersion: 0,
+  assembly: 0,
+  fade: 1,
+  shipReveal: 0,
 };
 
 export function createLoadingRing(): {
@@ -187,11 +272,14 @@ export function createLoadingRing(): {
   uniforms: LoadingRingUniforms;
   override: LoadingRingOverride;
 } {
-  const override = LOADING_RING_PREVIEW;
+  const override = LOADING_RING_STATE;
 
   const uniforms: LoadingRingUniforms = {
+    assembly: floatUniform(0),
+    waterline: floatUniform(RING_WATERLINE_Y),
     progress: floatUniform(0),
     dispersion: floatUniform(0),
+    fade: floatUniform(1),
     radius: floatUniform(16),
     tilt: floatUniform(0),
     spinSpeed: floatUniform(0.72),
@@ -205,6 +293,7 @@ export function createLoadingRing(): {
   // parameter to `string`, which loses every arithmetic method on the node.
   const aRing = attribute<"vec4">("aRing", "vec4");
   const aBurst = attribute<"vec4">("aBurst", "vec4");
+  const aTarget = attribute<"vec3">("aTarget", "vec3");
 
   const aAngle = aRing.x;
   const aJitter = aRing.y;
@@ -272,6 +361,26 @@ export function createLoadingRing(): {
     // Squared, so bubbles accelerate upward instead of drifting linearly.
     .add(vec3(0, burst.mul(burst).mul(DISPERSE_LIFT).mul(aBurstLift), 0));
 
+  // The ring lives at the origin so ship targets can stay in world space; its
+  // height is added here instead of on the mesh.
+  const ringPosition = dispersed.add(vec3(0, uniforms.waterline, 0));
+
+  // Assembly: fly to this particle's own sampled point on the hull. Staggered
+  // per particle and smoothstepped, so arrivals sweep across the ship and ease
+  // in rather than snapping.
+  const assemblyStart = aBurstDelay.mul(ASSEMBLY_DELAY_SPREAD);
+  const assembly = smoothstep(
+    assemblyStart,
+    assemblyStart.add(float(1).sub(ASSEMBLY_DELAY_SPREAD)),
+    uniforms.assembly
+  );
+  // A lift partway through, so particles arc onto the hull instead of sliding
+  // along a straight line into it.
+  const arc = sin(assembly.mul(Math.PI)).mul(ASSEMBLY_ARC_LIFT).mul(aBurstLift);
+  const assembled = mix(ringPosition, aTarget, assembly).add(
+    vec3(0, arc, 0)
+  );
+
   // Where this particle sits around the ring, in 0..1 — the arc is measured in
   // this space, which is why it stays put while particles travel through it.
   const arcPos = fract(angle.div(TAU));
@@ -297,15 +406,34 @@ export function createLoadingRing(): {
   const material = new SpriteNodeMaterial();
   // For a sprite material, positionNode is the billboard's centre; the quad's
   // own vertices are expanded around it, scaled by scaleNode.
-  material.positionNode = dispersed;
+  material.positionNode = assembled;
   material.colorNode = tint.mul(brightness);
   material.scaleNode = uniforms.spriteSize
     .mul(aSize)
     .mul(float(1).add(leadingEdge.mul(EDGE_SIZE_BOOST)))
-    .mul(float(1).add(burst.mul(BURST_GROWTH)));
+    .mul(float(1).add(burst.mul(BURST_GROWTH)))
+    // Settled particles shrink, so the assembled hull reads as fine grain
+    // rather than as a cloud of blobs.
+    .mul(float(1).sub(assembly.mul(ASSEMBLY_SHRINK)));
+  // Once assembling, every particle is fully lit: the arc gradient belongs to
+  // the ring, and letting it survive would leave half the hull dim.
+  const litness = mix(
+    inArc.mul(oneMinus(BASE_OPACITY)).add(BASE_OPACITY),
+    float(1),
+    assembly
+  );
+
+  // Coincident particles add up under additive blending, so a stacked slot would
+  // be RING_STACK times too bright. Dividing it back out makes the ring look
+  // like RING_SLOT_COUNT sprites; the compensation lifts to 1 as they assemble,
+  // where every particle occupies its own point on the hull.
+  const stackCompensation = mix(float(1 / RING_STACK), float(1), assembly);
+
   material.opacityNode = sprite
-    .mul(bandFade)
-    .mul(inArc.mul(oneMinus(BASE_OPACITY)).add(BASE_OPACITY))
+    .mul(stackCompensation)
+    .mul(uniforms.fade)
+    .mul(mix(bandFade, float(1), assembly))
+    .mul(litness)
     // Fades on this particle's own burst, so bubbles wink out in a scatter.
     .mul(oneMinus(burst));
   material.transparent = true;
@@ -314,3 +442,24 @@ export function createLoadingRing(): {
 
   return { geometry: createRingGeometry(), material, uniforms, override };
 }
+
+/**
+ * Copies sampled ship-surface points into the ring's target attribute.
+ *
+ * Tolerates a length mismatch: the sampler is asked for exactly
+ * PARTICLE_COUNT points, but taking the shorter of the two means a future
+ * change to either side degrades to "some particles stay put" rather than
+ * reading past the end of a buffer.
+ */
+export function setAssemblyTargets(
+  geometry: InstancedBufferGeometry,
+  points: Float32Array
+): void {
+  const target = geometry.getAttribute("aTarget");
+  const values = target.array as Float32Array;
+  values.set(points.subarray(0, Math.min(values.length, points.length)));
+  target.needsUpdate = true;
+}
+
+/** How many surface points the ring needs to assemble a model. */
+export const ASSEMBLY_POINT_COUNT = PARTICLE_COUNT;

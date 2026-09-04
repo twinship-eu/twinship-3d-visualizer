@@ -329,6 +329,39 @@ function setMaterialBlendState(
   mat.depthWrite = depthWrite;
 }
 
+/**
+ * Fades a whole model in or out. `factor` 0 = invisible, 1 = fully restored.
+ *
+ * Base state is captured through `getOrInitMaterialBaseState` *before* any
+ * opacity is written, which is what makes this safe to interleave with
+ * `applySelectionOpacity`: if the fade wrote first, the base snapshot would
+ * capture a half-transparent value and treat it as the material's true opacity
+ * forever, leaving parts permanently see-through.
+ *
+ * At `factor` 1 every property is restored exactly, so nothing is left behind.
+ */
+export function applyModelFade(root: Object3D, factor: number): void {
+  const isFading = factor < 1;
+
+  root.traverse((child) => {
+    if (!("material" in child) || !(child as Mesh).material) return;
+    const mesh = child as Mesh;
+    const materials = Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material];
+
+    materials.forEach((m: Material) => {
+      const base = getOrInitMaterialBaseState(m);
+      setMaterialBlendState(
+        m,
+        base.opacity * factor,
+        isFading ? true : base.transparent,
+        isFading ? false : base.depthWrite
+      );
+    });
+  });
+}
+
 export function applySelectionOpacity(
   root: Group,
   selectedNode: ShipTreeNode | null,

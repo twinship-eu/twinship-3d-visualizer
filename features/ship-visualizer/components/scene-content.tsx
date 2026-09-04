@@ -1,11 +1,15 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { IS_SCENE_INSPECTOR_ENABLED } from "@/features/3d-scene/lib/webgpu-renderer";
-import { LOADING_RING_PREVIEW } from "@/features/3d-scene/lib/loading-ring-particles";
+import { LOADING_RING_STATE } from "@/features/3d-scene/lib/loading-ring-particles";
 import { Group } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { Object3D } from "three";
-import { easeOutCubic, findNodeByHitObject } from "../lib/3d-model";
+import {
+  applyModelFade,
+  easeOutCubic,
+  findNodeByHitObject,
+} from "../lib/3d-model";
 import { isNodeInNonSelectableSection } from "../lib/map-tree-to-sections";
 import {
   FLOATING_BOB_AMPLITUDE,
@@ -33,6 +37,8 @@ export default function Ship({
   hoveredStructureNode,
   hiddenNodeIds,
   onModelTreeLoaded,
+  onAssemblyPointsSampled,
+  isShipVisible,
   tree,
   onHover,
   onSelectByClick,
@@ -42,6 +48,9 @@ export default function Ship({
   hoveredStructureNode: ShipTreeNode | null;
   hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
+  onAssemblyPointsSampled?: (points: Float32Array) => void;
+  /** False until the loading ring reveals the ship beneath its particles. */
+  isShipVisible: boolean;
   tree?: ShipTreeNode[] | null;
   onHover?: (node: ShipTreeNode | null) => void;
   onSelectByClick?: (node: ShipTreeNode | null) => void;
@@ -50,6 +59,8 @@ export default function Ship({
   const isDragging = useRef(false);
   const pointerDownAt = useRef({ x: 0, y: 0 });
   const floatGroupRef = useRef<Group>(null);
+  /** Last fade factor written, so the restore happens once and not per frame. */
+  const lastFadeRef = useRef(1);
   const { isOrbitControlsActive } = useSceneInteraction();
 
   const [displayMode, setDisplayMode] = useState<ShipDisplayMode>("animated");
@@ -96,10 +107,30 @@ export default function Ship({
     const group = floatGroupRef.current;
     if (!group) return;
 
-    // While the dev loop preview runs there is nothing to load, so the ship
-    // would sit in front of the very animation being previewed. Hide it.
-    if (IS_SCENE_INSPECTOR_ENABLED) {
-      group.visible = !LOADING_RING_PREVIEW.isLooping;
+    // The ship fades up as the loading ring's particles fade off it, so the
+    // silhouette hands over to the real thing instead of snapping into place.
+    // `shipReveal` is written by the ring every frame, in the real sequence and
+    // in the loop preview alike.
+    // While the GUI is driving the ring — looping or pinned — it owns ship
+    // visibility too. Otherwise the real load sequence, which runs
+    // independently and finishes long before, would force the ship visible and
+    // the preview would show it during the fill.
+    const isGuiDriving =
+      IS_SCENE_INSPECTOR_ENABLED &&
+      (LOADING_RING_STATE.isLooping || LOADING_RING_STATE.isPinned);
+    const reveal = isGuiDriving
+      ? LOADING_RING_STATE.shipReveal
+      : isShipVisible
+        ? 1
+        : LOADING_RING_STATE.shipReveal;
+    group.visible = reveal > 0;
+    if (group.visible && reveal < 1) {
+      applyModelFade(group, reveal);
+      lastFadeRef.current = reveal;
+    } else if (group.visible && lastFadeRef.current !== 1) {
+      // Restore exactly once, rather than every frame for the rest of the load.
+      applyModelFade(group, 1);
+      lastFadeRef.current = 1;
     }
 
     const now = performance.now();
@@ -266,6 +297,7 @@ export default function Ship({
             }
             hiddenNodeIds={hiddenNodeIds}
             onModelTreeLoaded={onModelTreeLoaded}
+            onAssemblyPointsSampled={onAssemblyPointsSampled}
           />
         </Suspense>
       </group>

@@ -4,6 +4,8 @@ import { ShipTreeNode } from "../ship-visualizer-types";
 import { useEffect, useMemo } from "react";
 import { Group } from "three";
 import { getMaxTextureAnisotropy } from "@/features/3d-scene/lib/webgpu-renderer";
+import { ASSEMBLY_POINT_COUNT } from "@/features/3d-scene/lib/loading-ring-particles";
+import { sampleModelSurfacePoints } from "../lib/sample-model-points";
 import {
   HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED,
   PROPELLERS_OBJECT_NAME,
@@ -27,12 +29,14 @@ export default function GltfShipModel({
   hoveredStructureNode,
   hiddenNodeIds,
   onModelTreeLoaded,
+  onAssemblyPointsSampled,
 }: {
   path: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
   hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
+  onAssemblyPointsSampled?: (points: Float32Array) => void;
 }) {
   const gltf = useGLTF(path);
   const maxAnisotropy = useThree((state) =>
@@ -52,6 +56,15 @@ export default function GltfShipModel({
       onModelTreeLoaded(buildTreeFromModel(cloned));
     }
   }, [cloned, onModelTreeLoaded]);
+
+  // Sampled here because this is where the built model lives, and the points
+  // are wanted the moment it becomes available. World space, so the loading
+  // ring can fly particles onto the hull without a space conversion per frame.
+  useEffect(() => {
+    if (!cloned || !onAssemblyPointsSampled) return;
+    const points = sampleModelSurfacePoints(cloned, ASSEMBLY_POINT_COUNT);
+    if (points !== null) onAssemblyPointsSampled(points);
+  }, [cloned, onAssemblyPointsSampled]);
 
   useEffect(() => {
     if (!cloned) return;

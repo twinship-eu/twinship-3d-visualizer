@@ -13,6 +13,7 @@ import type {
 
 /** Slider ranges for the ring's visual uniforms, as [min, max, step]. */
 const RING_SLIDERS: Record<string, readonly [number, number, number]> = {
+  waterline: [-12, 6, 0.5],
   radius: [5, 120, 1],
   tilt: [0, Math.PI / 2, 0.01],
   spinSpeed: [-2, 2, 0.01],
@@ -22,10 +23,14 @@ const RING_SLIDERS: Record<string, readonly [number, number, number]> = {
   bandThickness: [0, 0.3, 0.005],
 } as const;
 
-/** Uniforms the ring writes every frame; those go through the override instead. */
+/**
+ * Uniforms the ring writes every frame from its phase clock. They are not
+ * sliders: anything bound to them would be overwritten before it was seen.
+ * `progress` and `dispersion` are reachable through the override's pin instead.
+ */
 type TunableUniform = Exclude<
   keyof LoadingRingUniforms,
-  "progress" | "dispersion"
+  "progress" | "dispersion" | "assembly" | "fade"
 >;
 
 export type LoadingRingControls = {
@@ -69,10 +74,19 @@ export function SceneInspector({ ringControls }: Props) {
     const group = inspector.createParameters("Loading ring");
 
     group.add(override, "isLooping").name("loop (replay forever)");
-    group.add(override, "loopSeconds", 1, 15, 0.5).name("loop seconds");
     group.add(override, "isPinned").name("pin (freeze)");
     group.add(override, "progress", 0, 1, 0.01).listen();
+    group.add(override, "assembly", 0, 1, 0.01).listen();
+    group.add(override, "fade", 0, 1, 0.01).listen();
     group.add(override, "dispersion", 0, 1, 0.01).listen();
+
+    // Each stage has its own duration rather than a share of one total, so the
+    // converge can be tuned without shortening the fill.
+    const timing = group.addFolder("Timing (seconds)");
+    timing.add(override, "fillSeconds", 0.5, 10, 0.25).name("fill (one loop)");
+    timing.add(override, "convergeSeconds", 0.1, 6, 0.1).name("converge");
+    timing.add(override, "holdSeconds", 0, 4, 0.1).name("hold ghost");
+    timing.add(override, "revealSeconds", 0.1, 6, 0.1).name("reveal ship");
 
     const shape = group.addFolder("Shape & motion");
     for (const [name, [min, max, step]] of Object.entries(RING_SLIDERS)) {

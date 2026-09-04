@@ -72,21 +72,23 @@ export const WATER_NORMALS_URL =
  * that interpolates toward its targets, so it lives here rather than in either.
  */
 export const LOADING_RING_TIMING = {
-  /** Grace period before the ring appears at all; a warm load never shows it. */
-  SHOW_DELAY_MS: 120,
-  /** Once shown, stay up at least this long so a fast load still reads as a fill. */
-  MIN_VISIBLE_MS: 700,
-  /** Holding the closed ring at 100% before it bursts. */
-  COMPLETE_MS: 320,
   /**
-   * Particles flying outward and fading as the ship appears beneath.
+   * One sweep of the arc. The fill repeats in whole cycles and the handover only
+   * ever happens at a cycle boundary, so the transition always looks deliberate
+   * — which also means the arc is an indeterminate animation, not a progress
+   * meter: tracking real percent would stall mid-sweep and never reach a
+   * boundary to hand over on.
    *
-   * Matched to what the loop preview shows: at `loopSeconds` 3.5 split evenly
-   * between fill and burst, the previewed burst runs 1750ms, so a real one runs
-   * the same length and the preview stays truthful. This does not delay the
-   * scene — the ship is already visible underneath while the bubbles clear.
+   * These are the defaults; the live values live in LOADING_RING_PREVIEW so the
+   * development GUI can tune them, and nothing writes them in production.
    */
-  BURST_MS: 1750,
+  FILL_MS: 3750,
+  /** Particles flying from the ring onto their sampled points on the hull. */
+  CONVERGE_MS: 900,
+  /** The assembled "ghost ship" holding still, so the shape registers. */
+  HOLD_MS: 400,
+  /** Particles fading out over the newly revealed ship. */
+  REVEAL_MS: 700,
   /** Exponential smoothing rate for progress and dispersion, per second. */
   SMOOTHING_RATE: 6,
 } as const;

@@ -60,7 +60,10 @@ export function ShipVisualizer() {
   // Only the default model has alternate builds to compare against; any other
   // model the tree points at is shown as-is.
   const isModelReady = modelTree !== null;
-  const veil = useModelLoadProgress(isModelReady);
+  const [assemblyTargets, setAssemblyTargets] = useState<Float32Array | null>(
+    null
+  );
+  const loading = useModelLoadProgress(isModelReady, assemblyTargets !== null);
   // Held so the dev Inspector can bind controls straight to the ring's tunables.
   const [ringControls, setRingControls] =
     useState<LoadingRingControls | null>(null);
@@ -197,12 +200,14 @@ export function ShipVisualizer() {
               tree={tree}
               onHover={handleHover}
               onSelectByClick={handleSelectByClick}
+              onAssemblyPointsSampled={setAssemblyTargets}
+              isShipVisible={loading.isShipVisible}
             />
-            {(veil.isRingVisible || IS_SCENE_INSPECTOR_ENABLED) && (
+            {(loading.isRingVisible || IS_SCENE_INSPECTOR_ENABLED) && (
               <SceneErrorFallback fallback={null}>
                 <LoadingRing
-                  progress={veil.progress}
-                  dispersion={veil.isRingVisible ? veil.dispersion : 1}
+                  phase={loading.phase}
+                  assemblyTargets={assemblyTargets}
                   onControlsReady={setRingControls}
                 />
               </SceneErrorFallback>
