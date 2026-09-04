@@ -410,15 +410,27 @@ export function createLoadingRing(): {
   // 0.01; very visible at 0.375. Extending the sweep by the softness at the
   // trailing end makes fill-in finish uniformly lit and fill-out start
   // uniformly lit, which is what makes the two halves join.
+  // One edge, swept from just before the ring to just after it: from `-soft` to
+  // `1`, so its soft band [sweep, sweep + soft] lies entirely outside 0..1 at
+  // both ends of a cycle. That is what makes a cycle finish uniformly lit and
+  // the next start uniformly lit — and it must cover *everything* keyed to the
+  // edge, the highlight included, or whatever is left behind teleports on its
+  // own.
   const soft = uniforms.arcSoftness;
-  const sweep = uniforms.progress.mul(float(1).add(soft));
+  const sweep = soft.negate().add(uniforms.progress.mul(float(1).add(soft)));
 
   // Fill-out is the exact complement of fill-in against the same swept edge, so
   // the two share one geometry and cannot disagree at a boundary.
-  const fillsIn = oneMinus(smoothstep(sweep.sub(soft), sweep, arcPos));
+  const fillsIn = oneMinus(smoothstep(sweep, sweep.add(soft), arcPos));
   const inArc = mix(fillsIn, oneMinus(fillsIn), uniforms.arcInvert);
+  // Centred inside the swept band rather than on raw `progress`. Keyed to
+  // `progress` it sat in a different place from the gradient, so at a cycle
+  // boundary this bright, enlarged band jumped a third of the way around the
+  // ring while the ring itself stayed uniformly lit — visible precisely because
+  // the fill no longer jumps.
+  const edgeCentre = sweep.add(soft.mul(0.5));
   const leadingEdge = oneMinus(
-    smoothstep(0, uniforms.arcSoftness, abs(arcPos.sub(uniforms.progress)))
+    smoothstep(0, soft.mul(0.5), abs(arcPos.sub(edgeCentre)))
   );
 
   const tint = mix(color(RING_DIM_COLOR), color(RING_HOT_COLOR), inArc);
