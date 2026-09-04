@@ -2,8 +2,10 @@
 
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
-import { PMREMGenerator, Scene } from "three";
+import { PMREMGenerator } from "three/webgpu";
+import { Scene } from "three";
 import { ENVIRONMENT_MAP_INTENSITY } from "../lib/3d-scene-config";
+import { asSceneRenderer } from "../lib/webgpu-renderer";
 import { createSky } from "./scene-sky";
 
 /**
@@ -23,7 +25,7 @@ export function SceneEnvironmentMap() {
   const { scene, gl } = useThree();
 
   useEffect(() => {
-    const pmremGenerator = new PMREMGenerator(gl);
+    const pmremGenerator = new PMREMGenerator(asSceneRenderer(gl));
     const skyScene = new Scene();
     const sky = createSky();
     skyScene.add(sky);

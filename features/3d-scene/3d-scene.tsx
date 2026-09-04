@@ -12,6 +12,8 @@ import {
   SCENE_BACKGROUND_COLOR,
 } from "./lib/3d-scene-config";
 import { SceneLights } from "./components/scene-lights";
+import { SceneSky } from "./components/scene-sky";
+import { SceneEnvironmentMap } from "./components/scene-environment-map";
 import { createSceneRenderer } from "./lib/webgpu-renderer";
 import { RendererBackendProbe } from "./components/renderer-backend-probe";
 import { RendererBackendBadge } from "./components/renderer-backend-badge";
@@ -65,6 +67,8 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           gl={createSceneRenderer}
         >
           <RendererBackendProbe onResolved={setIsWebGPU} />
+          <SceneSky />
+          <SceneEnvironmentMap />
           <SceneLights />
           {children}
           <OrbitControls

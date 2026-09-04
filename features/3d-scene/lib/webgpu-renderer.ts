@@ -85,6 +85,19 @@ export async function createSceneRenderer(
 }
 
 /**
+ * Reinterprets R3F's renderer handle as the renderer this scene actually runs.
+ *
+ * R3F's store types `state.gl` as `THREE.WebGLRenderer`, because that is its
+ * default. This scene substitutes a `WebGPURenderer` through the `gl` factory, so
+ * anything needing the node renderer's API — `PMREMGenerator` from
+ * `three/webgpu`, for one — has to go through here. Keeping the cast in a single
+ * named function stops it from being sprinkled across components.
+ */
+export function asSceneRenderer(gl: unknown): WebGPURenderer {
+  return gl as WebGPURenderer;
+}
+
+/**
  * Anisotropy to assume when the backend does not report a maximum.
  *
  * `WebGPURenderer.getMaxAnisotropy()` delegates to the backend, and the WebGPU

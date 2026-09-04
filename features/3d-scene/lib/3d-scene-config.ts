@@ -39,10 +39,14 @@ export const SKY_UNIFORMS = {
   cloudCoverage: 0.4,
   cloudDensity: 0.5,
   cloudElevation: 0.5,
+  /** Spatial frequency of the cloud noise. Larger = smaller, busier clouds. */
+  cloudScale: 0.0002,
+  /**
+   * Cloud drift rate. SkyMesh advances clouds from TSL's global `time`, which
+   * replaces the manual per-frame clock the GLSL Sky needed.
+   */
+  cloudSpeed: 0.0001,
 } as const;
-
-/** Cloud animation speed multiplier (1 = real-time; lower = slower). */
-export const CLOUD_ANIMATION_SPEED = 0.00002;
 
 /** Water plane size (XZ); match three.js ocean example scale. */
 export const WATER_PLANE_SIZE = 10_000;
