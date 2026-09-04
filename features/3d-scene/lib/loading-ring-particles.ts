@@ -1,3 +1,4 @@
+import { IS_SCENE_INSPECTOR_ENABLED } from "./3d-scene-config";
 import {
   Color,
   InstancedBufferAttribute,
@@ -37,11 +38,31 @@ const RING_HOT_COLOR = new Color("#b69cff");
 /** How far particles fly out, and how far they lift, as the ring bursts. */
 const DISPERSE_DISTANCE = 26;
 const DISPERSE_LIFT = 14;
+/**
+ * Share of the burst spent staggering the starts. Without it every particle
+ * leaves at once, which reads as the whole ring scaling up rather than as
+ * individual bubbles breaking away.
+ */
+const BURST_DELAY_SPREAD = 0.55;
+/** Sideways drift while rising, as a fraction of the outward distance. */
+const BURST_LATERAL = 0.45;
+/** Sideways wobble rate while rising. */
+const BURST_WOBBLE_RATE = 2.3;
+/** How much bubbles swell as they rise. */
+const BURST_GROWTH = 0.8;
 /** Extra brightness and size right at the arc's leading edge. */
 const EDGE_BOOST = 2.2;
 const EDGE_SIZE_BOOST = 0.9;
-/** Vertical breathing of the ring band, as a fraction of radius. */
+/** Vertical breathing of the ring band. */
 const WOBBLE_RATE = 0.7;
+/**
+ * Animated share of the band's vertical spread. Kept small: the rest is a flat
+ * random offset, because animating the *whole* offset with a sine is what
+ * produced a hard line at each edge of the band.
+ */
+const BAND_WOBBLE = 0.15;
+/** Where the band starts fading out, as a fraction of its half-height. */
+const BAND_FADE_START = 0.72;
 /** Alpha floor, so unfilled ring is still visible rather than invisible. */
 const BASE_OPACITY = 0.22;
 /** Point sprites are square; this trims them to a soft disc. */
@@ -106,25 +127,26 @@ function createRingGeometry(): InstancedBufferGeometry {
   geometry.setAttribute("uv", quad.getAttribute("uv"));
   geometry.instanceCount = PARTICLE_COUNT;
 
-  const angles = new Float32Array(PARTICLE_COUNT);
-  const jitters = new Float32Array(PARTICLE_COUNT);
-  const speeds = new Float32Array(PARTICLE_COUNT);
-  const sizes = new Float32Array(PARTICLE_COUNT);
-  const phases = new Float32Array(PARTICLE_COUNT);
+  // Packed into two vec4s rather than eight scalars: WebGPU caps a pipeline at
+  // 8 vertex buffers, and position + uv + eight scalar attributes is 10.
+  const ring = new Float32Array(PARTICLE_COUNT * 4);
+  const burst = new Float32Array(PARTICLE_COUNT * 4);
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
-    angles[i] = Math.random() * TAU;
-    jitters[i] = Math.random() * 2 - 1;
-    speeds[i] = 0.8 + Math.random() * 0.4;
-    sizes[i] = 0.5 + Math.random() * 1.1;
-    phases[i] = Math.random();
+    const r = i * 4;
+    ring[r] = Math.random() * TAU; // angle around the ring
+    ring[r + 1] = Math.random() * 2 - 1; // band jitter
+    ring[r + 2] = 0.8 + Math.random() * 0.4; // orbit speed
+    ring[r + 3] = 0.5 + Math.random() * 1.1; // sprite size
+
+    burst[r] = Math.random(); // wobble phase
+    burst[r + 1] = Math.random(); // burst start delay
+    burst[r + 2] = 0.35 + Math.random() * 1.3; // rise rate
+    burst[r + 3] = 0.3 + Math.random() * 1.2; // outward distance
   }
 
-  geometry.setAttribute("aAngle", new InstancedBufferAttribute(angles, 1));
-  geometry.setAttribute("aJitter", new InstancedBufferAttribute(jitters, 1));
-  geometry.setAttribute("aSpeed", new InstancedBufferAttribute(speeds, 1));
-  geometry.setAttribute("aSize", new InstancedBufferAttribute(sizes, 1));
-  geometry.setAttribute("aPhase", new InstancedBufferAttribute(phases, 1));
+  geometry.setAttribute("aRing", new InstancedBufferAttribute(ring, 4));
+  geometry.setAttribute("aBurst", new InstancedBufferAttribute(burst, 4));
   return geometry;
 }
 
@@ -149,7 +171,10 @@ function createRingGeometry(): InstancedBufferGeometry {
  * preview runs, for one. Only ever touched by development tooling.
  */
 export const LOADING_RING_PREVIEW: LoadingRingOverride = {
-  isLooping: false,
+  // On by default in development so a refresh always shows the loading
+  // animation, with the ship hidden. Must never be on in production, or the
+  // loader would replay forever and never hand over to the scene.
+  isLooping: IS_SCENE_INSPECTOR_ENABLED,
   loopSeconds: 4,
   isPinned: false,
   progress: 0.5,
@@ -167,33 +192,51 @@ export function createLoadingRing(): {
   const uniforms: LoadingRingUniforms = {
     progress: floatUniform(0),
     dispersion: floatUniform(0),
-    radius: floatUniform(42),
-    tilt: floatUniform(0.55),
-    spinSpeed: floatUniform(0.25),
-    spriteSize: floatUniform(0.7),
-    glow: floatUniform(1.6),
-    arcSoftness: floatUniform(0.06),
-    bandThickness: floatUniform(0.035),
+    radius: floatUniform(33),
+    tilt: floatUniform(0),
+    spinSpeed: floatUniform(0.72),
+    spriteSize: floatUniform(1.2),
+    glow: floatUniform(6),
+    arcSoftness: floatUniform(0.01),
+    bandThickness: floatUniform(0.3),
   };
 
-  // The explicit type argument matters: `attribute("x", "float")` widens the
-  // type parameter to `string`, which loses every arithmetic method on the node.
-  const aAngle = attribute<"float">("aAngle", "float");
-  const aJitter = attribute<"float">("aJitter", "float");
-  const aSpeed = attribute<"float">("aSpeed", "float");
-  const aSize = attribute<"float">("aSize", "float");
-  const aPhase = attribute<"float">("aPhase", "float");
+  // The explicit type argument matters: `attribute("x", "vec4")` widens the type
+  // parameter to `string`, which loses every arithmetic method on the node.
+  const aRing = attribute<"vec4">("aRing", "vec4");
+  const aBurst = attribute<"vec4">("aBurst", "vec4");
+
+  const aAngle = aRing.x;
+  const aJitter = aRing.y;
+  const aSpeed = aRing.z;
+  const aSize = aRing.w;
+  const aPhase = aBurst.x;
+  const aBurstDelay = aBurst.y;
+  const aBurstLift = aBurst.z;
+  const aBurstSpread = aBurst.w;
 
   const angle = aAngle.add(time.mul(uniforms.spinSpeed).mul(aSpeed));
   const spread = uniforms.radius.mul(uniforms.bandThickness);
   const ringRadius = uniforms.radius.add(aJitter.mul(spread));
-  const wobble = sin(time.mul(WOBBLE_RATE).add(aPhase.mul(TAU))).mul(spread);
+
+  // Height across the band must be *uniformly* distributed. Deriving it from
+  // sin() of a uniform phase, as this first did, is arcsine-distributed: it
+  // piles particles at both extremes and draws a hard horizontal line at each
+  // edge of the band. aBurstDelay is reused as the uniform source — the only
+  // correlation it introduces is that higher bubbles burst slightly later,
+  // which is harmless and arguably right.
+  const bandHeight = aBurstDelay.mul(2).sub(1);
+  const wobble = sin(time.mul(WOBBLE_RATE).add(aPhase.mul(TAU))).mul(BAND_WOBBLE);
+  const bandY = bandHeight.add(wobble).mul(spread);
 
   const flat = vec3(
     cos(angle).mul(ringRadius),
-    wobble,
+    bandY,
     sin(angle).mul(ringRadius)
   );
+
+  // Belt and braces against a visible band edge: fade the outermost particles.
+  const bandFade = oneMinus(smoothstep(BAND_FADE_START, 1, abs(bandHeight)));
 
   // Tilt the ring plane about X so it presents as a ring rather than a flat line.
   const tiltCos = cos(uniforms.tilt);
@@ -204,11 +247,30 @@ export function createLoadingRing(): {
     flat.y.mul(tiltSin).add(flat.z.mul(tiltCos))
   );
 
-  // Burst: outward along the radial direction, plus a lift.
+  // Burst, as bubbles rather than as a uniform expansion.
+  //
+  // Each particle gets its own start time, so they break away in a scatter
+  // instead of the whole ring scaling up together; its own rise rate and
+  // distance; a sideways wobble while rising; and a little swelling, the way a
+  // bubble does. `burst` is this particle's own 0..1 progress through its own
+  // portion of the dispersion.
+  const burstStart = aBurstDelay.mul(BURST_DELAY_SPREAD);
+  const burst = uniforms.dispersion
+    .sub(burstStart)
+    .div(float(1).sub(burstStart))
+    .clamp(0, 1);
+
   const outward = normalize(vec3(tilted.x, 0, tilted.z));
+  const wobble2 = sin(time.mul(BURST_WOBBLE_RATE).add(aPhase.mul(TAU)));
+  const lateral = vec3(outward.z.negate(), 0, outward.x).mul(
+    wobble2.mul(burst).mul(DISPERSE_DISTANCE).mul(BURST_LATERAL)
+  );
+
   const dispersed = tilted
-    .add(outward.mul(uniforms.dispersion.mul(DISPERSE_DISTANCE)))
-    .add(vec3(0, uniforms.dispersion.mul(DISPERSE_LIFT), 0));
+    .add(outward.mul(burst.mul(DISPERSE_DISTANCE).mul(aBurstSpread)))
+    .add(lateral)
+    // Squared, so bubbles accelerate upward instead of drifting linearly.
+    .add(vec3(0, burst.mul(burst).mul(DISPERSE_LIFT).mul(aBurstLift), 0));
 
   // Where this particle sits around the ring, in 0..1 — the arc is measured in
   // this space, which is why it stays put while particles travel through it.
@@ -239,10 +301,13 @@ export function createLoadingRing(): {
   material.colorNode = tint.mul(brightness);
   material.scaleNode = uniforms.spriteSize
     .mul(aSize)
-    .mul(float(1).add(leadingEdge.mul(EDGE_SIZE_BOOST)));
+    .mul(float(1).add(leadingEdge.mul(EDGE_SIZE_BOOST)))
+    .mul(float(1).add(burst.mul(BURST_GROWTH)));
   material.opacityNode = sprite
+    .mul(bandFade)
     .mul(inArc.mul(oneMinus(BASE_OPACITY)).add(BASE_OPACITY))
-    .mul(oneMinus(uniforms.dispersion));
+    // Fades on this particle's own burst, so bubbles wink out in a scatter.
+    .mul(oneMinus(burst));
   material.transparent = true;
   material.blending = AdditiveBlending;
   material.depthWrite = false;
