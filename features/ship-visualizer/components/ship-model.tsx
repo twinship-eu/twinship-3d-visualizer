@@ -9,12 +9,14 @@ export default function ShipModel({
   hoveredStructureNode,
   hiddenNodeIds,
   onModelTreeLoaded,
+  onAssemblyPointsSampled,
 }: {
   path: string;
   selectedStructureNode: ShipTreeNode | null;
   hoveredStructureNode: ShipTreeNode | null;
   hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
+  onAssemblyPointsSampled?: (points: Float32Array) => void;
 }) {
   const isFbx = path.toLowerCase().endsWith(FBX_EXT);
   return isFbx ? (
@@ -32,6 +34,7 @@ export default function ShipModel({
       hoveredStructureNode={hoveredStructureNode}
       hiddenNodeIds={hiddenNodeIds}
       onModelTreeLoaded={onModelTreeLoaded}
+      onAssemblyPointsSampled={onAssemblyPointsSampled}
     />
   );
 }

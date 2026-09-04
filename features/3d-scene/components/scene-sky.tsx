@@ -1,51 +1,33 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
-import { Sky as ThreeSky } from "three/examples/jsm/objects/Sky.js";
-import {
-  CLOUD_ANIMATION_SPEED,
-  getSunDirection,
-  SKY_SCALE,
-  SKY_UNIFORMS,
-} from "../lib/3d-scene-config";
+import { useMemo } from "react";
+import { SkyMesh } from "three/examples/jsm/objects/SkyMesh.js";
+import { getSunDirection, SKY_SCALE, SKY_UNIFORMS } from "../lib/3d-scene-config";
 
-type SkyUniforms = {
-  sunPosition: { value: ReturnType<typeof getSunDirection> };
-  turbidity: { value: number };
-  rayleigh: { value: number };
-  mieCoefficient: { value: number };
-  mieDirectionalG: { value: number };
-  cloudCoverage: { value: number };
-  cloudDensity: { value: number };
-  cloudElevation: { value: number };
-  time: { value: number };
-};
+/** Builds a Sky configured from SKY_UNIFORMS. Also used to bake the scene IBL. */
+export function createSky(): SkyMesh {
+  const sky = new SkyMesh();
+  sky.scale.setScalar(SKY_SCALE);
+  sky.sunPosition.value.copy(getSunDirection());
+  sky.turbidity.value = SKY_UNIFORMS.turbidity;
+  sky.rayleigh.value = SKY_UNIFORMS.rayleigh;
+  sky.mieCoefficient.value = SKY_UNIFORMS.mieCoefficient;
+  sky.mieDirectionalG.value = SKY_UNIFORMS.mieDirectionalG;
+  sky.cloudCoverage.value = SKY_UNIFORMS.cloudCoverage;
+  sky.cloudDensity.value = SKY_UNIFORMS.cloudDensity;
+  sky.cloudElevation.value = SKY_UNIFORMS.cloudElevation;
+  sky.cloudScale.value = SKY_UNIFORMS.cloudScale;
+  sky.cloudSpeed.value = SKY_UNIFORMS.cloudSpeed;
+  return sky;
+}
 
+/**
+ * The sky needs no per-frame work: SkyMesh drives its cloud drift from TSL's
+ * global `time` node, so the clock-advancing `useFrame` the GLSL Sky required is
+ * gone along with its ref.
+ */
 export function SceneSky() {
-  const skyRef = useRef<ThreeSky>(null);
+  const sky = useMemo(() => createSky(), []);
 
-  const sky = useMemo(() => {
-    const s = new ThreeSky();
-    s.scale.setScalar(SKY_SCALE);
-    const mat = s.material as unknown as { uniforms: SkyUniforms };
-    mat.uniforms.sunPosition.value.copy(getSunDirection());
-    mat.uniforms.turbidity.value = SKY_UNIFORMS.turbidity;
-    mat.uniforms.rayleigh.value = SKY_UNIFORMS.rayleigh;
-    mat.uniforms.mieCoefficient.value = SKY_UNIFORMS.mieCoefficient;
-    mat.uniforms.mieDirectionalG.value = SKY_UNIFORMS.mieDirectionalG;
-    mat.uniforms.cloudCoverage.value = SKY_UNIFORMS.cloudCoverage;
-    mat.uniforms.cloudDensity.value = SKY_UNIFORMS.cloudDensity;
-    mat.uniforms.cloudElevation.value = SKY_UNIFORMS.cloudElevation;
-    return s;
-  }, []);
-
-  useFrame((_, delta) => {
-    const s = skyRef.current ?? sky;
-    const mat = s?.material as unknown as { uniforms: SkyUniforms } | undefined;
-    if (mat?.uniforms?.time)
-      mat.uniforms.time.value += delta * CLOUD_ANIMATION_SPEED;
-  });
-
-  return <primitive ref={skyRef} object={sky} />;
+  return <primitive object={sky} />;
 }

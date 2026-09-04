@@ -1,9 +1,14 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
+import { LOADING_RING_REVEAL } from "@/features/3d-scene/lib/loading-ring-particles";
 import { Group } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { Object3D } from "three";
-import { easeOutCubic, findNodeByHitObject } from "../lib/3d-model";
+import {
+  applyModelFade,
+  easeOutCubic,
+  findNodeByHitObject,
+} from "../lib/3d-model";
 import { isNodeInNonSelectableSection } from "../lib/map-tree-to-sections";
 import {
   FLOATING_BOB_AMPLITUDE,
@@ -31,6 +36,8 @@ export default function Ship({
   hoveredStructureNode,
   hiddenNodeIds,
   onModelTreeLoaded,
+  onAssemblyPointsSampled,
+  isInteractive,
   tree,
   onHover,
   onSelectByClick,
@@ -40,6 +47,9 @@ export default function Ship({
   hoveredStructureNode: ShipTreeNode | null;
   hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
+  onAssemblyPointsSampled?: (points: Float32Array) => void;
+  /** False while the loading animation is still running. */
+  isInteractive: boolean;
   tree?: ShipTreeNode[] | null;
   onHover?: (node: ShipTreeNode | null) => void;
   onSelectByClick?: (node: ShipTreeNode | null) => void;
@@ -48,6 +58,8 @@ export default function Ship({
   const isDragging = useRef(false);
   const pointerDownAt = useRef({ x: 0, y: 0 });
   const floatGroupRef = useRef<Group>(null);
+  /** Last fade factor written, so the restore happens once and not per frame. */
+  const lastFadeRef = useRef(1);
   const { isOrbitControlsActive } = useSceneInteraction();
 
   const [displayMode, setDisplayMode] = useState<ShipDisplayMode>("animated");
@@ -93,6 +105,21 @@ export default function Ship({
   useFrame((state) => {
     const group = floatGroupRef.current;
     if (!group) return;
+
+    // The ship fades up as the loading ring's particles fade off it, so the
+    // silhouette hands over to the real thing instead of snapping into place.
+    // `shipReveal` is written by the ring every frame, in the real sequence and
+    // in the loop preview alike.
+    const reveal = isInteractive ? 1 : LOADING_RING_REVEAL.shipReveal;
+    group.visible = reveal > 0;
+    if (group.visible && reveal < 1) {
+      applyModelFade(group, reveal);
+      lastFadeRef.current = reveal;
+    } else if (group.visible && lastFadeRef.current !== 1) {
+      // Restore exactly once, rather than every frame for the rest of the load.
+      applyModelFade(group, 1);
+      lastFadeRef.current = 1;
+    }
 
     const now = performance.now();
     const elapsed = now - transitionStartTimeRef.current;
@@ -241,20 +268,13 @@ export default function Ship({
       <group
         ref={floatGroupRef}
         position={[0, SHIP_VERTICAL_OFFSET, 0]}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
-        onClick={handleClick}
+        onPointerDown={isInteractive ? handlePointerDown : undefined}
+        onPointerMove={isInteractive ? handlePointerMove : undefined}
+        onPointerUp={isInteractive ? handlePointerUp : undefined}
+        onPointerLeave={isInteractive ? handlePointerLeave : undefined}
+        onClick={isInteractive ? handleClick : undefined}
       >
-        <Suspense
-          fallback={
-            <mesh position={[0, 0, 0]}>
-              <boxGeometry args={[2, 2, 2]} />
-              <meshStandardMaterial color="gray" />
-            </mesh>
-          }
-        >
+        <Suspense fallback={null}>
           <ShipModel
             path={modelPath}
             selectedStructureNode={
@@ -265,6 +285,7 @@ export default function Ship({
             }
             hiddenNodeIds={hiddenNodeIds}
             onModelTreeLoaded={onModelTreeLoaded}
+            onAssemblyPointsSampled={onAssemblyPointsSampled}
           />
         </Suspense>
       </group>

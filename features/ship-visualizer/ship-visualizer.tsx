@@ -13,12 +13,28 @@ import { collectNodeIds } from "./lib/filter-tree";
 import {
   SHIP_VISUALIZER_LAYOUT,
   DEFAULT_SHIP_MODEL_PATH,
+  IS_MODEL_VARIANT_TOGGLE_ENABLED,
+  RAW_SHIP_MODEL_GLB,
+  PREVIOUS_SHIP_MODEL_GLB,
 } from "./ship-visualizer-config";
 import type { ShipTreeNode } from "./ship-visualizer-types";
 import { OntologyExplorer } from "../ontology-explorrer/ontology-explorer";
 import { SelectionDetailsModal } from "./components/selection-details-modal";
+import {
+  ModelVariantToggle,
+  type ModelVariant,
+} from "./components/model-variant-toggle";
+import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
+import { useModelLoadProgress } from "./hooks/use-model-load-progress";
 
 const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
+
+/** Builds of the default model, offered by the development-only toggle. */
+const MODEL_PATH_BY_VARIANT: Record<ModelVariant, string> = {
+  previous: PREVIOUS_SHIP_MODEL_GLB,
+  optimized: DEFAULT_SHIP_MODEL_PATH,
+  raw: RAW_SHIP_MODEL_GLB,
+};
 
 const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
 
@@ -33,10 +49,25 @@ export function ShipVisualizer() {
   const [visibleNodeIds, setVisibleNodeIds] = useState<
     Record<string, boolean>
   >({});
+  const [modelVariant, setModelVariant] =
+    useState<ModelVariant>("optimized");
+
+  // Only the default model has alternate builds to compare against; any other
+  // model the tree points at is shown as-is.
+  const isModelReady = modelTree !== null;
+  const [assemblyTargets, setAssemblyTargets] = useState<Float32Array | null>(
+    null
+  );
+  const loading = useModelLoadProgress(isModelReady, assemblyTargets !== null);
+
+  const isDefaultModel = selectedModelPath === DEFAULT_SHIP_MODEL_PATH;
+  const renderedModelPath = isDefaultModel
+    ? MODEL_PATH_BY_VARIANT[modelVariant]
+    : selectedModelPath;
 
   useEffect(() => {
     setModelTree(null);
-  }, [selectedModelPath]);
+  }, [renderedModelPath]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -153,7 +184,7 @@ export function ShipVisualizer() {
         >
           <Scene>
             <Ship
-              modelPath={selectedModelPath}
+              modelPath={renderedModelPath}
               selectedStructureNode={selectedStructureNode}
               hoveredStructureNode={hoveredStructureNode}
               hiddenNodeIds={hiddenNodeIds}
@@ -161,9 +192,26 @@ export function ShipVisualizer() {
               tree={tree}
               onHover={handleHover}
               onSelectByClick={handleSelectByClick}
+              onAssemblyPointsSampled={setAssemblyTargets}
+              isInteractive={loading.isInteractive}
             />
+            {loading.isRingVisible && (
+              <SceneErrorFallback fallback={null}>
+                <LoadingRing
+                  phase={loading.phase}
+                  assemblyTargets={assemblyTargets}
+                />
+              </SceneErrorFallback>
+            )}
           </Scene>
         </SceneErrorFallback>
+        {IS_MODEL_VARIANT_TOGGLE_ENABLED && isDefaultModel && (
+          <ModelVariantToggle
+            value={modelVariant}
+            onChange={setModelVariant}
+            isLoading={modelTree === null}
+          />
+        )}
         <SelectionDetailsModal
           selectedNode={selectedStructureNode}
           onClose={() => setSelectedStructureNode(null)}

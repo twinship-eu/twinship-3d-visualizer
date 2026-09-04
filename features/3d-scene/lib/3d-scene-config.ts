@@ -19,9 +19,15 @@ export function getSunPosition(): Vector3 {
 }
 
 export const LIGHT_INTENSITY = {
-  ambient: 2.3,
-  sun: 10,
+  ambient: 0.25,
+  sun: 7,
 } as const;
+
+/**
+ * Strength of the sky-baked IBL probe that lights the ship's metallic
+ * materials. Raise for shinier metal, lower for a flatter look.
+ */
+export const ENVIRONMENT_MAP_INTENSITY = 0.35;
 
 export const SKY_SCALE = 10_000;
 
@@ -33,24 +39,66 @@ export const SKY_UNIFORMS = {
   cloudCoverage: 0.4,
   cloudDensity: 0.5,
   cloudElevation: 0.5,
+  /** Spatial frequency of the cloud noise. Larger = smaller, busier clouds. */
+  cloudScale: 0.0002,
+  /**
+   * Cloud drift rate. SkyMesh advances clouds from TSL's global `time`, which
+   * replaces the manual per-frame clock the GLSL Sky needed.
+   */
+  cloudSpeed: 0.0001,
 } as const;
-
-/** Cloud animation speed multiplier (1 = real-time; lower = slower). */
-export const CLOUD_ANIMATION_SPEED = 0.00002;
 
 /** Water plane size (XZ); match three.js ocean example scale. */
 export const WATER_PLANE_SIZE = 10_000;
 /** Water options from three.js ocean example. */
 export const WATER_OPTIONS = {
-  textureWidth: 512,
-  textureHeight: 512,
   sunColor: 0xffffff,
   waterColor: 0x001e0f,
   distortionScale: 3.7,
 } as const;
+
+/**
+ * Reflection render-target scale for the water. WaterMesh replaces the old
+ * textureWidth/textureHeight pair (512x512) with this single factor; 0.5 is its
+ * default and the closest match at typical viewport sizes.
+ */
+export const WATER_RESOLUTION_SCALE = 0.5;
 /** Water normals texture URL (three.js examples). Use local path if needed. */
 export const WATER_NORMALS_URL =
   "https://threejs.org/examples/textures/waternormals.jpg";
+
+/**
+ * Timing for the loading ring. Read by both the phase machine and the component
+ * that interpolates toward its targets, so it lives here rather than in either.
+ */
+export const LOADING_RING_TIMING = {
+  /**
+   * One sweep of the arc. The fill repeats in whole cycles and the handover only
+   * ever happens at a cycle boundary, so the transition always looks deliberate
+   * — which also means the arc is an indeterminate animation, not a progress
+   * meter: tracking real percent would stall mid-sweep and never reach a
+   * boundary to hand over on.
+   *
+   * These are the defaults; the live values live in LOADING_RING_PREVIEW so the
+   * development GUI can tune them, and nothing writes them in production.
+   */
+  FILL_MS: 1500,
+  /** Particles flying from the ring onto their sampled points on the hull. */
+  CONVERGE_MS: 1600,
+  /** The assembled "ghost ship" holding still, so the shape registers. */
+  HOLD_MS: 100,
+  /** Particles fading out over the newly revealed ship. */
+  REVEAL_MS: 700,
+} as const;
+
+/**
+ * Height of the loading ring. Sits at roughly the ship's own waterline, so the
+ * particles start where the hull will be rather than below it.
+ */
+export const RING_WATERLINE_Y = 0.5;
+
+/** The backend readout is a development diagnostic, not product UI. */
+export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
 
 export const SCENE_BACKGROUND_COLOR = "#c8d4e0";
 

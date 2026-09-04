@@ -24,7 +24,16 @@ export default function CameraFitToSelection({
   const startTarget = useRef(new Vector3());
   const endTarget = useRef(new Vector3());
 
+  // Swapping the model remounts this component. Resetting on that first run
+  // would throw away the camera the user had framed, which makes comparing two
+  // builds of the same model impossible, so only react to later changes.
+  const hasMounted = useRef(false);
+
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
     if (selectedNode) {
       fitPending.current = true;
     } else {
