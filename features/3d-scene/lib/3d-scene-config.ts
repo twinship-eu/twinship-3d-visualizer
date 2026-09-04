@@ -52,12 +52,17 @@ export const SKY_UNIFORMS = {
 export const WATER_PLANE_SIZE = 10_000;
 /** Water options from three.js ocean example. */
 export const WATER_OPTIONS = {
-  textureWidth: 512,
-  textureHeight: 512,
   sunColor: 0xffffff,
   waterColor: 0x001e0f,
   distortionScale: 3.7,
 } as const;
+
+/**
+ * Reflection render-target scale for the water. WaterMesh replaces the old
+ * textureWidth/textureHeight pair (512x512) with this single factor; 0.5 is its
+ * default and the closest match at typical viewport sizes.
+ */
+export const WATER_RESOLUTION_SCALE = 0.5;
 /** Water normals texture URL (three.js examples). Use local path if needed. */
 export const WATER_NORMALS_URL =
   "https://threejs.org/examples/textures/waternormals.jpg";

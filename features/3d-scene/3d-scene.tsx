@@ -14,6 +14,7 @@ import {
 import { SceneLights } from "./components/scene-lights";
 import { SceneSky } from "./components/scene-sky";
 import { SceneEnvironmentMap } from "./components/scene-environment-map";
+import { SceneWater } from "./components/scene-water";
 import { createSceneRenderer } from "./lib/webgpu-renderer";
 import { RendererBackendProbe } from "./components/renderer-backend-probe";
 import { RendererBackendBadge } from "./components/renderer-backend-badge";
@@ -69,6 +70,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           <RendererBackendProbe onResolved={setIsWebGPU} />
           <SceneSky />
           <SceneEnvironmentMap />
+          <SceneWater />
           <SceneLights />
           {children}
           <OrbitControls
