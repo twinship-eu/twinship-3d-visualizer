@@ -298,6 +298,37 @@ export function applyVisibility(
   });
 }
 
+type MutableMaterialState = Material & {
+  opacity: number;
+  transparent: boolean;
+  depthWrite: boolean;
+  needsUpdate?: boolean;
+};
+
+/**
+ * Applies blend state to a material, revalidating it only when `transparent`
+ * actually flips.
+ *
+ * `opacity` on its own is just a uniform write, but `transparent` changes
+ * blending and genuinely does need the material rebuilt. Setting `needsUpdate`
+ * unconditionally made that rebuild happen on every hover: under WebGPU it
+ * invalidates the render pipeline and recompiles shaders, so it showed as a
+ * hitch while moving the pointer over the ship. `transparent` flips only
+ * between dimmed and undimmed, so guarding on it keeps behaviour identical.
+ */
+function setMaterialBlendState(
+  material: Material,
+  opacity: number,
+  transparent: boolean,
+  depthWrite: boolean
+): void {
+  const mat = material as MutableMaterialState;
+  if (mat.transparent !== transparent) mat.needsUpdate = true;
+  mat.opacity = opacity;
+  mat.transparent = transparent;
+  mat.depthWrite = depthWrite;
+}
+
 export function applySelectionOpacity(
   root: Group,
   selectedNode: ShipTreeNode | null,
@@ -312,10 +343,12 @@ export function applySelectionOpacity(
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         materials.forEach((m: Material) => {
           const base = getOrInitMaterialBaseState(m);
-          (m as Material & { opacity: number }).opacity = base.opacity;
-          (m as Material & { transparent: boolean }).transparent = base.transparent;
-          (m as Material & { depthWrite: boolean }).depthWrite = base.depthWrite;
-          (m as Material & { needsUpdate?: boolean }).needsUpdate = true;
+          setMaterialBlendState(
+            m,
+            base.opacity,
+            base.transparent,
+            base.depthWrite
+          );
         });
       }
     });
@@ -354,10 +387,12 @@ export function applySelectionOpacity(
         const targetTransparent = isDimmed ? true : base.transparent;
         const targetDepthWrite = isDimmed ? false : base.depthWrite;
 
-        (m as Material & { opacity: number }).opacity = targetOpacity;
-        (m as Material & { transparent: boolean }).transparent = targetTransparent;
-        (m as Material & { depthWrite: boolean }).depthWrite = targetDepthWrite;
-        (m as Material & { needsUpdate?: boolean }).needsUpdate = true;
+        setMaterialBlendState(
+          m,
+          targetOpacity,
+          targetTransparent,
+          targetDepthWrite
+        );
       });
     }
   });
