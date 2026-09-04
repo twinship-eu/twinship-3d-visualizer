@@ -119,38 +119,6 @@ type FloatUniform = ReturnType<typeof floatUniform>;
  * inspected. Plain mutable state on purpose: the GUI writes it outside React,
  * and nothing should re-render when it changes.
  */
-export type LoadingRingOverride = {
-  /** Replay the whole sequence forever, for looking at it. */
-  isLooping: boolean;
-  /**
-   * Duration of one sweep of the arc. The fill repeats in whole cycles of this
-   * length, in the real sequence as well as in the preview.
-   */
-  fillSeconds: number;
-  /** Particles flying from the ring onto the hull. Its own timing, not a share
-   * of the fill. */
-  convergeSeconds: number;
-  /** The assembled particle silhouette holding still. */
-  holdSeconds: number;
-  /** Particles fading out over the newly revealed ship. */
-  revealSeconds: number;
-  /**
-   * Written by the ring every frame, read by the ship: 0 = hidden, 1 = fully
-   * opaque. Not a setting.
-   *
-   * A shared mutable rather than React state because it changes per frame and
-   * has to cross the tree — routing it through state would re-render the scene
-   * at frame rate during the handover it exists to smooth.
-   */
-  shipReveal: number;
-  /** Freeze the ring at the values below, so any moment can be inspected. */
-  isPinned: boolean;
-  progress: number;
-  dispersion: number;
-  assembly: number;
-  fade: number;
-};
-
 export type LoadingRingUniforms = {
   /** 0 = particles on the ring, 1 = particles on their sampled ship points. */
   assembly: FloatUniform;
@@ -251,40 +219,24 @@ function createRingGeometry(): InstancedBufferGeometry {
  * leaves. That is what makes the ring read as filling rather than merely
  * spinning.
  *
- * Every tunable is a uniform so three's Inspector can drive it live; only
- * PARTICLE_COUNT requires a rebuild.
+ * Every tunable is a uniform, so the values below can be adjusted without
+ * rebuilding anything; only PARTICLE_COUNT is baked into the geometry.
  */
 /**
- * Dev-only preview state, shared as a module singleton.
+ * Per-frame handover channel from the ring to the ship: 0 = ship hidden, 1 =
+ * fully opaque. Written by the ring, read by the ship's fade.
  *
- * A singleton rather than React state on purpose: the Inspector writes it
- * outside React, nothing should re-render when it changes, and parts of the
- * scene unrelated to the ring need to read it — hiding the ship while the loop
- * preview runs, for one. Only ever touched by development tooling.
+ * A shared mutable rather than React state because it changes every frame and
+ * has to cross the component tree — routing it through state would re-render the
+ * scene at frame rate during the very handover it exists to smooth.
  */
-export const LOADING_RING_STATE: LoadingRingOverride = {
-  // Off by default: the sequence should run once and hand over to the ship, so
-  // the moment it becomes interactive can be felt. Tick it in the GUI to replay.
-  isLooping: false,
-  fillSeconds: LOADING_RING_TIMING.FILL_MS / 1000,
-  convergeSeconds: LOADING_RING_TIMING.CONVERGE_MS / 1000,
-  holdSeconds: LOADING_RING_TIMING.HOLD_MS / 1000,
-  revealSeconds: LOADING_RING_TIMING.REVEAL_MS / 1000,
-  isPinned: false,
-  progress: 0.5,
-  dispersion: 0,
-  assembly: 0,
-  fade: 1,
-  shipReveal: 0,
-};
+export const LOADING_RING_REVEAL = { shipReveal: 0 };
 
 export function createLoadingRing(): {
   geometry: InstancedBufferGeometry;
   material: SpriteNodeMaterial;
   uniforms: LoadingRingUniforms;
-  override: LoadingRingOverride;
 } {
-  const override = LOADING_RING_STATE;
 
   const uniforms: LoadingRingUniforms = {
     assembly: floatUniform(0),
@@ -498,7 +450,7 @@ export function createLoadingRing(): {
   // keeps the fade the only thing that removes them.
   material.depthTest = false;
 
-  return { geometry: createRingGeometry(), material, uniforms, override };
+  return { geometry: createRingGeometry(), material, uniforms };
 }
 
 /**

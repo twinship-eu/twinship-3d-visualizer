@@ -89,8 +89,6 @@ export const LOADING_RING_TIMING = {
   HOLD_MS: 100,
   /** Particles fading out over the newly revealed ship. */
   REVEAL_MS: 700,
-  /** Exponential smoothing rate for progress and dispersion, per second. */
-  SMOOTHING_RATE: 6,
 } as const;
 
 /**
@@ -98,14 +96,6 @@ export const LOADING_RING_TIMING = {
  * particles start where the hull will be rather than below it.
  */
 export const RING_WATERLINE_Y = 0.5;
-
-/**
- * three's built-in Inspector, which hosts the loading-ring controls and its own
- * performance and console tabs. Development only: it injects a panel beside the
- * canvas, and enables GPU timestamp queries.
- */
-export const IS_SCENE_INSPECTOR_ENABLED =
-  process.env.NODE_ENV === "development";
 
 /** The backend readout is a development diagnostic, not product UI. */
 export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";

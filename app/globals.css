@@ -158,16 +158,3 @@
   z-index: 200;
 }
 
-/*
- * Reasserted at higher specificity than plain `:root`.
- *
- * three's development Inspector appends its own stylesheet to document.head at
- * runtime, and that stylesheet sets `--text-primary` on `:root` for its dark
- * panel. Appended later, it wins at equal specificity, and every piece of
- * primary text in the app turns the Inspector's pale grey. `:root:root` is one
- * specificity step higher, so the app's own value holds regardless of load
- * order.
- */
-:root:root {
-  --text-primary: #181d27;
-}

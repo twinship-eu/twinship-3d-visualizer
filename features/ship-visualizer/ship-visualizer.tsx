@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Scene } from "@/features/3d-scene/3d-scene";
-import { IS_SCENE_INSPECTOR_ENABLED } from "@/features/3d-scene/lib/webgpu-renderer";
 import { SceneErrorFallback } from "./components/scene-error-fallback";
 import Ship from "./components/scene-content";
 import { MOCK_SHIP_TREE } from "./ship-visualizer-mock";
@@ -26,10 +25,6 @@ import {
   type ModelVariant,
 } from "./components/model-variant-toggle";
 import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
-import {
-  SceneInspector,
-  type LoadingRingControls,
-} from "@/features/3d-scene/components/scene-inspector";
 import { useModelLoadProgress } from "./hooks/use-model-load-progress";
 
 const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
@@ -64,9 +59,6 @@ export function ShipVisualizer() {
     null
   );
   const loading = useModelLoadProgress(isModelReady, assemblyTargets !== null);
-  // Held so the dev Inspector can bind controls straight to the ring's tunables.
-  const [ringControls, setRingControls] =
-    useState<LoadingRingControls | null>(null);
 
   const isDefaultModel = selectedModelPath === DEFAULT_SHIP_MODEL_PATH;
   const renderedModelPath = isDefaultModel
@@ -203,16 +195,14 @@ export function ShipVisualizer() {
               onAssemblyPointsSampled={setAssemblyTargets}
               isInteractive={loading.isInteractive}
             />
-            {(loading.isRingVisible || IS_SCENE_INSPECTOR_ENABLED) && (
+            {loading.isRingVisible && (
               <SceneErrorFallback fallback={null}>
                 <LoadingRing
                   phase={loading.phase}
                   assemblyTargets={assemblyTargets}
-                  onControlsReady={setRingControls}
                 />
               </SceneErrorFallback>
             )}
-            <SceneInspector ringControls={ringControls} />
           </Scene>
         </SceneErrorFallback>
         {IS_MODEL_VARIANT_TOGGLE_ENABLED && isDefaultModel && (

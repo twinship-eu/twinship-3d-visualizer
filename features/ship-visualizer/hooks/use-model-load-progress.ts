@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LOADING_RING_TIMING } from "@/features/3d-scene/lib/3d-scene-config";
 
 export type LoadingRingPhase =
@@ -44,22 +44,28 @@ export function useModelLoadProgress(
   hasAssemblyTargets: boolean
 ): ModelLoadProgress {
   const [phase, setPhase] = useState<LoadingRingPhase>("filling");
+  /** Bumped at the end of a fill cycle that could not hand over, to start another. */
+  const [fillCycle, setFillCycle] = useState(0);
 
-  // Hand over only at the end of a fill cycle, and only once the model is ready
-  // *and* its surface has been sampled — converging needs somewhere to converge.
-  const canHandOver = isModelReady && hasAssemblyTargets;
+  // Read through a ref, never a dependency. Becoming ready mid-cycle must not
+  // restart the cycle: the ring animates the sweep from its own clock, so a
+  // restarted timer here would hand over part-way through a sweep instead of at
+  // its end — which is exactly what the whole-cycle rule exists to prevent.
+  const canHandOverRef = useRef(false);
+  canHandOverRef.current = isModelReady && hasAssemblyTargets;
 
   useEffect(() => {
     if (phase !== "filling") return;
     const timer = window.setTimeout(() => {
-      if (canHandOver) setPhase("converging");
-      // Not ready: fall through and let this effect re-arm for another cycle.
-      else setPhase("filling");
+      if (canHandOverRef.current) setPhase("converging");
+      // Otherwise run another identical cycle. This has to bump a counter
+      // rather than re-set the phase: setting state to the value it already
+      // holds is a no-op, so the effect would never re-run and no further cycle
+      // would ever be armed.
+      else setFillCycle((cycle) => cycle + 1);
     }, LOADING_RING_TIMING.FILL_MS);
     return () => window.clearTimeout(timer);
-    // `canHandOver` is intentionally in the deps: becoming ready mid-cycle must
-    // not cut the cycle short, but the re-armed timer must see the new value.
-  }, [phase, canHandOver]);
+  }, [phase, fillCycle]);
 
   useEffect(() => {
     if (phase !== "converging") return;
@@ -90,7 +96,9 @@ export function useModelLoadProgress(
 
   // A new load — switching model variants — restarts the whole sequence.
   useEffect(() => {
-    if (!isModelReady) setPhase("filling");
+    if (isModelReady) return;
+    setPhase("filling");
+    setFillCycle((cycle) => cycle + 1);
   }, [isModelReady]);
 
   return {

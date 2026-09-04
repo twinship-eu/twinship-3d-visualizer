@@ -1,7 +1,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-import { IS_SCENE_INSPECTOR_ENABLED } from "@/features/3d-scene/lib/webgpu-renderer";
-import { LOADING_RING_STATE } from "@/features/3d-scene/lib/loading-ring-particles";
+import { LOADING_RING_REVEAL } from "@/features/3d-scene/lib/loading-ring-particles";
 import { Group } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { Object3D } from "three";
@@ -111,21 +110,7 @@ export default function Ship({
     // silhouette hands over to the real thing instead of snapping into place.
     // `shipReveal` is written by the ring every frame, in the real sequence and
     // in the loop preview alike.
-    // While the GUI is driving the ring — looping or pinned — it owns ship
-    // visibility too. Otherwise the real load sequence, which runs
-    // independently and finishes long before, would force the ship visible and
-    // the preview would show it during the fill.
-    const isGuiDriving =
-      IS_SCENE_INSPECTOR_ENABLED &&
-      (LOADING_RING_STATE.isLooping || LOADING_RING_STATE.isPinned);
-    // `isInteractive`, not `isShipVisible`: the latter is already true *during*
-    // the reveal, so using it here forced full opacity exactly when the fade was
-    // supposed to be running, and the ship snapped in.
-    const reveal = isGuiDriving
-      ? LOADING_RING_STATE.shipReveal
-      : isInteractive
-        ? 1
-        : LOADING_RING_STATE.shipReveal;
+    const reveal = isInteractive ? 1 : LOADING_RING_REVEAL.shipReveal;
     group.visible = reveal > 0;
     if (group.visible && reveal < 1) {
       applyModelFade(group, reveal);
