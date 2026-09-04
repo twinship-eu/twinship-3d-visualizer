@@ -91,6 +91,12 @@ const WOBBLE_RATE = 0.7;
 const BAND_WOBBLE = 0.15;
 /** Where the band starts fading out, as a fraction of its half-height. */
 const BAND_FADE_START = 0.72;
+/**
+ * Share of the fade spent staggering, so particles wink out in a scatter rather
+ * than the whole cloud dimming in lockstep.
+ */
+const FADE_DELAY_SPREAD = 0.45;
+
 /** Alpha floor, so unfilled ring is still visible rather than invisible. */
 const BASE_OPACITY = 0.22;
 /** Point sprites are square; this trims them to a soft disc. */
@@ -158,6 +164,14 @@ export type LoadingRingUniforms = {
   dispersion: FloatUniform;
   /** 1 = particles visible, 0 = faded out over the revealed ship. */
   fade: FloatUniform;
+  /**
+   * 0 = the arc fills in as progress rises; 1 = it empties instead.
+   *
+   * Alternating between the two across successive cycles is what makes a
+   * repeated fill read as one continuous animation: at every boundary the lit
+   * region matches on both sides, so nothing jumps back to empty.
+   */
+  arcInvert: FloatUniform;
   radius: FloatUniform;
   tilt: FloatUniform;
   spinSpeed: FloatUniform;
@@ -278,6 +292,7 @@ export function createLoadingRing(): {
     progress: floatUniform(0),
     dispersion: floatUniform(0),
     fade: floatUniform(1),
+    arcInvert: floatUniform(0),
     radius: floatUniform(17),
     tilt: floatUniform(0),
     spinSpeed: floatUniform(0.72),
@@ -382,9 +397,23 @@ export function createLoadingRing(): {
   // Where this particle sits around the ring, in 0..1 — the arc is measured in
   // this space, which is why it stays put while particles travel through it.
   const arcPos = fract(angle.div(TAU));
-  const inArc = oneMinus(
-    smoothstep(uniforms.progress.sub(uniforms.arcSoftness), uniforms.progress, arcPos)
+  // Filling in lights everything behind the sweep; filling out lights
+  // everything ahead of it. Both run in the same direction, and at a cycle
+  // boundary one ends exactly where the other begins: a full ring hands over to
+  // a full ring, and an empty one to an empty one.
+  const fillsIn = oneMinus(
+    smoothstep(
+      uniforms.progress.sub(uniforms.arcSoftness),
+      uniforms.progress,
+      arcPos
+    )
   );
+  const fillsOut = smoothstep(
+    uniforms.progress,
+    uniforms.progress.add(uniforms.arcSoftness),
+    arcPos
+  );
+  const inArc = mix(fillsIn, fillsOut, uniforms.arcInvert);
   const leadingEdge = oneMinus(
     smoothstep(0, uniforms.arcSoftness, abs(arcPos.sub(uniforms.progress)))
   );
@@ -427,9 +456,19 @@ export function createLoadingRing(): {
   // where every particle occupies its own point on the hull.
   const stackCompensation = mix(float(1 / RING_STACK), float(1), assembly);
 
+  // Staggered per particle, using the same random that staggers the assembly.
+  // A single global fade dims every particle in lockstep, which reads as the
+  // whole cloud being turned down rather than as particles leaving.
+  const fadeStart = aBurstDelay.mul(FADE_DELAY_SPREAD);
+  const staggeredFade = smoothstep(
+    fadeStart,
+    fadeStart.add(float(1).sub(FADE_DELAY_SPREAD)),
+    uniforms.fade
+  );
+
   material.opacityNode = sprite
     .mul(stackCompensation)
-    .mul(uniforms.fade)
+    .mul(staggeredFade)
     .mul(mix(bandFade, float(1), assembly))
     .mul(litness)
     // Fades on this particle's own burst, so bubbles wink out in a scatter.
@@ -437,6 +476,12 @@ export function createLoadingRing(): {
   material.transparent = true;
   material.blending = AdditiveBlending;
   material.depthWrite = false;
+  // Never depth-tested. Once assembled, most particles sit on the far side of
+  // the hull, so as soon as the revealed ship starts writing depth again they
+  // are occluded and vanish in a single frame — which is what made part of the
+  // cloud disappear abruptly instead of fading. Drawing them unconditionally
+  // keeps the fade the only thing that removes them.
+  material.depthTest = false;
 
   return { geometry: createRingGeometry(), material, uniforms, override };
 }

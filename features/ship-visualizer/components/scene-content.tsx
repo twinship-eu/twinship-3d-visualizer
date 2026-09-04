@@ -38,7 +38,6 @@ export default function Ship({
   hiddenNodeIds,
   onModelTreeLoaded,
   onAssemblyPointsSampled,
-  isShipVisible,
   isInteractive,
   tree,
   onHover,
@@ -50,8 +49,6 @@ export default function Ship({
   hiddenNodeIds?: Set<string>;
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
   onAssemblyPointsSampled?: (points: Float32Array) => void;
-  /** False until the loading ring reveals the ship beneath its particles. */
-  isShipVisible: boolean;
   /** False while the loading animation is still running. */
   isInteractive: boolean;
   tree?: ShipTreeNode[] | null;
@@ -121,9 +118,12 @@ export default function Ship({
     const isGuiDriving =
       IS_SCENE_INSPECTOR_ENABLED &&
       (LOADING_RING_STATE.isLooping || LOADING_RING_STATE.isPinned);
+    // `isInteractive`, not `isShipVisible`: the latter is already true *during*
+    // the reveal, so using it here forced full opacity exactly when the fade was
+    // supposed to be running, and the ship snapped in.
     const reveal = isGuiDriving
       ? LOADING_RING_STATE.shipReveal
-      : isShipVisible
+      : isInteractive
         ? 1
         : LOADING_RING_STATE.shipReveal;
     group.visible = reveal > 0;

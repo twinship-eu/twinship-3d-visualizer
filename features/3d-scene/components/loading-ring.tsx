@@ -10,6 +10,9 @@ import {
 } from "../lib/loading-ring-particles";
 
 
+/** Drawn after the scene, since the particles are not depth-tested. */
+const RING_RENDER_ORDER = 999;
+
 export type LoadingRingPhase =
   | "filling"
   | "converging"
@@ -95,7 +98,12 @@ export function LoadingRing({
       const intoHold = intoConverge - convergeMs;
       const intoReveal = intoHold - holdMs;
 
-      uniforms.progress.value = elapsed < fillMs ? elapsed / fillMs : 1;
+      if (elapsed < fillMs) {
+        uniforms.progress.value = elapsed / fillMs;
+        // Alternate direction per replay, so a fill-out can be seen here too.
+        const replay = Math.floor((state.clock.elapsedTime * 1000) / total);
+        uniforms.arcInvert.value = replay % 2;
+      }
       uniforms.assembly.value = unitClamp(intoConverge / convergeMs);
       uniforms.fade.value =
         intoReveal > 0 ? 1 - unitClamp(intoReveal / revealMs) : 1;
@@ -123,9 +131,12 @@ export function LoadingRing({
     uniforms.dispersion.value = 0;
 
     if (phase === "filling") {
-      // Repeating sweep. The hook hands over only on a cycle boundary, so this
-      // always reaches a closed arc before the handover.
+      // Repeating sweep, alternating direction every cycle: fills in, then
+      // empties, then fills in again. Each cycle therefore *ends* where the
+      // next begins, so waiting on a slow load reads as one continuous
+      // animation rather than a restart.
       uniforms.progress.value = (elapsed % fillMs) / fillMs;
+      uniforms.arcInvert.value = Math.floor(elapsed / fillMs) % 2;
       uniforms.assembly.value = 0;
       uniforms.fade.value = 1;
       override.shipReveal = 0;
@@ -135,7 +146,10 @@ export function LoadingRing({
       return;
     }
 
-    uniforms.progress.value = 1;
+    // Past the fill, the arc is deliberately left frozen wherever the handover
+    // caught it. Snapping it to full would pop; instead the shader's litness
+    // term ramps every particle to fully lit as `assembly` rises, so the ring
+    // completes itself on the way to the ship.
     uniforms.assembly.value =
       phase === "converging" ? unitClamp(elapsed / convergeMs) : 1;
 
@@ -151,6 +165,11 @@ export function LoadingRing({
   });
 
   return (
-    <mesh geometry={geometry} material={material} frustumCulled={false} />
+    <mesh
+      geometry={geometry}
+      material={material}
+      frustumCulled={false}
+      renderOrder={RING_RENDER_ORDER}
+    />
   );
 }
