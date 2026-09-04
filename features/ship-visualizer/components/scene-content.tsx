@@ -39,6 +39,7 @@ export default function Ship({
   onModelTreeLoaded,
   onAssemblyPointsSampled,
   isShipVisible,
+  isInteractive,
   tree,
   onHover,
   onSelectByClick,
@@ -51,6 +52,8 @@ export default function Ship({
   onAssemblyPointsSampled?: (points: Float32Array) => void;
   /** False until the loading ring reveals the ship beneath its particles. */
   isShipVisible: boolean;
+  /** False while the loading animation is still running. */
+  isInteractive: boolean;
   tree?: ShipTreeNode[] | null;
   onHover?: (node: ShipTreeNode | null) => void;
   onSelectByClick?: (node: ShipTreeNode | null) => void;
@@ -280,11 +283,11 @@ export default function Ship({
       <group
         ref={floatGroupRef}
         position={[0, SHIP_VERTICAL_OFFSET, 0]}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
-        onClick={handleClick}
+        onPointerDown={isInteractive ? handlePointerDown : undefined}
+        onPointerMove={isInteractive ? handlePointerMove : undefined}
+        onPointerUp={isInteractive ? handlePointerUp : undefined}
+        onPointerLeave={isInteractive ? handlePointerLeave : undefined}
+        onClick={isInteractive ? handleClick : undefined}
       >
         <Suspense fallback={null}>
           <ShipModel

@@ -1,5 +1,4 @@
 import {
-  IS_SCENE_INSPECTOR_ENABLED,
   LOADING_RING_TIMING,
   RING_WATERLINE_Y,
 } from "./3d-scene-config";
@@ -250,10 +249,9 @@ function createRingGeometry(): InstancedBufferGeometry {
  * preview runs, for one. Only ever touched by development tooling.
  */
 export const LOADING_RING_STATE: LoadingRingOverride = {
-  // On by default in development so a refresh always shows the loading
-  // animation, with the ship hidden. Must never be on in production, or the
-  // loader would replay forever and never hand over to the scene.
-  isLooping: IS_SCENE_INSPECTOR_ENABLED,
+  // Off by default: the sequence should run once and hand over to the ship, so
+  // the moment it becomes interactive can be felt. Tick it in the GUI to replay.
+  isLooping: false,
   fillSeconds: LOADING_RING_TIMING.FILL_MS / 1000,
   convergeSeconds: LOADING_RING_TIMING.CONVERGE_MS / 1000,
   holdSeconds: LOADING_RING_TIMING.HOLD_MS / 1000,
@@ -280,13 +278,13 @@ export function createLoadingRing(): {
     progress: floatUniform(0),
     dispersion: floatUniform(0),
     fade: floatUniform(1),
-    radius: floatUniform(16),
+    radius: floatUniform(17),
     tilt: floatUniform(0),
     spinSpeed: floatUniform(0.72),
     spriteSize: floatUniform(0.45),
     glow: floatUniform(6),
-    arcSoftness: floatUniform(0.4),
-    bandThickness: floatUniform(0.3),
+    arcSoftness: floatUniform(0.375),
+    bandThickness: floatUniform(0.195),
   };
 
   // The explicit type argument matters: `attribute("x", "vec4")` widens the type

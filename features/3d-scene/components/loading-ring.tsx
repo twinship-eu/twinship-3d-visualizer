@@ -129,6 +129,9 @@ export function LoadingRing({
       uniforms.assembly.value = 0;
       uniforms.fade.value = 1;
       override.shipReveal = 0;
+      override.progress = uniforms.progress.value;
+      override.assembly = 0;
+      override.fade = 1;
       return;
     }
 
@@ -139,6 +142,12 @@ export function LoadingRing({
     const revealed = phase === "revealing" ? unitClamp(elapsed / revealMs) : 0;
     uniforms.fade.value = phase === "done" ? 0 : 1 - revealed;
     override.shipReveal = phase === "done" ? 1 : revealed;
+
+    // Mirror into the override so the GUI's listening readouts follow the real
+    // sequence too, not just the loop preview.
+    override.progress = uniforms.progress.value;
+    override.assembly = uniforms.assembly.value;
+    override.fade = uniforms.fade.value;
   });
 
   return (

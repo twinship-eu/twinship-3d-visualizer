@@ -82,11 +82,11 @@ export const LOADING_RING_TIMING = {
    * These are the defaults; the live values live in LOADING_RING_PREVIEW so the
    * development GUI can tune them, and nothing writes them in production.
    */
-  FILL_MS: 3750,
+  FILL_MS: 1500,
   /** Particles flying from the ring onto their sampled points on the hull. */
-  CONVERGE_MS: 900,
+  CONVERGE_MS: 1600,
   /** The assembled "ghost ship" holding still, so the shape registers. */
-  HOLD_MS: 400,
+  HOLD_MS: 100,
   /** Particles fading out over the newly revealed ship. */
   REVEAL_MS: 700,
   /** Exponential smoothing rate for progress and dispersion, per second. */
@@ -94,10 +94,10 @@ export const LOADING_RING_TIMING = {
 } as const;
 
 /**
- * Height of the loading ring. Just above the water plane at -5, so the ocean
- * reflects it rather than clipping through it.
+ * Height of the loading ring. Sits at roughly the ship's own waterline, so the
+ * particles start where the hull will be rather than below it.
  */
-export const RING_WATERLINE_Y = -4;
+export const RING_WATERLINE_Y = 0.5;
 
 /**
  * three's built-in Inspector, which hosts the loading-ring controls and its own

@@ -202,6 +202,7 @@ export function ShipVisualizer() {
               onSelectByClick={handleSelectByClick}
               onAssemblyPointsSampled={setAssemblyTargets}
               isShipVisible={loading.isShipVisible}
+              isInteractive={loading.isInteractive}
             />
             {(loading.isRingVisible || IS_SCENE_INSPECTOR_ENABLED) && (
               <SceneErrorFallback fallback={null}>

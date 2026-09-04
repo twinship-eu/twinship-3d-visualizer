@@ -16,6 +16,12 @@ export type ModelLoadProgress = {
   isRingVisible: boolean;
   /** False until the ship should be revealed beneath the fading particles. */
   isShipVisible: boolean;
+  /**
+   * False until the animation has finished. Hovering or clicking mid-sequence
+   * highlights and dims parts of a ship that is still assembling, which fights
+   * the animation and looks broken.
+   */
+  isInteractive: boolean;
 };
 
 /**
@@ -93,5 +99,6 @@ export function useModelLoadProgress(
     phase,
     isRingVisible: phase !== "done",
     isShipVisible: phase === "revealing" || phase === "done",
+    isInteractive: phase === "done",
   };
 }
