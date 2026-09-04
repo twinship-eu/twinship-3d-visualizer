@@ -175,7 +175,7 @@ export const LOADING_RING_PREVIEW: LoadingRingOverride = {
   // animation, with the ship hidden. Must never be on in production, or the
   // loader would replay forever and never hand over to the scene.
   isLooping: IS_SCENE_INSPECTOR_ENABLED,
-  loopSeconds: 4,
+  loopSeconds: 3.5,
   isPinned: false,
   progress: 0.5,
   dispersion: 0,
@@ -192,12 +192,12 @@ export function createLoadingRing(): {
   const uniforms: LoadingRingUniforms = {
     progress: floatUniform(0),
     dispersion: floatUniform(0),
-    radius: floatUniform(33),
+    radius: floatUniform(16),
     tilt: floatUniform(0),
     spinSpeed: floatUniform(0.72),
-    spriteSize: floatUniform(1.2),
+    spriteSize: floatUniform(0.45),
     glow: floatUniform(6),
-    arcSoftness: floatUniform(0.01),
+    arcSoftness: floatUniform(0.4),
     bandThickness: floatUniform(0.3),
   };
 

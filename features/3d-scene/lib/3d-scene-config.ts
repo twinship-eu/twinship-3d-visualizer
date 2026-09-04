@@ -78,8 +78,15 @@ export const LOADING_RING_TIMING = {
   MIN_VISIBLE_MS: 700,
   /** Holding the closed ring at 100% before it bursts. */
   COMPLETE_MS: 320,
-  /** Particles flying outward and fading as the ship appears beneath. */
-  BURST_MS: 800,
+  /**
+   * Particles flying outward and fading as the ship appears beneath.
+   *
+   * Matched to what the loop preview shows: at `loopSeconds` 3.5 split evenly
+   * between fill and burst, the previewed burst runs 1750ms, so a real one runs
+   * the same length and the preview stays truthful. This does not delay the
+   * scene — the ship is already visible underneath while the bubbles clear.
+   */
+  BURST_MS: 1750,
   /** Exponential smoothing rate for progress and dispersion, per second. */
   SMOOTHING_RATE: 6,
 } as const;

@@ -9,8 +9,11 @@ import {
 } from "../lib/loading-ring-particles";
 import { LOADING_RING_TIMING, RING_WATERLINE_Y } from "../lib/3d-scene-config";
 
-/** Share of a test loop spent filling; the rest is the burst. */
-const LOOP_FILL_FRACTION = 0.75;
+/**
+ * Share of a test loop spent filling; the rest is the burst. Half and half, so
+ * the bubbles get long enough to actually be watched scattering.
+ */
+const LOOP_FILL_FRACTION = 0.5;
 
 type Props = {
   /** 0 -> 1 as the model loads. */
@@ -64,6 +67,10 @@ export function LoadingRing({ progress, dispersion, onControlsReady }: Props) {
       uniforms.dispersion.value = isFilling
         ? 0
         : (cycle - LOOP_FILL_FRACTION) / (1 - LOOP_FILL_FRACTION);
+      // Mirror back into the override so the GUI's listening readouts track the
+      // loop instead of showing whatever they were left at.
+      override.progress = uniforms.progress.value;
+      override.dispersion = uniforms.dispersion.value;
       return;
     }
 
