@@ -397,23 +397,26 @@ export function createLoadingRing(): {
   // Where this particle sits around the ring, in 0..1 — the arc is measured in
   // this space, which is why it stays put while particles travel through it.
   const arcPos = fract(angle.div(TAU));
-  // Filling in lights everything behind the sweep; filling out lights
-  // everything ahead of it. Both run in the same direction, and at a cycle
-  // boundary one ends exactly where the other begins: a full ring hands over to
-  // a full ring, and an empty one to an empty one.
-  const fillsIn = oneMinus(
-    smoothstep(
-      uniforms.progress.sub(uniforms.arcSoftness),
-      uniforms.progress,
-      arcPos
-    )
-  );
-  const fillsOut = smoothstep(
-    uniforms.progress,
-    uniforms.progress.add(uniforms.arcSoftness),
-    arcPos
-  );
-  const inArc = mix(fillsIn, fillsOut, uniforms.arcInvert);
+  // Filling in lights everything behind the sweeping edge; filling out lights
+  // everything ahead of it. Both run in the same direction and at the same
+  // speed, and each cycle ends exactly where the next begins.
+  //
+  // The edge deliberately travels further than the ring: `arcSoftness` wide of
+  // it is a soft gradient, and unless that gradient clears the domain entirely
+  // the boundary is not clean. Sweeping only 0..1 leaves fill-in ending with a
+  // dark band just *before* arc position 0 while fill-out starts with one just
+  // *after* it — two different bands, each as wide as the softness, so the dark
+  // region appears to teleport around the ring. Invisible at a softness of
+  // 0.01; very visible at 0.375. Extending the sweep by the softness at the
+  // trailing end makes fill-in finish uniformly lit and fill-out start
+  // uniformly lit, which is what makes the two halves join.
+  const soft = uniforms.arcSoftness;
+  const sweep = uniforms.progress.mul(float(1).add(soft));
+
+  // Fill-out is the exact complement of fill-in against the same swept edge, so
+  // the two share one geometry and cannot disagree at a boundary.
+  const fillsIn = oneMinus(smoothstep(sweep.sub(soft), sweep, arcPos));
+  const inArc = mix(fillsIn, oneMinus(fillsIn), uniforms.arcInvert);
   const leadingEdge = oneMinus(
     smoothstep(0, uniforms.arcSoftness, abs(arcPos.sub(uniforms.progress)))
   );
