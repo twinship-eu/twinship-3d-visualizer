@@ -1,16 +1,30 @@
 import { Color, DoubleSide, Group, Material, Mesh, Object3D, SRGBColorSpace, Texture } from "three";
 import { ShipTreeNode } from "../ship-visualizer-types";
+import { INTERNAL_NODE_FLAG } from "./propellers";
 
+/**
+ * Model node name -> label shown in the UI. The V3 GLB dropped the `_LP`
+ * suffix the older FBX/GLB exports used, so both spellings are mapped.
+ */
 const FRIENDLY_LABELS: Record<string, string> = {
+  Base: "Base Hull",
   Base_LP: "Base Hull",
+  Base_Top: "Hull top towers",
   Base_Top_LP: "Hull top towers",
+  ControlRoom: "Control room",
   ControlRoom_LP: "Control room",
+  Radio: "Radio",
   Radio_LP: "Radio",
+  Container: "Container",
   Container_LP: "Container",
+  Crane: "Crane",
   Crane_LP: "Crane",
   Crane_lp: "Crane",
+  Propellers: "Propellers",
   Propellers_LP: "Propellers",
+  Engine: "Engine",
   Engine_LP: "Engine",
+  WindTurbines: "Wind Towers",
   WindTurbines_LP: "Wind Towers",
 };
 export function applyObjectColorOverrides(
@@ -80,6 +94,44 @@ export function ensureUniqueMaterialsPerMesh(root: Object3D): void {
       return clone;
     });
     mesh.material = cloned.length === 1 ? cloned[0] : cloned;
+  });
+}
+
+/** Material properties that hold a texture, for bulk texture tweaks. */
+const TEXTURE_SLOTS = [
+  "map",
+  "normalMap",
+  "roughnessMap",
+  "metalnessMap",
+  "aoMap",
+  "emissiveMap",
+] as const;
+
+/**
+ * Raises anisotropic filtering on every texture in the model.
+ *
+ * three defaults this to 1, which collapses to a heavily blurred mip on
+ * surfaces seen at a grazing angle - the deck and hull sides for most of this
+ * scene's camera angles. Raising it recovers surface detail that is present in
+ * the texture but was being filtered away, and unlike a resolution increase it
+ * costs no download size and no GPU memory.
+ */
+export function applyTextureAnisotropy(root: Object3D, anisotropy: number): void {
+  const updated = new Set<Texture>();
+  root.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!("material" in child) || !mesh.material) return;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const material of materials) {
+      const slots = material as Material & Record<string, Texture | null | undefined>;
+      for (const slot of TEXTURE_SLOTS) {
+        const texture = slots[slot];
+        if (!texture || updated.has(texture)) continue;
+        updated.add(texture);
+        texture.anisotropy = anisotropy;
+        texture.needsUpdate = true;
+      }
+    }
   });
 }
 
@@ -209,7 +261,13 @@ export function meshMatchesNodeByName(mesh: { name: string }, node: ShipTreeNode
 }
 
 export function buildNode(obj: Object3D): ShipTreeNode {
-  const children = obj.children.length > 0 ? obj.children.map((c) => buildNode(c)) : undefined;
+  // Nodes injected by the viewer (e.g. the propeller shaft pivots) are an
+  // implementation detail and must not surface as ontology components.
+  const visibleChildren = obj.children.filter(
+    (child) => child.userData?.[INTERNAL_NODE_FLAG] !== true
+  );
+  const children =
+    visibleChildren.length > 0 ? visibleChildren.map((c) => buildNode(c)) : undefined;
   const uuid = String(obj.uuid);
   return {
     id: uuid,

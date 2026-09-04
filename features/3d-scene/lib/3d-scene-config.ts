@@ -19,9 +19,15 @@ export function getSunPosition(): Vector3 {
 }
 
 export const LIGHT_INTENSITY = {
-  ambient: 2.3,
-  sun: 10,
+  ambient: 0.25,
+  sun: 7,
 } as const;
+
+/**
+ * Strength of the sky-baked IBL probe that lights the ship's metallic
+ * materials. Raise for shinier metal, lower for a flatter look.
+ */
+export const ENVIRONMENT_MAP_INTENSITY = 0.35;
 
 export const SKY_SCALE = 10_000;
 

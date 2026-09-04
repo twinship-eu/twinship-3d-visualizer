@@ -22,23 +22,26 @@ type SkyUniforms = {
   time: { value: number };
 };
 
+/** Builds a Sky configured from SKY_UNIFORMS. Also used to bake the scene IBL. */
+export function createSky(): ThreeSky {
+  const s = new ThreeSky();
+  s.scale.setScalar(SKY_SCALE);
+  const mat = s.material as unknown as { uniforms: SkyUniforms };
+  mat.uniforms.sunPosition.value.copy(getSunDirection());
+  mat.uniforms.turbidity.value = SKY_UNIFORMS.turbidity;
+  mat.uniforms.rayleigh.value = SKY_UNIFORMS.rayleigh;
+  mat.uniforms.mieCoefficient.value = SKY_UNIFORMS.mieCoefficient;
+  mat.uniforms.mieDirectionalG.value = SKY_UNIFORMS.mieDirectionalG;
+  mat.uniforms.cloudCoverage.value = SKY_UNIFORMS.cloudCoverage;
+  mat.uniforms.cloudDensity.value = SKY_UNIFORMS.cloudDensity;
+  mat.uniforms.cloudElevation.value = SKY_UNIFORMS.cloudElevation;
+  return s;
+}
+
 export function SceneSky() {
   const skyRef = useRef<ThreeSky>(null);
 
-  const sky = useMemo(() => {
-    const s = new ThreeSky();
-    s.scale.setScalar(SKY_SCALE);
-    const mat = s.material as unknown as { uniforms: SkyUniforms };
-    mat.uniforms.sunPosition.value.copy(getSunDirection());
-    mat.uniforms.turbidity.value = SKY_UNIFORMS.turbidity;
-    mat.uniforms.rayleigh.value = SKY_UNIFORMS.rayleigh;
-    mat.uniforms.mieCoefficient.value = SKY_UNIFORMS.mieCoefficient;
-    mat.uniforms.mieDirectionalG.value = SKY_UNIFORMS.mieDirectionalG;
-    mat.uniforms.cloudCoverage.value = SKY_UNIFORMS.cloudCoverage;
-    mat.uniforms.cloudDensity.value = SKY_UNIFORMS.cloudDensity;
-    mat.uniforms.cloudElevation.value = SKY_UNIFORMS.cloudElevation;
-    return s;
-  }, []);
+  const sky = useMemo(() => createSky(), []);
 
   useFrame((_, delta) => {
     const s = skyRef.current ?? sky;

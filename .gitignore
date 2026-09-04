@@ -40,3 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 node_modules
+
+# Raw Blender export (~323 MB), dev-only reference for the model-variant toggle
+public/ship/TwinShip_Update/
+
+# Superseded local exports of the ship model. Only the optimized build
+# (`twinship-v3.glb`) and the V1 model the variant toggle compares against
+# (`twinship v2.glb`) are tracked.
+public/ship/TwinShip.glb
+public/ship/TwinShipv12_Joined.glb
+public/ship/*.fbx

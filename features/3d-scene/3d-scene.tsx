@@ -15,6 +15,7 @@ import {  OrbitControls } from "@react-three/drei";
 import { SCENE_BACKGROUND_COLOR } from "./lib/3d-scene-config";
 import { SceneLights } from "./components/scene-lights";
 import { SceneSky } from "./components/scene-sky";
+import { SceneEnvironmentMap } from "./components/scene-environment-map";
 import { SceneWater } from "./components/scene-water";
 import {  useState } from "react";
 import { SceneInteractionProvider } from "./components/scene-interaction-context";
@@ -79,6 +80,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           }}
         >
           <SceneSky />
+          <SceneEnvironmentMap />
           <SceneWater />
           <SceneLights />
           {children}
