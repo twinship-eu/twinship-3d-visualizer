@@ -1,3 +1,3 @@
-export const CAMERA_FIT_PADDING = 0.5;
-export const MIN_CAMERA_DISTANCE = 2;
+export const CAMERA_FIT_PADDING = 1.8;
+export const MIN_CAMERA_DISTANCE = 8;
 export const FBX_EXT = ".fbx";

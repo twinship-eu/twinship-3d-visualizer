@@ -38,8 +38,10 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
     connectedComponents: [
       { id: "Hull top towers", label: "Hull top towers", category: "Hull" },
       { id: "Control room", label: "Control room", category: "Hull" },
-      { id: "Wind Towers", label: "Wind Towers", category: "Wind assisted propulsion system" },
+      { id: "WAPS", label: "WAPS", category: "Wind assisted propulsion system" },
       { id: "Engine", label: "Engine", category: "Energy system" },
+      { id: "Container", label: "Container", category: "Deck equipment" },
+      { id: "Crane", label: "Crane", category: "Deck equipment" },
     ],
   },
   "Hull top towers": {
@@ -80,14 +82,14 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
     tags: ["Deck equipment"],
     description: "On-deck container used for cargo and equipment storage.",
     parameters: [],
-    connectedComponents: [],
+    connectedComponents: [{ id: "Base Hull", label: "Base Hull", category: "Hull" }],
   },
   Crane: {
     title: "Crane",
     tags: ["Deck equipment"],
     description: "Deck crane used for handling cargo and equipment on board.",
     parameters: [],
-    connectedComponents: [],
+    connectedComponents: [{ id: "Base Hull", label: "Base Hull", category: "Hull" }],
   },
   Propellers: {
     title: "Propellers",
@@ -216,12 +218,12 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
     ],
     connectedComponents: [
       { id: "Propellers", label: "Propellers", category: "Propeller system" },
-      { id: "Wind Towers", label: "Wind Towers", category: "Wind assisted propulsion system" },
+      { id: "WAPS", label: "WAPS", category: "Wind assisted propulsion system" },
       { id: "Base Hull", label: "Base Hull", category: "Hull" },
     ],
   },
-  "Wind Towers": {
-    title: "Wind Towers",
+  WAPS: {
+    title: "WAPS",
     titleHref:
       "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#WindAssistedPropulsionSystem",
     tags: ["Wind assisted propulsion system"],

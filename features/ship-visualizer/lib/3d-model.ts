@@ -24,8 +24,8 @@ const FRIENDLY_LABELS: Record<string, string> = {
   Propellers_LP: "Propellers",
   Engine: "Engine",
   Engine_LP: "Engine",
-  WindTurbines: "Wind Towers",
-  WindTurbines_LP: "Wind Towers",
+  WindTurbines: "WAPS",
+  WindTurbines_LP: "WAPS",
 };
 export function applyObjectColorOverrides(
   root: Object3D,

@@ -120,5 +120,5 @@ export const SHIP_TREE_SECTIONS = [
   { id: "windAssisted", label: "Wind assisted propulsion system" },
 ] as const;
 
-/** Section IDs whose elements cannot be selected (e.g. deck equipment). */
-export const NON_SELECTABLE_SECTION_IDS: readonly string[] = ["deck"];
+/** Section IDs whose elements cannot be selected. */
+export const NON_SELECTABLE_SECTION_IDS: readonly string[] = [];
