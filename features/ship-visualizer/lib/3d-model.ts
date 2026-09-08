@@ -24,6 +24,9 @@ const FRIENDLY_LABELS: Record<string, string> = {
   Propellers_LP: "Propellers",
   Engine: "Engine",
   Engine_LP: "Engine",
+  // "WAPS", not "Wind Towers": getSectionIdForLabel matches on this label and
+  // only tests for "waps", so any other wording falls through to the default
+  // and files the turbines under the hull section instead of windAssisted.
   WindTurbines: "WAPS",
   WindTurbines_LP: "WAPS",
 };
