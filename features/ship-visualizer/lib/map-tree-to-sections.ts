@@ -10,11 +10,7 @@ function getSectionIdForLabel(label: string): SectionId {
   const lower = label.toLowerCase();
   if (lower.includes("propeller")) return "propeller";
   if (lower === "engine" || lower.startsWith("engine")) return "energy";
-  if (
-    lower.includes("windturbine") ||
-    lower.includes("wind turbine") ||
-    lower.includes("wind tower")
-  ) {
+  if (lower.includes("waps")) {
     return "windAssisted";
   }
   if (lower.includes("crane") || lower.includes("container")) return "deck";

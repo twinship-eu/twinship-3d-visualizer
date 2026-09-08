@@ -63,9 +63,8 @@ export const WATER_OPTIONS = {
  * default and the closest match at typical viewport sizes.
  */
 export const WATER_RESOLUTION_SCALE = 0.5;
-/** Water normals texture URL (three.js examples). Use local path if needed. */
-export const WATER_NORMALS_URL =
-  "https://threejs.org/examples/textures/waternormals.jpg";
+/** Water normals texture, vendored from three.js examples so the scene loads offline. */
+export const WATER_NORMALS_URL = "/textures/waternormals.jpg";
 
 /**
  * Timing for the loading ring. Read by both the phase machine and the component
