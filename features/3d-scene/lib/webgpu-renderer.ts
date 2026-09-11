@@ -1,5 +1,7 @@
 import { ACESFilmicToneMapping, PCFShadowMap, WebGPURenderer } from "three/webgpu";
+import { Inspector } from "three/examples/jsm/inspector/Inspector.js";
 import type { Renderer } from "@react-three/fiber";
+import { IS_SCENE_INSPECTOR_ENABLED } from "./3d-scene-config";
 
 /** Tone mapping exposure; higher for midday (0.1 = dusk, ~0.3 = noon). */
 const TONE_MAPPING_EXPOSURE = 0.3;
@@ -56,6 +58,13 @@ async function initRenderer(
   renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFShadowMap;
+
+  if (IS_SCENE_INSPECTOR_ENABLED) {
+    // Must be assigned *before* init(): the renderer calls inspector.init() from
+    // inside its own init(), and the `inspector` setter does not re-run it. Set
+    // afterwards and the panel silently never attaches.
+    renderer.inspector = new Inspector();
+  }
 
   // Must complete before the first render and before PMREMGenerator.fromScene().
   await renderer.init();

@@ -102,6 +102,20 @@ export const LOADING_RING_TIMING = {
  */
 export const RING_WATERLINE_Y = 0.5;
 
+/**
+ * three's built-in Inspector: frame timing, draw calls, compute passes, memory
+ * and a console, in a panel beside the canvas. Development only — it also
+ * enables GPU timestamp queries, which cost something to collect.
+ *
+ * **Do not delete the Inspector wiring to turn it off. Set this to `false`.**
+ * It was deleted once (b8cd4d4) and had to be reconstructed from that commit;
+ * the wiring is small but carries two non-obvious details that are expensive to
+ * rediscover — the pre-`init()` attach in `webgpu-renderer.ts`, and the
+ * `:root:root` override in `globals.css` that stops the Inspector's stylesheet
+ * repainting the app's text.
+ */
+export const IS_SCENE_INSPECTOR_ENABLED = process.env.NODE_ENV === "development";
+
 /** The backend readout is a development diagnostic, not product UI. */
 export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
 
