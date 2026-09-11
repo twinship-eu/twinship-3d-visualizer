@@ -46,6 +46,8 @@ node_modules
 
 # Raw Blender export (~323 MB), dev-only reference for the model-variant toggle
 public/ship/TwinShip_Update/
+public/ship/twinship-engine-raw.glb
+public/ship/twinship-engine.glb
 
 # Superseded local exports of the ship model. Only the optimized build
 # (`twinship-v3.glb`) and the V1 model the variant toggle compares against

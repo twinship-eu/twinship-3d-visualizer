@@ -25,6 +25,25 @@ export const RAW_SHIP_MODEL_GLB = "/ship/TwinShip_Update/TwinShip_Update.glb";
  */
 export const PREVIOUS_SHIP_MODEL_GLB = "/ship/twinship v2.glb";
 
+/**
+ * The raw Blender export carrying the engine, ~234 MB with 39 uncompressed 4K
+ * PNG maps and an 8K decal atlas.
+ *
+ * Gitignored and local-only, like `RAW_SHIP_MODEL_GLB`: it is well over
+ * GitHub's 100 MB per-file limit, and it is never referenced by a production
+ * build. Anyone without the file on disk simply sees this variant fail to load.
+ *
+ * Two consequences worth knowing before reaching for it. The maps expand to
+ * uncompressed RGBA on the GPU, so this export costs upwards of 1.6 GB of VRAM
+ * and can fail outright on integrated GPUs — the same reason
+ * `optimize-ship-model.sh` caps textures at 2048. And at 234 MB it takes a
+ * long time to load even from localhost.
+ *
+ * Its node names and bounds match `SHIP_MODEL_JOINED_GLB` exactly, so sections,
+ * propeller spin, scale and waterline all carry over untouched.
+ */
+export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine-raw.glb";
+
 /** The raw reference model is far too large to offer outside local development. */
 export const IS_MODEL_VARIANT_TOGGLE_ENABLED =
   process.env.NODE_ENV === "development";

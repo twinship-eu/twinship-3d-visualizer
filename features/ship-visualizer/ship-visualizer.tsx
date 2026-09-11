@@ -16,6 +16,7 @@ import {
   IS_MODEL_VARIANT_TOGGLE_ENABLED,
   RAW_SHIP_MODEL_GLB,
   PREVIOUS_SHIP_MODEL_GLB,
+  ENGINE_SHIP_MODEL_GLB,
 } from "./ship-visualizer-config";
 import type { ShipTreeNode } from "./ship-visualizer-types";
 import { OntologyExplorer } from "../ontology-explorrer/ontology-explorer";
@@ -34,6 +35,7 @@ const MODEL_PATH_BY_VARIANT: Record<ModelVariant, string> = {
   previous: PREVIOUS_SHIP_MODEL_GLB,
   optimized: DEFAULT_SHIP_MODEL_PATH,
   raw: RAW_SHIP_MODEL_GLB,
+  engine: ENGINE_SHIP_MODEL_GLB,
 };
 
 const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
