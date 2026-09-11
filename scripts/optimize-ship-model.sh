@@ -12,7 +12,11 @@
 #
 # Requires the @gltf-transform/cli devDependency.
 #
-# Usage: npm run optimize:ship-model
+# Usage: npm run optimize:ship-model [source.glb] [output.glb]
+#
+# Both arguments are optional and default to the V2 export and its shipped
+# build, so the no-argument form behaves exactly as it always has. Pass them to
+# run the same pipeline over a different export.
 # =============================================================================
 
 set -euo pipefail
@@ -20,8 +24,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-SOURCE_GLB="$PROJECT_ROOT/public/ship/TwinShip_Update/TwinShip_Update.glb"
-OUTPUT_GLB="$PROJECT_ROOT/public/ship/twinship-v3.glb"
+SOURCE_GLB="${1:-$PROJECT_ROOT/public/ship/TwinShip_Update/TwinShip_Update.glb}"
+OUTPUT_GLB="${2:-$PROJECT_ROOT/public/ship/twinship-v3.glb}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 

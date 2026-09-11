@@ -8,7 +8,7 @@ const OPTIONS: { id: ModelVariant; label: string; hint: string }[] = [
   { id: "previous", label: "V1", hint: "V1, the model V2 replaced, ~12 MB" },
   { id: "optimized", label: "Optimized", hint: "V2, 2K WebP, ~24 MB" },
   { id: "raw", label: "Raw", hint: "V2, 4K PNG, ~176 MB" },
-  { id: "engine", label: "Engine", hint: "Engine build, raw 4K PNG, ~234 MB, local only" },
+  { id: "engine", label: "Engine", hint: "Engine build, 2K WebP, ~42 MB" },
 ];
 
 type Props = {
