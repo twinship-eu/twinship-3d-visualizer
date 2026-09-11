@@ -18,4 +18,8 @@ export const SCENE_STATS = {
   textures: 0,
   /** Compute dispatches in the last frame. */
   computeCalls: 0,
+  /** DIAGNOSTIC: highest drawCalls ever observed, never reset. */
+  peakDrawCalls: 0,
+  /** DIAGNOSTIC: whether three resets the counters itself each frame. */
+  autoReset: true,
 };

@@ -39,6 +39,22 @@ export const PREVIOUS_SHIP_MODEL_GLB = "/ship/twinship v2.glb";
  */
 export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
 
+/**
+ * Decimation experiments on the engine model, built by
+ * `node scripts/simplify-engine-mesh.mjs <source> <output> <ratio>`.
+ *
+ * Only the `Engine` node is decimated: every other part of the engine export is
+ * identical to the shipped model, so whole-model simplification would thin
+ * geometry that is already the right density. The names are the resulting
+ * triangle count for that node, down from 494,596.
+ *
+ * Gitignored and local-only. They are ~40 MB each — decimation barely moves
+ * file size, because textures dominate it — and only one will be kept.
+ */
+export const ENGINE_SHIP_MODEL_247K_GLB = "/ship/twinship-engine-247k.glb";
+export const ENGINE_SHIP_MODEL_124K_GLB = "/ship/twinship-engine-124k.glb";
+export const ENGINE_SHIP_MODEL_85K_GLB = "/ship/twinship-engine-85k.glb";
+
 /** The raw reference model is far too large to offer outside local development. */
 export const IS_MODEL_VARIANT_TOGGLE_ENABLED =
   process.env.NODE_ENV === "development";

@@ -36,6 +36,8 @@ export function SceneStatsOverlay() {
         { label: "geometries", value: SCENE_STATS.geometries },
         { label: "textures", value: SCENE_STATS.textures },
         { label: "compute", value: SCENE_STATS.computeCalls },
+        { label: "peak draws", value: SCENE_STATS.peakDrawCalls },
+        { label: "autoReset", value: SCENE_STATS.autoReset ? 1 : 0 },
       ]);
     read();
     const timer = window.setInterval(read, REFRESH_MS);

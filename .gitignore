@@ -47,6 +47,10 @@ node_modules
 # Raw Blender export (~323 MB), dev-only reference for the model-variant toggle
 public/ship/TwinShip_Update/
 public/ship/twinship-engine-raw.glb
+# Decimation experiments: ~40 MB each and derived from the committed build.
+public/ship/twinship-engine-247k.glb
+public/ship/twinship-engine-124k.glb
+public/ship/twinship-engine-85k.glb
 public/ship/twinship-engine-untextured.glb
 
 # Superseded local exports of the ship model. Only the optimized build
