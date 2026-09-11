@@ -119,6 +119,14 @@ export const IS_SCENE_INSPECTOR_ENABLED = process.env.NODE_ENV === "development"
 /** The backend readout is a development diagnostic, not product UI. */
 export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
 
+/**
+ * Per-frame draw call and triangle counts, which the Inspector does not
+ * report. Development only.
+ *
+ * **Do not delete the wiring to turn this off. Set this to `false`.**
+ */
+export const IS_SCENE_STATS_ENABLED = process.env.NODE_ENV === "development";
+
 export const SCENE_BACKGROUND_COLOR = "#c8d4e0";
 
 export const SCENE_FOG_COLOR = "#c8d4e0";

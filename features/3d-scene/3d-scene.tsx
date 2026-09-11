@@ -9,6 +9,7 @@ import {
 import {  OrbitControls } from "@react-three/drei";
 import {
   IS_RENDERER_BADGE_ENABLED,
+  IS_SCENE_STATS_ENABLED,
   SCENE_BACKGROUND_COLOR,
 } from "./lib/3d-scene-config";
 import { SceneLights } from "./components/scene-lights";
@@ -18,6 +19,8 @@ import { SceneWater } from "./components/scene-water";
 import { createSceneRenderer } from "./lib/webgpu-renderer";
 import { RendererBackendProbe } from "./components/renderer-backend-probe";
 import { RendererBackendBadge } from "./components/renderer-backend-badge";
+import { SceneStatsProbe } from "./components/scene-stats-probe";
+import { SceneStatsOverlay } from "./components/scene-stats-overlay";
 import {  useState } from "react";
 import { SceneInteractionProvider } from "./components/scene-interaction-context";
 import { StageControlHints } from "./components/stage-control-hints";
@@ -68,6 +71,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           gl={createSceneRenderer}
         >
           <RendererBackendProbe onResolved={setIsWebGPU} />
+          {IS_SCENE_STATS_ENABLED && <SceneStatsProbe />}
           <SceneSky />
           <SceneEnvironmentMap />
           <SceneWater />
@@ -87,6 +91,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         </Canvas>
         <ZoomControlsOverlay />
         {IS_RENDERER_BADGE_ENABLED && <RendererBackendBadge isWebGPU={isWebGPU} />}
+        {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
       </ZoomControlsProvider>
     </SceneInteractionProvider>
   );
