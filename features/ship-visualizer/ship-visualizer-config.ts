@@ -51,8 +51,15 @@ export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
 export const IS_MODEL_VARIANT_TOGGLE_ENABLED =
   process.env.NODE_ENV === "development";
 
-/** Default model when opening the ship visualizer (first subroute). */
-export const DEFAULT_SHIP_MODEL_PATH = SHIP_MODEL_JOINED_GLB;
+/**
+ * Default model when opening the ship visualizer (first subroute).
+ *
+ * The engine build, not the V2 build: it is the current vessel. Note it is
+ * ~42 MB against ~25 MB for `SHIP_MODEL_JOINED_GLB`, so this is also a
+ * decision about what every visitor downloads. The difference is textures
+ * (34 maps against 19), not geometry.
+ */
+export const DEFAULT_SHIP_MODEL_PATH = ENGINE_SHIP_MODEL_GLB;
 
 /** Default ship texture (Atlas_Twinship), same folder as ship models. */
 export const SHIP_TEXTURE_PATH = "/ship/Atlas_Twinship.png";

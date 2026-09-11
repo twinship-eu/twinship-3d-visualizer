@@ -13,6 +13,7 @@ import { collectNodeIds } from "./lib/filter-tree";
 import {
   SHIP_VISUALIZER_LAYOUT,
   DEFAULT_SHIP_MODEL_PATH,
+  SHIP_MODEL_JOINED_GLB,
   IS_MODEL_VARIANT_TOGGLE_ENABLED,
   RAW_SHIP_MODEL_GLB,
   PREVIOUS_SHIP_MODEL_GLB,
@@ -33,7 +34,7 @@ const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
 /** Builds of the default model, offered by the development-only toggle. */
 const MODEL_PATH_BY_VARIANT: Record<ModelVariant, string> = {
   previous: PREVIOUS_SHIP_MODEL_GLB,
-  optimized: DEFAULT_SHIP_MODEL_PATH,
+  optimized: SHIP_MODEL_JOINED_GLB,
   raw: RAW_SHIP_MODEL_GLB,
   engine: ENGINE_SHIP_MODEL_GLB,
 };
@@ -52,7 +53,7 @@ export function ShipVisualizer() {
     Record<string, boolean>
   >({});
   const [modelVariant, setModelVariant] =
-    useState<ModelVariant>("optimized");
+    useState<ModelVariant>("engine");
 
   // Only the default model has alternate builds to compare against; any other
   // model the tree points at is shown as-is.
