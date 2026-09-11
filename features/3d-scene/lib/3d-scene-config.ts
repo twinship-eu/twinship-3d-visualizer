@@ -58,6 +58,22 @@ export const WATER_OPTIONS = {
 } as const;
 
 /**
+ * Whether the water renders true planar reflections.
+ *
+ * `WaterMesh` reflects by re-rendering the entire scene from a mirrored camera
+ * into a second target, so the whole ship is rasterised twice per frame — the
+ * `Scene [ Reflector ]` entry in the Inspector's GPU breakdown, and confirmed by
+ * the triangle counter reading almost exactly twice the model's own count.
+ *
+ * Set to `false` to swap in a flat, environment-lit water surface that keeps
+ * the plane and its colour but drops the second scene pass. The reflection is
+ * visibly lost, so this is a performance trade, not a free win.
+ *
+ * **Do not delete the reflective path to turn it off. Set this to `false`.**
+ */
+export const IS_WATER_REFLECTION_ENABLED = false;
+
+/**
  * Reflection render-target scale for the water. WaterMesh replaces the old
  * textureWidth/textureHeight pair (512x512) with this single factor; 0.5 is its
  * default and the closest match at typical viewport sizes.

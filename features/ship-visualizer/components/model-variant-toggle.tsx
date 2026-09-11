@@ -35,8 +35,10 @@ type Props = {
  */
 export function ModelVariantToggle({ value, onChange, isLoading }: Props) {
   return (
+    // Left-aligned, beside the sidebar: three's Inspector docks its panel to
+    // the top-right of the canvas and covered the toggle there.
     <div
-      className="absolute right-4 top-4 z-20 flex flex-col items-end gap-1"
+      className="absolute left-4 top-4 z-20 flex flex-col items-start gap-1"
       aria-label="Ship model variant (development only)"
     >
       <div className="flex items-center gap-0.5 rounded-md bg-white/95 p-1 shadow-md">
