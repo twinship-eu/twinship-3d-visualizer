@@ -19,8 +19,17 @@ import { useCallback, useEffect, useRef } from "react";
  * 3. **It listens in the capture phase**, so movement is seen before
  *    OrbitControls or anything else can stop propagation.
  *
- * Returns a getter rather than state on purpose: nothing should re-render when
- * a drag starts.
+ * Returns two getters, which answer different questions and must not be
+ * swapped:
+ *
+ * - `getDidDrag` — did the gesture that just ended move? Survives pointerup, so
+ *   the click that follows can reject itself. Use this to guard selection.
+ * - `getIsDragging` — is a drag happening right now? Ends at pointerup. Use
+ *   this to suppress hover; using `getDidDrag` there suppresses hover forever
+ *   after the first drag, until the next button press.
+ *
+ * Getters rather than state on purpose: nothing should re-render when a drag
+ * starts.
  */
 export function usePointerDragGuard(thresholdPx: number) {
   const isPointerDownRef = useRef(false);
@@ -63,5 +72,11 @@ export function usePointerDragGuard(thresholdPx: number) {
   /** True when the current or most recent gesture moved past the threshold. */
   const getDidDrag = useCallback(() => didDragRef.current, []);
 
-  return { getDidDrag };
+  /** True only while a drag is actually in progress. */
+  const getIsDragging = useCallback(
+    () => isPointerDownRef.current && didDragRef.current,
+    []
+  );
+
+  return { getDidDrag, getIsDragging };
 }

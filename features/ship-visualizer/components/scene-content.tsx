@@ -57,7 +57,9 @@ export default function Ship({
   onSelectByClick?: (node: ShipTreeNode | null) => void;
 }) {
   const floatGroupRef = useRef<Group>(null);
-  const { getDidDrag } = usePointerDragGuard(POINTER_DRAG_THRESHOLD_PX);
+  const { getDidDrag, getIsDragging } = usePointerDragGuard(
+    POINTER_DRAG_THRESHOLD_PX
+  );
   /** Last fade factor written, so the restore happens once and not per frame. */
   const lastFadeRef = useRef(1);
   const { isOrbitControlsActive } = useSceneInteraction();
@@ -175,7 +177,7 @@ export default function Ship({
   const handlePointerMove = useCallback(
     (e: { intersections: { object: Object3D }[] }) => {
       // Dragging is a camera gesture, so nothing should highlight during it.
-      if (isOrbitControlsActive || getDidDrag()) {
+      if (isOrbitControlsActive || getIsDragging()) {
         if (onHover) onHover(null);
         return;
       }
@@ -197,7 +199,7 @@ export default function Ship({
 
       onHover(hoveredNode);
     },
-    [tree, onHover, isOrbitControlsActive, hiddenNodeIds, getDidDrag]
+    [tree, onHover, isOrbitControlsActive, hiddenNodeIds, getIsDragging]
   );
 
   const handlePointerLeave = useCallback(() => {

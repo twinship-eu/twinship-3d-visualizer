@@ -22,4 +22,8 @@ export const SCENE_STATS = {
   peakDrawCalls: 0,
   /** DIAGNOSTIC: whether three resets the counters itself each frame. */
   autoReset: true,
+  /** Cumulative milliseconds spent inside mesh raycasts. */
+  raycastMsTotal: 0,
+  /** Cumulative mesh raycast calls. */
+  raycastCallsTotal: 0,
 };
