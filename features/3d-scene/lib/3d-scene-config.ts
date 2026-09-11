@@ -69,9 +69,13 @@ export const WATER_OPTIONS = {
  * the plane and its colour but drops the second scene pass. The reflection is
  * visibly lost, so this is a performance trade, not a free win.
  *
+ * Measured, and worth not re-testing: switching this off did **not** fix the
+ * slowdown when orbiting close to the engine. The second pass is real cost but
+ * was not the bottleneck — the engine node's triangle count was.
+ *
  * **Do not delete the reflective path to turn it off. Set this to `false`.**
  */
-export const IS_WATER_REFLECTION_ENABLED = false;
+export const IS_WATER_REFLECTION_ENABLED = true;
 
 /**
  * Reflection render-target scale for the water. WaterMesh replaces the old

@@ -9,7 +9,6 @@ export const SHIP_VISUALIZER_LAYOUT = {
  */
 export const SHIP_MODEL_JOINED_GLB = "/ship/twinship-v3.glb";
 
-
 /**
  * The raw V2 Blender export with full-size 4K PNG textures, ~176 MB. Only ever
  * loaded through the development-only model-variant toggle, as a reference to
@@ -27,7 +26,15 @@ export const PREVIOUS_SHIP_MODEL_GLB = "/ship/twinship v2.glb";
 
 /**
  * The engine model: PBR textured GLB, built from the ~234 MB raw Blender export
- * by `npm run optimize:ship-model <source> <output>`.
+ * by `npm run optimize:ship-model <source> <output>`, then decimated to 25% on
+ * the `Engine` node by `scripts/simplify-engine-mesh.mjs`.
+ *
+ * That node came out of Blender at 494,596 triangles against 108,470 in the
+ * shipped model, while every other part of the two exports is identical. At
+ * full density it made orbiting close to the engine visibly stutter; 124,092
+ * was chosen by comparing 247k / 124k / 85k builds side by side in the scene.
+ * Disabling the water's reflection pass, tried first, did not help — the
+ * triangle count was the cause.
  *
  * Its node names and bounds match `SHIP_MODEL_JOINED_GLB` exactly, so sections,
  * propeller spin, scale and waterline all carry over untouched.
@@ -39,21 +46,6 @@ export const PREVIOUS_SHIP_MODEL_GLB = "/ship/twinship v2.glb";
  */
 export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
 
-/**
- * Decimation experiments on the engine model, built by
- * `node scripts/simplify-engine-mesh.mjs <source> <output> <ratio>`.
- *
- * Only the `Engine` node is decimated: every other part of the engine export is
- * identical to the shipped model, so whole-model simplification would thin
- * geometry that is already the right density. The names are the resulting
- * triangle count for that node, down from 494,596.
- *
- * Gitignored and local-only. They are ~40 MB each — decimation barely moves
- * file size, because textures dominate it — and only one will be kept.
- */
-export const ENGINE_SHIP_MODEL_247K_GLB = "/ship/twinship-engine-247k.glb";
-export const ENGINE_SHIP_MODEL_124K_GLB = "/ship/twinship-engine-124k.glb";
-export const ENGINE_SHIP_MODEL_85K_GLB = "/ship/twinship-engine-85k.glb";
 
 /** The raw reference model is far too large to offer outside local development. */
 export const IS_MODEL_VARIANT_TOGGLE_ENABLED =

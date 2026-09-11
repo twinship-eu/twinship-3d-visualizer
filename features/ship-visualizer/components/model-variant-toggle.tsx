@@ -2,23 +2,13 @@
 
 import { cn } from "@/lib/utils";
 
-export type ModelVariant =
-  | "previous"
-  | "optimized"
-  | "raw"
-  | "engine"
-  | "engine247k"
-  | "engine124k"
-  | "engine85k";
+export type ModelVariant = "previous" | "optimized" | "raw" | "engine";
 
 const OPTIONS: { id: ModelVariant; label: string; hint: string }[] = [
   { id: "previous", label: "V1", hint: "V1, the model V2 replaced, ~12 MB" },
   { id: "optimized", label: "Optimized", hint: "V2, 2K WebP, ~24 MB" },
   { id: "raw", label: "Raw", hint: "V2, 4K PNG, ~176 MB" },
-  { id: "engine", label: "Eng", hint: "Engine build, 494,596-tri engine" },
-  { id: "engine247k", label: "247k", hint: "Engine decimated 50%: 247,293 tris" },
-  { id: "engine124k", label: "124k", hint: "Engine decimated 25%: 124,092 tris" },
-  { id: "engine85k", label: "85k", hint: "Engine decimated to the 1% error floor: 85,488 tris" },
+  { id: "engine", label: "Engine", hint: "Engine build, 124k-tri engine, ~40 MB" },
 ];
 
 type Props = {
