@@ -44,21 +44,6 @@ yarn-error.log*
 next-env.d.ts
 node_modules
 
-# Raw Blender export (~323 MB), dev-only reference for the model-variant toggle
-public/ship/TwinShip_Update/
-# Raw Blender exports: hundreds of MB, past GitHub's 100 MB file limit.
+# Raw Blender export of the ship, the rebuild source for twinship-engine.glb.
+# ~240 MB, well past GitHub's 100 MB per-file limit.
 public/ship/twinship-engine-raw*.glb
-# Decimation experiments and the full-density build the shipped one came from.
-# ~40 MB each, all reproducible from twinship-engine-raw.glb.
-public/ship/twinship-engine-247k.glb
-public/ship/twinship-engine-124k.glb
-public/ship/twinship-engine-85k.glb
-public/ship/twinship-engine-495k.glb
-public/ship/twinship-engine-untextured.glb
-
-# Superseded local exports of the ship model. Only the optimized build
-# (`twinship-v3.glb`) and the V1 model the variant toggle compares against
-# (`twinship v2.glb`) are tracked.
-public/ship/TwinShip.glb
-public/ship/TwinShipv12_Joined.glb
-public/ship/*.fbx
