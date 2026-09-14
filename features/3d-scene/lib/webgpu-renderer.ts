@@ -13,7 +13,7 @@ import { IS_SCENE_INSPECTOR_ENABLED } from "./3d-scene-config";
  * Scales the whole image, sky included, unlike the light intensities in
  * `3d-scene-config.ts`, which reach only what they illuminate.
  */
-export const TONE_MAPPING_EXPOSURE = 0.5;
+export const TONE_MAPPING_EXPOSURE = 0.6;
 
 /** Query param pinning the renderer to the WebGL2 backend, for reproducing fallback bugs. */
 const FORCE_WEBGL_PARAM = "forceWebGL";

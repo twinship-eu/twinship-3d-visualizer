@@ -25,7 +25,6 @@ const SUN_ELEVATION_DEG = 35;
  */
 const SUN_AZIMUTH_DEG = 205;
 
-
 export function getSunDirection(): Vector3 {
   const phi = MathUtils.degToRad(90 - SUN_ELEVATION_DEG);
   const theta = MathUtils.degToRad(SUN_AZIMUTH_DEG);
@@ -80,39 +79,23 @@ export const SHADOW_CAMERA_FAR = 260;
 export const SHADOW_NORMAL_BIAS = 0.05;
 
 /**
- * Lit so the ship reads fully on the fill lights alone, with the sun layered on
- * top purely to carve shadows. Values dialled in through the Inspector's Lights
- * panel rather than derived.
+ * Scene lighting.
  *
- * The consequence worth knowing: shadows block only the sun, so with the fills
- * this much larger than it, a shadowed face keeps most of its light and the
- * shadow reads as a soft darkening rather than a hard one. That is the intended
- * trade — everything inside a shadow stays legible. Deepening the shadows means
- * lowering `ambient` and raising `sun`, not touching a shadow setting.
+ * The sun is the only light. Ambient and hemisphere fills were removed because
+ * the ship is almost entirely metal — 0.93 to 1.00 metalness across the hull,
+ * deck and towers, measured from the model's own maps — and metal has no
+ * diffuse response, so neither fill reached the surfaces they were meant to
+ * light. What lights the hull is the sky probe it reflects, scaled by
+ * ENVIRONMENT_MAP_INTENSITY.
+ *
+ * The trade this makes: the model's genuinely dielectric parts — containers,
+ * decals, the logo, all at metalness 0 — did respond to those fills and are
+ * darker without them. They are now lit by the sun and the probe alone.
  */
 export const LIGHT_INTENSITY = {
-  /**
-   * Flat fill, applied equally to every face, and the scene's main light
-   * source. Carries the ship on its own so nothing depends on the sun being
-   * there; the cost is that it flattens form, which `hemisphere` offsets.
-   */
-  ambient: 3,
-  /**
-   * Sky-above / sea-below fill. Small next to `ambient`, but it is the only
-   * fill that separates up-facing from down-facing surfaces, so it is what
-   * stops the hull reading as a flat cutout.
-   */
-  hemisphere: 1.4,
-  /**
-   * Direct sun, and the only light the shadows block. Sized to read as a
-   * highlight over the fill rather than to light the ship itself.
-   */
+  /** Direct sun, and the only light the shadows block. */
   sun: 4,
 } as const;
-
-/** Hemisphere fill colours: open sky above, deep water below. */
-export const HEMISPHERE_SKY_COLOR = "#bcd4ea";
-export const HEMISPHERE_GROUND_COLOR = "#1d3a4a";
 
 /**
  * Strength of the sky-baked IBL probe that lights the ship's metallic

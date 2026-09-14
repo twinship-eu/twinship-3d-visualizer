@@ -1,7 +1,7 @@
 import { useGLTF } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
+import { useThree, useFrame } from "@react-three/fiber";
 import { ShipTreeNode } from "../ship-visualizer-types";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Group } from "three";
 import { getMaxTextureAnisotropy } from "@/features/3d-scene/lib/webgpu-renderer";
 import { ASSEMBLY_POINT_COUNT } from "@/features/3d-scene/lib/loading-ring-particles";
@@ -21,6 +21,8 @@ import {
   ensureUniqueMaterialsPerMesh,
 } from "../lib/3d-model";
 import { splitPropellersIntoSpinners } from "../lib/propellers";
+import { SHIP_MATERIAL_TUNING } from "@/features/3d-scene/lib/scene-material-tuning";
+import { Mesh, MeshStandardMaterial } from "three";
 import CameraFitToSelection from "./camera-fit-to-section";
 import SpinningPropellers from "./spinning-propellers";
 
@@ -62,6 +64,38 @@ export default function GltfShipModel({
   // Sampled here because this is where the built model lives, and the points
   // are wanted the moment it becomes available. World space, so the loading
   // ring can fly particles onto the hull without a space conversion per frame.
+  // Applies in production too, not only under the Inspector: the scale is a
+  // real material default, and the panel merely tunes it live.
+  //
+  // Metalness is captured once, so the scale stays relative to what the model
+  // actually ships with rather than compounding each frame. The change guard
+  // means this costs one traversal, then nothing.
+  const baseMetalnessRef = useRef(new Map<string, number>());
+  const lastScaleRef = useRef(-1);
+
+  useFrame(() => {
+    if (!cloned) return;
+    const scale = SHIP_MATERIAL_TUNING.metalnessScale;
+    if (scale === lastScaleRef.current) return;
+    lastScaleRef.current = scale;
+
+    cloned.traverse((child) => {
+      if (!(child instanceof Mesh)) return;
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+      for (const material of materials) {
+        if (!(material instanceof MeshStandardMaterial)) continue;
+        const base = baseMetalnessRef.current.get(material.uuid);
+        const authored = base ?? material.metalness;
+        if (base === undefined) {
+          baseMetalnessRef.current.set(material.uuid, authored);
+        }
+        material.metalness = authored * scale;
+      }
+    });
+  });
+
   useEffect(() => {
     if (!cloned || !onAssemblyPointsSampled) return;
     const points = sampleModelSurfacePoints(cloned, ASSEMBLY_POINT_COUNT);

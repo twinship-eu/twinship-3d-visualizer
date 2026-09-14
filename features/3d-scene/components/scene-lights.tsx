@@ -2,13 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import type { AmbientLight, DirectionalLight, HemisphereLight } from "three";
+import type { DirectionalLight } from "three";
 import {
   ENVIRONMENT_MAP_INTENSITY,
   getShadowLightPosition,
   IS_ENVIRONMENT_LIGHTING_ENABLED,
-  HEMISPHERE_GROUND_COLOR,
-  HEMISPHERE_SKY_COLOR,
   IS_SCENE_INSPECTOR_ENABLED,
   LIGHT_INTENSITY,
   SHADOW_CAMERA_EXTENT,
@@ -17,6 +15,7 @@ import {
   SHADOW_MAP_SIZE,
   SHADOW_NORMAL_BIAS,
 } from "../lib/3d-scene-config";
+import { SHIP_MATERIAL_TUNING } from "../lib/scene-material-tuning";
 import {
   asSceneRenderer,
   getSceneInspector,
@@ -33,8 +32,6 @@ const SUN_POS = getShadowLightPosition();
  * back into `3d-scene-config.ts` — nothing here persists across a reload.
  */
 const LIGHT_TUNING = {
-  ambient: LIGHT_INTENSITY.ambient,
-  hemisphere: LIGHT_INTENSITY.hemisphere,
   sun: LIGHT_INTENSITY.sun,
   /** Whether the baked sky probe lights the ship at all. */
   skyLightsShip: IS_ENVIRONMENT_LIGHTING_ENABLED,
@@ -44,8 +41,6 @@ const LIGHT_TUNING = {
 
 export function SceneLights() {
   const gl = useThree((state) => state.gl);
-  const ambientRef = useRef<AmbientLight>(null);
-  const hemisphereRef = useRef<HemisphereLight>(null);
   const sunRef = useRef<DirectionalLight>(null);
 
   useEffect(() => {
@@ -54,16 +49,17 @@ export function SceneLights() {
     if (inspector === null) return;
 
     const panel = inspector.createParameters("Lights");
-    // The two fills carry the ship on their own, so they get generous ranges;
-    // the sun is the shadow-caster layered over them.
-    panel.add(LIGHT_TUNING, "ambient", 0, 6, 0.05);
-    panel.add(LIGHT_TUNING, "hemisphere", 0, 4, 0.05);
+    // The sun is the scene's only light; everything else on the ship comes
+    // from the environment probe below.
     panel.add(LIGHT_TUNING, "sun", 0, 20, 0.1);
     // Lights the metal via the baked sky probe, and is not blocked by shadows.
     panel.add(LIGHT_TUNING, "skyLightsShip");
     panel.add(LIGHT_TUNING, "environment", 0, 3, 0.05);
     // Scales the whole image, sky included, unlike the three above.
     panel.add(LIGHT_TUNING, "exposure", 0, 1.5, 0.01);
+    // Not a light, but the reason the two fills look inert: the ship is
+    // almost entirely metalness 1, and metal has no diffuse response.
+    panel.add(SHIP_MATERIAL_TUNING, "metalnessScale", 0, 1, 0.05);
   }, [gl]);
 
   // Applied per frame rather than through change handlers: it is a handful of
@@ -73,10 +69,6 @@ export function SceneLights() {
   // hands back values react-hooks will not let a component mutate.
   useFrame((state) => {
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
-    if (ambientRef.current) ambientRef.current.intensity = LIGHT_TUNING.ambient;
-    if (hemisphereRef.current) {
-      hemisphereRef.current.intensity = LIGHT_TUNING.hemisphere;
-    }
     if (sunRef.current) sunRef.current.intensity = LIGHT_TUNING.sun;
     state.scene.environmentIntensity = LIGHT_TUNING.skyLightsShip
       ? LIGHT_TUNING.environment
@@ -86,13 +78,6 @@ export function SceneLights() {
 
   return (
     <>
-      <ambientLight ref={ambientRef} intensity={LIGHT_INTENSITY.ambient} />
-      <hemisphereLight
-        ref={hemisphereRef}
-        intensity={LIGHT_INTENSITY.hemisphere}
-        color={HEMISPHERE_SKY_COLOR}
-        groundColor={HEMISPHERE_GROUND_COLOR}
-      />
       <directionalLight
         ref={sunRef}
         position={[SUN_POS.x, SUN_POS.y, SUN_POS.z]}

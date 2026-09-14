@@ -15,10 +15,15 @@
  * anything.
  *
  * Usage:
- *   node scripts/simplify-engine-mesh.mjs <source.glb> <output.glb> <ratio> [nodeName]
+ *   node scripts/simplify-engine-mesh.mjs <source.glb> <output.glb> <ratio> [nodeName] [error]
  *
  *   ratio     fraction of triangles to keep, 0-1
  *   nodeName  node whose subtree is simplified; defaults to "Engine"
+ *   error     allowed deviation as a fraction of mesh radius; defaults to 0.01
+ *
+ * The ratio is a target, not a guarantee: meshoptimizer stops early once the
+ * error ceiling is reached, so a low ratio with a tight error lands well above
+ * what was asked. Raise `error` to actually get there.
  * =============================================================================
  */
 
@@ -28,15 +33,27 @@ import { simplifyPrimitive, weldPrimitive } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
 
 /** Allowed error, as a fraction of mesh radius, before simplification stops. */
-const MAX_ERROR = 0.01;
+const DEFAULT_MAX_ERROR = 0.01;
 
-const [sourcePath, outputPath, ratioArg, nodeNameArg] = process.argv.slice(2);
+/**
+ * Primitives below this many triangles are left alone.
+ *
+ * Two reasons. They contribute nothing — the engine's smallest primitive is 4
+ * triangles against one of 381,093 — and at low ratios they collapse to
+ * degenerate geometry that the Meshopt encoder rejects outright, failing the
+ * whole write.
+ */
+const MIN_TRIANGLES_TO_SIMPLIFY = 256;
+
+const [sourcePath, outputPath, ratioArg, nodeNameArg, errorArg] =
+  process.argv.slice(2);
 const ratio = Number(ratioArg);
 const targetNodeName = nodeNameArg ?? "Engine";
+const maxError = errorArg === undefined ? DEFAULT_MAX_ERROR : Number(errorArg);
 
 if (!sourcePath || !outputPath || !Number.isFinite(ratio)) {
   console.error(
-    "Usage: node scripts/simplify-engine-mesh.mjs <source.glb> <output.glb> <ratio> [nodeName]"
+    "Usage: node scripts/simplify-engine-mesh.mjs <source.glb> <output.glb> <ratio> [nodeName] [error]"
   );
   process.exit(1);
 }
@@ -88,12 +105,17 @@ if (!targetNode) {
 const primitives = collectPrimitives(targetNode, []);
 const before = primitives.reduce((sum, p) => sum + countTriangles(p), 0);
 
+let skipped = 0;
 for (const primitive of primitives) {
+  if (countTriangles(primitive) < MIN_TRIANGLES_TO_SIMPLIFY) {
+    skipped += 1;
+    continue;
+  }
   weldPrimitive(primitive);
   simplifyPrimitive(primitive, {
     simplifier: MeshoptSimplifier,
     ratio,
-    error: MAX_ERROR,
+    error: maxError,
   });
 }
 
@@ -102,6 +124,11 @@ const after = primitives.reduce((sum, p) => sum + countTriangles(p), 0);
 await io.write(outputPath, document);
 
 const format = (value) => Math.round(value).toLocaleString("en-US");
+if (skipped > 0) {
+  console.log(
+    `Left ${skipped} primitive(s) alone, under ${MIN_TRIANGLES_TO_SIMPLIFY} triangles.`
+  );
+}
 console.log(
   `${targetNodeName}: ${format(before)} -> ${format(after)} triangles ` +
     `(${((after / before) * 100).toFixed(1)}% kept, requested ${(
