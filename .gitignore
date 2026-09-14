@@ -46,7 +46,8 @@ node_modules
 
 # Raw Blender export (~323 MB), dev-only reference for the model-variant toggle
 public/ship/TwinShip_Update/
-public/ship/twinship-engine-raw.glb
+# Raw Blender exports: hundreds of MB, past GitHub's 100 MB file limit.
+public/ship/twinship-engine-raw*.glb
 # Decimation experiments and the full-density build the shipped one came from.
 # ~40 MB each, all reproducible from twinship-engine-raw.glb.
 public/ship/twinship-engine-247k.glb

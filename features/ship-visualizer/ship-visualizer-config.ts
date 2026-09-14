@@ -25,24 +25,25 @@ export const RAW_SHIP_MODEL_GLB = "/ship/TwinShip_Update/TwinShip_Update.glb";
 export const PREVIOUS_SHIP_MODEL_GLB = "/ship/twinship v2.glb";
 
 /**
- * The engine model: PBR textured GLB, built from the ~234 MB raw Blender export
- * by `npm run optimize:ship-model <source> <output>`, then decimated to 25% on
- * the `Engine` node by `scripts/simplify-engine-mesh.mjs`.
+ * The engine model, and the vessel the visualizer opens with.
  *
- * That node came out of Blender at 494,596 triangles against 108,470 in the
- * shipped model, while every other part of the two exports is identical. At
- * full density it made orbiting close to the engine visibly stutter; 124,092
- * was chosen by comparing 247k / 124k / 85k builds side by side in the scene.
- * Disabling the water's reflection pass, tried first, did not help — the
- * triangle count was the cause.
+ * Built from the ~226 MB raw Blender export in two stages:
+ *   npm run optimize:ship-model <raw> <tmp>      2048px WebP + Meshopt
+ *   node scripts/simplify-engine-mesh.mjs <tmp> <out> 0.25
  *
- * Its node names and bounds match `SHIP_MODEL_JOINED_GLB` exactly, so sections,
- * propeller spin, scale and waterline all carry over untouched.
+ * The second stage exists because the `Engine` node ships at 494,596 triangles
+ * — more than the rest of the vessel combined, and in an object only ~10 units
+ * long since it was resized to fit inside the hull. At full density, orbiting
+ * close to it visibly stuttered; 25% (124,255 triangles) was chosen by
+ * comparing 247k / 124k / 85k builds in the scene. Disabling the water's
+ * reflection pass, tried first, did not help — triangle count was the cause.
  *
- * At ~42 MB it is larger than the shipped V2 build (~25 MB) because it carries
- * 34 maps rather than 19. Those are 2048px WebP, which expand to roughly 570 MB
- * of VRAM before mipmaps — comfortably runnable, but the reason the raw 4K
- * export is not offered here.
+ * Every other node is untouched and identical to `SHIP_MODEL_JOINED_GLB`, so
+ * sections, propeller spin, scale and waterline all carry over.
+ *
+ * ~40 MB against ~24 MB for the V2 build. The difference is textures, 34 maps
+ * against 19, not geometry — lowering the PBR maps from 2048 to 1024 is the
+ * lever if download size matters.
  */
 export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
 
