@@ -2,8 +2,28 @@ import { MathUtils, Vector3 } from "three";
 
 const DEFAULT_SCENE_SCALE = 1;
 
-const SUN_ELEVATION_DEG = 60;
-const SUN_AZIMUTH_DEG = 180;
+/**
+ * Sun elevation above the horizon. Drives shadow length directly: a point `h`
+ * above the water casts a shadow `h / tan(elevation)` long, so 35 degrees gives
+ * shadows ~1.4x the caster's height where 60 degrees gave ~0.6x.
+ */
+const SUN_ELEVATION_DEG = 35;
+
+/**
+ * Sun compass bearing. The stern is at -Z (the propellers sit at Z -98..-91),
+ * so bearings below 270 swing the sun aft.
+ *
+ * 205 puts it off the port quarter, well aft. Chosen so the wind-turbine
+ * towers' shadows land on the deck rather than over the side: the towers stand
+ * 11.6 units above a deck 7.8 units to a side, so at this elevation their
+ * shadow is 11.6 / tan(35) = 16.6 units long, and its sideways component is
+ * that times |sin(azimuth)|. Staying on deck needs |sin| below 7.8 / 16.6 =
+ * 0.47, so within 28 degrees of 180; at 205 it is 7.0 units.
+ *
+ * Drives the visible sun and the water's specular highlight too, via
+ * `getSunDirection`, so the shading stays consistent with the shadows.
+ */
+const SUN_AZIMUTH_DEG = 205;
 
 
 export function getSunDirection(): Vector3 {
@@ -12,22 +32,127 @@ export function getSunDirection(): Vector3 {
   return new Vector3().setFromSphericalCoords(1, phi, theta);
 }
 
-export const SUN_DISTANCE = 450_000;
+/**
+ * Distance at which the sun's directional light is placed.
+ *
+ * A directional light's position does not affect shading at all — only the
+ * direction from its position to its target does — but it *does* place the
+ * shadow camera, whose near and far planes are measured from the light. This
+ * previously sat at an astronomical 450,000 units while the shadow camera's far
+ * plane was 200, so the camera saw a slab 200 units deep starting 450,000 units
+ * from the ship. The shadow map rendered empty every frame, which is why the
+ * ship has never cast a shadow despite everything being switched on.
+ *
+ * Keeping the light on the same ray preserves the lighting angle exactly.
+ */
+export const SHADOW_LIGHT_DISTANCE = 150;
 
-export function getSunPosition(): Vector3 {
-  return getSunDirection().multiplyScalar(SUN_DISTANCE);
+export function getShadowLightPosition(): Vector3 {
+  return getSunDirection().multiplyScalar(SHADOW_LIGHT_DISTANCE);
 }
 
+/**
+ * Orthographic half-extent of the shadow camera, in world units.
+ *
+ * The ship's bounding radius is ~55 units, and at this sun elevation its shadow
+ * reaches ~65, so 70 covers both with little waste. Slack costs resolution
+ * directly: the map holds SHADOW_CAMERA_EXTENT * 2 units across
+ * SHADOW_MAP_SIZE texels, so 70 gives ~0.07 units per texel where the previous
+ * 200 gave ~0.20.
+ */
+export const SHADOW_CAMERA_EXTENT = 70;
+
+export const SHADOW_MAP_SIZE = 2048;
+
+/**
+ * Depth range the shadow camera sees, measured from the light. Brackets the
+ * ship's extent along the light direction, with margin for it rising out of the
+ * water during part inspection.
+ */
+export const SHADOW_CAMERA_NEAR = 50;
+export const SHADOW_CAMERA_FAR = 260;
+
+/**
+ * Offsets the shadow lookup along the surface normal, to stop a surface
+ * shadowing itself through depth-buffer quantisation. Preferred over a plain
+ * depth bias, which at this texel size detaches the shadow from the hull.
+ */
+export const SHADOW_NORMAL_BIAS = 0.05;
+
+/**
+ * Lit so the ship reads fully on the fill lights alone, with the sun layered on
+ * top purely to carve shadows. Values dialled in through the Inspector's Lights
+ * panel rather than derived.
+ *
+ * The consequence worth knowing: shadows block only the sun, so with the fills
+ * this much larger than it, a shadowed face keeps most of its light and the
+ * shadow reads as a soft darkening rather than a hard one. That is the intended
+ * trade — everything inside a shadow stays legible. Deepening the shadows means
+ * lowering `ambient` and raising `sun`, not touching a shadow setting.
+ */
 export const LIGHT_INTENSITY = {
-  ambient: 0.25,
-  sun: 7,
+  /**
+   * Flat fill, applied equally to every face, and the scene's main light
+   * source. Carries the ship on its own so nothing depends on the sun being
+   * there; the cost is that it flattens form, which `hemisphere` offsets.
+   */
+  ambient: 3,
+  /**
+   * Sky-above / sea-below fill. Small next to `ambient`, but it is the only
+   * fill that separates up-facing from down-facing surfaces, so it is what
+   * stops the hull reading as a flat cutout.
+   */
+  hemisphere: 1.4,
+  /**
+   * Direct sun, and the only light the shadows block. Sized to read as a
+   * highlight over the fill rather than to light the ship itself.
+   */
+  sun: 4,
 } as const;
+
+/** Hemisphere fill colours: open sky above, deep water below. */
+export const HEMISPHERE_SKY_COLOR = "#bcd4ea";
+export const HEMISPHERE_GROUND_COLOR = "#1d3a4a";
 
 /**
  * Strength of the sky-baked IBL probe that lights the ship's metallic
  * materials. Raise for shinier metal, lower for a flatter look.
  */
 export const ENVIRONMENT_MAP_INTENSITY = 0.35;
+
+/**
+ * Whether the baked sky probe lights the ship at all.
+ *
+ * Off means the hull is lit purely by the ambient, hemisphere and directional
+ * lights, and its metal reflects nothing — flatter and darker, but fully under
+ * the control of the three light intensities. On, the sky also contributes,
+ * which is what gives metal something to reflect.
+ *
+ * The probe is baked either way, so the Inspector's Lights panel can switch
+ * this live; the bake is a one-off at startup and cheap to leave in place.
+ *
+ * **Do not remove the probe to turn it off. Set this to `false`.**
+ */
+export const IS_ENVIRONMENT_LIGHTING_ENABLED = true;
+
+/**
+ * Sky overrides used only when baking the environment probe.
+ *
+ * The probe is rendered from the same sky the camera sees, which includes the
+ * sun's disc and halo — so every metal surface on the ship picked up a bright
+ * hot spot from it, on top of the directional light already representing that
+ * same sun. The hull was effectively lit by the sun twice.
+ *
+ * Mie scattering is what draws the sun's glare in this sky model, so flattening
+ * it for the bake keeps the sky's colour and its bright-above/dark-below
+ * gradient — which is what the probe is for — while dropping the hot spot.
+ *
+ * The visible sky is untouched; only the probe uses these.
+ */
+export const ENVIRONMENT_SKY_OVERRIDES = {
+  mieCoefficient: 0.0005,
+  mieDirectionalG: 0.05,
+} as const;
 
 export const SKY_SCALE = 10_000;
 

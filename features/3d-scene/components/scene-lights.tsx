@@ -1,23 +1,112 @@
-import { getSunPosition, LIGHT_INTENSITY } from "../lib/3d-scene-config";
+"use client";
 
-const SUN_POS = getSunPosition();
+import { useEffect, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import type { AmbientLight, DirectionalLight, HemisphereLight } from "three";
+import {
+  ENVIRONMENT_MAP_INTENSITY,
+  getShadowLightPosition,
+  IS_ENVIRONMENT_LIGHTING_ENABLED,
+  HEMISPHERE_GROUND_COLOR,
+  HEMISPHERE_SKY_COLOR,
+  IS_SCENE_INSPECTOR_ENABLED,
+  LIGHT_INTENSITY,
+  SHADOW_CAMERA_EXTENT,
+  SHADOW_CAMERA_FAR,
+  SHADOW_CAMERA_NEAR,
+  SHADOW_MAP_SIZE,
+  SHADOW_NORMAL_BIAS,
+} from "../lib/3d-scene-config";
+import {
+  asSceneRenderer,
+  getSceneInspector,
+  TONE_MAPPING_EXPOSURE,
+} from "../lib/webgpu-renderer";
+
+const SUN_POS = getShadowLightPosition();
+
+/**
+ * Live values behind the Inspector's Lights panel.
+ *
+ * Seeded from the configured defaults, then applied to the scene every frame
+ * while the Inspector is on. Once a combination looks right, copy the numbers
+ * back into `3d-scene-config.ts` — nothing here persists across a reload.
+ */
+const LIGHT_TUNING = {
+  ambient: LIGHT_INTENSITY.ambient,
+  hemisphere: LIGHT_INTENSITY.hemisphere,
+  sun: LIGHT_INTENSITY.sun,
+  /** Whether the baked sky probe lights the ship at all. */
+  skyLightsShip: IS_ENVIRONMENT_LIGHTING_ENABLED,
+  environment: ENVIRONMENT_MAP_INTENSITY,
+  exposure: TONE_MAPPING_EXPOSURE,
+};
 
 export function SceneLights() {
+  const gl = useThree((state) => state.gl);
+  const ambientRef = useRef<AmbientLight>(null);
+  const hemisphereRef = useRef<HemisphereLight>(null);
+  const sunRef = useRef<DirectionalLight>(null);
+
+  useEffect(() => {
+    if (!IS_SCENE_INSPECTOR_ENABLED) return;
+    const inspector = getSceneInspector(asSceneRenderer(gl));
+    if (inspector === null) return;
+
+    const panel = inspector.createParameters("Lights");
+    // The two fills carry the ship on their own, so they get generous ranges;
+    // the sun is the shadow-caster layered over them.
+    panel.add(LIGHT_TUNING, "ambient", 0, 6, 0.05);
+    panel.add(LIGHT_TUNING, "hemisphere", 0, 4, 0.05);
+    panel.add(LIGHT_TUNING, "sun", 0, 20, 0.1);
+    // Lights the metal via the baked sky probe, and is not blocked by shadows.
+    panel.add(LIGHT_TUNING, "skyLightsShip");
+    panel.add(LIGHT_TUNING, "environment", 0, 3, 0.05);
+    // Scales the whole image, sky included, unlike the three above.
+    panel.add(LIGHT_TUNING, "exposure", 0, 1.5, 0.01);
+  }, [gl]);
+
+  // Applied per frame rather than through change handlers: it is a handful of
+  // assignments, and it cannot drift out of sync with the panel.
+  //
+  // Scene and renderer come from the frame state rather than `useThree`, which
+  // hands back values react-hooks will not let a component mutate.
+  useFrame((state) => {
+    if (!IS_SCENE_INSPECTOR_ENABLED) return;
+    if (ambientRef.current) ambientRef.current.intensity = LIGHT_TUNING.ambient;
+    if (hemisphereRef.current) {
+      hemisphereRef.current.intensity = LIGHT_TUNING.hemisphere;
+    }
+    if (sunRef.current) sunRef.current.intensity = LIGHT_TUNING.sun;
+    state.scene.environmentIntensity = LIGHT_TUNING.skyLightsShip
+      ? LIGHT_TUNING.environment
+      : 0;
+    asSceneRenderer(state.gl).toneMappingExposure = LIGHT_TUNING.exposure;
+  });
+
   return (
     <>
-      <ambientLight intensity={LIGHT_INTENSITY.ambient} />
-      <hemisphereLight intensity={LIGHT_INTENSITY.ambient} />
+      <ambientLight ref={ambientRef} intensity={LIGHT_INTENSITY.ambient} />
+      <hemisphereLight
+        ref={hemisphereRef}
+        intensity={LIGHT_INTENSITY.hemisphere}
+        color={HEMISPHERE_SKY_COLOR}
+        groundColor={HEMISPHERE_GROUND_COLOR}
+      />
       <directionalLight
+        ref={sunRef}
         position={[SUN_POS.x, SUN_POS.y, SUN_POS.z]}
         intensity={LIGHT_INTENSITY.sun}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-far={200}
-        shadow-camera-left={-200}
-        shadow-camera-right={200}
-        shadow-camera-top={200}
-        shadow-camera-bottom={-200}
+        shadow-mapSize-width={SHADOW_MAP_SIZE}
+        shadow-mapSize-height={SHADOW_MAP_SIZE}
+        shadow-camera-near={SHADOW_CAMERA_NEAR}
+        shadow-camera-far={SHADOW_CAMERA_FAR}
+        shadow-camera-left={-SHADOW_CAMERA_EXTENT}
+        shadow-camera-right={SHADOW_CAMERA_EXTENT}
+        shadow-camera-top={SHADOW_CAMERA_EXTENT}
+        shadow-camera-bottom={-SHADOW_CAMERA_EXTENT}
+        shadow-normalBias={SHADOW_NORMAL_BIAS}
       />
     </>
   );

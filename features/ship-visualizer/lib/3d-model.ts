@@ -165,6 +165,20 @@ export function copyMaterialMapsFrom(source: Object3D, clone: Object3D): void {
   }
 }
 
+/**
+ * Marks every mesh in the model as both a shadow caster and receiver.
+ *
+ * Kept separate from `applyShipMaterial`, which also rewrites colours and
+ * clones materials, and which nothing calls. That is why the ship never cast a
+ * shadow: the only place these flags were ever set sat behind a dead function.
+ */
+export function enableModelShadows(root: Object3D): void {
+  root.traverse((child) => {
+    child.castShadow = true;
+    child.receiveShadow = true;
+  });
+}
+
 export function applyShipMaterial(
   clone: Group,
   shipColor: Color,

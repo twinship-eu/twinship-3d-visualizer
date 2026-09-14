@@ -17,6 +17,7 @@ import {
   applyTextureAnisotropy,
   applyVisibility,
   buildTreeFromModel,
+  enableModelShadows,
   ensureUniqueMaterialsPerMesh,
 } from "../lib/3d-model";
 import { splitPropellersIntoSpinners } from "../lib/propellers";
@@ -48,6 +49,7 @@ export default function GltfShipModel({
     const spinners = splitPropellersIntoSpinners(clone, PROPELLERS_OBJECT_NAME);
     ensureUniqueMaterialsPerMesh(clone);
     applyTextureAnisotropy(clone, maxAnisotropy);
+    enableModelShadows(clone);
     return { cloned: clone, propellerSpinners: spinners };
   }, [gltf.scene, maxAnisotropy]);
 

@@ -52,7 +52,7 @@ const RING_STACK = PARTICLE_COUNT / RING_SLOT_COUNT;
 
 /** Dim particles outside the completed arc; hot ones inside it. */
 const RING_DIM_COLOR = new Color("#3f6f8f");
-const RING_HOT_COLOR = new Color("#b69cff");
+const RING_HOT_COLOR = new Color("#7ec8ff");
 
 /** How far particles fly out, and how far they lift, as the ring bursts. */
 const DISPERSE_DISTANCE = 26;

@@ -40,6 +40,9 @@ function SceneWaterMesh() {
     return mesh;
   }, [waterNormals]);
 
+  // Deliberately does not receive shadows: the reflection already carries the
+  // ship, and WaterMesh is built on a plain NodeMaterial, which is unlit and
+  // cannot receive one anyway.
   return <primitive object={water} position={[0, WATER_Y, 0]} />;
 }
 
