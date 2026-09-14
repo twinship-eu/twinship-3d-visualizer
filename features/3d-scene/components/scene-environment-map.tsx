@@ -4,7 +4,11 @@ import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import { PMREMGenerator } from "three/webgpu";
 import { Scene } from "three";
-import { ENVIRONMENT_MAP_INTENSITY } from "../lib/3d-scene-config";
+import {
+  ENVIRONMENT_MAP_INTENSITY,
+  ENVIRONMENT_SKY_OVERRIDES,
+  IS_ENVIRONMENT_LIGHTING_ENABLED,
+} from "../lib/3d-scene-config";
 import { asSceneRenderer } from "../lib/webgpu-renderer";
 import { createSky } from "./scene-sky";
 
@@ -27,12 +31,19 @@ export function SceneEnvironmentMap() {
   useEffect(() => {
     const pmremGenerator = new PMREMGenerator(asSceneRenderer(gl));
     const skyScene = new Scene();
-    const sky = createSky();
+    // Baked from a sky with the sun's glare damped: the directional light
+    // already represents the sun, and reflecting its disc as well lit the
+    // ship's metal from it twice.
+    const sky = createSky(ENVIRONMENT_SKY_OVERRIDES);
     skyScene.add(sky);
 
     const renderTarget = pmremGenerator.fromScene(skyScene);
     scene.environment = renderTarget.texture;
-    scene.environmentIntensity = ENVIRONMENT_MAP_INTENSITY;
+    // Always assigned, so the Lights panel can switch the contribution back
+    // on live; the flag sets the starting strength rather than gating the bake.
+    scene.environmentIntensity = IS_ENVIRONMENT_LIGHTING_ENABLED
+      ? ENVIRONMENT_MAP_INTENSITY
+      : 0;
 
     pmremGenerator.dispose();
     sky.geometry.dispose();

@@ -3,37 +3,36 @@ export const SHIP_VISUALIZER_LAYOUT = {
 } as const;
 
 /**
- * TwinShip V2 model: PBR textured GLB, built from the raw Blender export by
- * `npm run optimize:ship-model`. The `-v3` in the filename is the export's own
- * numbering and does not match the V1/V2 model versions.
+ * The engine model, and the vessel the visualizer opens with.
+ *
+ * Built from the ~226 MB raw Blender export in two stages:
+ *   npm run optimize:ship-model <raw> <tmp>      2048px WebP + Meshopt
+ *   node scripts/simplify-engine-mesh.mjs <tmp> <out> 0.25
+ *
+ * The second stage exists because the `Engine` node ships at 494,596 triangles
+ * — more than the rest of the vessel combined, and in an object only ~10 units
+ * long since it was resized to fit inside the hull. At full density, orbiting
+ * close to it visibly stuttered; 25% (124,255 triangles) was chosen by
+ * comparing 247k / 124k / 85k builds in the scene. Disabling the water's
+ * reflection pass, tried first, did not help — triangle count was the cause.
+ *
+ * Every other node is untouched and identical to `SHIP_MODEL_JOINED_GLB`, so
+ * sections, propeller spin, scale and waterline all carry over.
+ *
+ * ~40 MB against ~24 MB for the V2 build. The difference is textures, 34 maps
+ * against 19, not geometry — lowering the PBR maps from 2048 to 1024 is the
+ * lever if download size matters.
  */
-export const SHIP_MODEL_JOINED_GLB = "/ship/twinship-v3.glb";
-
+export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
 
 /**
- * The raw V2 Blender export with full-size 4K PNG textures, ~176 MB. Only ever
- * loaded through the development-only model-variant toggle, as a reference to
- * compare the optimized build against. Never referenced by a production build.
+ * Model the ship visualizer opens with, and the only one shipped.
+ *
+ * Earlier builds (V1, the V2 export and its raw source) were removed along
+ * with the development-only toggle that compared them; recoverable from git
+ * history if a comparison is ever wanted again.
  */
-export const RAW_SHIP_MODEL_GLB = "/ship/TwinShip_Update/TwinShip_Update.glb";
-
-/**
- * The V1 model, shipped before the V2 update. Kept as a reference to compare
- * the new export against what it replaced, and loaded only through the
- * development-only model-variant toggle. The `v2` in the filename is the
- * export's own numbering and does not match the V1/V2 model versions.
- */
-export const PREVIOUS_SHIP_MODEL_GLB = "/ship/twinship v2.glb";
-
-/** The raw reference model is far too large to offer outside local development. */
-export const IS_MODEL_VARIANT_TOGGLE_ENABLED =
-  process.env.NODE_ENV === "development";
-
-/** Default model when opening the ship visualizer (first subroute). */
-export const DEFAULT_SHIP_MODEL_PATH = SHIP_MODEL_JOINED_GLB;
-
-/** Default ship texture (Atlas_Twinship), same folder as ship models. */
-export const SHIP_TEXTURE_PATH = "/ship/Atlas_Twinship.png";
+export const DEFAULT_SHIP_MODEL_PATH = ENGINE_SHIP_MODEL_GLB;
 
 /** Default ship mesh color (unselected). */
 export const SHIP_COLOR = "#ffffff";
@@ -81,6 +80,13 @@ export const SHIP_TRANSITION_DURATION_MS = 400;
 
 /** Idle time in ms before translating back to animated state (no hover, no selection). */
 export const SHIP_IDLE_RESET_MS = 2000;
+
+/**
+ * Pointer movement, in CSS pixels, above which a gesture counts as a camera
+ * drag rather than a click. Below this, small hand tremors would otherwise
+ * suppress legitimate selections.
+ */
+export const POINTER_DRAG_THRESHOLD_PX = 4;
 
 /** Side nav: max height per section before showing scroll. */
 export const SHIP_TREE_SECTION_MAX_HEIGHT_PX = 300;

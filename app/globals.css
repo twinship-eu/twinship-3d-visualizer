@@ -158,3 +158,26 @@
   z-index: 200;
 }
 
+/*
+ * three's development Inspector appends its own stylesheet to document.head at
+ * runtime, and that stylesheet sets `--text-primary` on `:root` for its dark
+ * panel. Appended later, it wins at equal specificity, so every piece of
+ * primary text in the app turns the Inspector's pale grey.
+ *
+ * `:root:root` is one specificity step higher, so the app's value holds
+ * regardless of load order. That alone is not enough, though: the Inspector's
+ * panel is mounted inside the app's own DOM, so a global override leaves its
+ * pale text dark-on-dark and unreadable. Each side therefore gets its own
+ * value, scoped to the Inspector's panel roots.
+ *
+ * Tied to IS_SCENE_INSPECTOR_ENABLED: inert when the Inspector is off, and
+ * required the moment it is switched on.
+ */
+:root:root {
+  --text-primary: #181d27;
+}
+
+#profiler-panel,
+.profiler-mini-panel {
+  --text-primary: #e0e0e0;
+}

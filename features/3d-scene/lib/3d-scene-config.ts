@@ -2,9 +2,28 @@ import { MathUtils, Vector3 } from "three";
 
 const DEFAULT_SCENE_SCALE = 1;
 
-const SUN_ELEVATION_DEG = 60;
-const SUN_AZIMUTH_DEG = 180;
+/**
+ * Sun elevation above the horizon. Drives shadow length directly: a point `h`
+ * above the water casts a shadow `h / tan(elevation)` long, so 35 degrees gives
+ * shadows ~1.4x the caster's height where 60 degrees gave ~0.6x.
+ */
+const SUN_ELEVATION_DEG = 35;
 
+/**
+ * Sun compass bearing. The stern is at -Z (the propellers sit at Z -98..-91),
+ * so bearings below 270 swing the sun aft.
+ *
+ * 205 puts it off the port quarter, well aft. Chosen so the wind-turbine
+ * towers' shadows land on the deck rather than over the side: the towers stand
+ * 11.6 units above a deck 7.8 units to a side, so at this elevation their
+ * shadow is 11.6 / tan(35) = 16.6 units long, and its sideways component is
+ * that times |sin(azimuth)|. Staying on deck needs |sin| below 7.8 / 16.6 =
+ * 0.47, so within 28 degrees of 180; at 205 it is 7.0 units.
+ *
+ * Drives the visible sun and the water's specular highlight too, via
+ * `getSunDirection`, so the shading stays consistent with the shadows.
+ */
+const SUN_AZIMUTH_DEG = 205;
 
 export function getSunDirection(): Vector3 {
   const phi = MathUtils.degToRad(90 - SUN_ELEVATION_DEG);
@@ -12,15 +31,70 @@ export function getSunDirection(): Vector3 {
   return new Vector3().setFromSphericalCoords(1, phi, theta);
 }
 
-export const SUN_DISTANCE = 450_000;
+/**
+ * Distance at which the sun's directional light is placed.
+ *
+ * A directional light's position does not affect shading at all — only the
+ * direction from its position to its target does — but it *does* place the
+ * shadow camera, whose near and far planes are measured from the light. This
+ * previously sat at an astronomical 450,000 units while the shadow camera's far
+ * plane was 200, so the camera saw a slab 200 units deep starting 450,000 units
+ * from the ship. The shadow map rendered empty every frame, which is why the
+ * ship has never cast a shadow despite everything being switched on.
+ *
+ * Keeping the light on the same ray preserves the lighting angle exactly.
+ */
+export const SHADOW_LIGHT_DISTANCE = 150;
 
-export function getSunPosition(): Vector3 {
-  return getSunDirection().multiplyScalar(SUN_DISTANCE);
+export function getShadowLightPosition(): Vector3 {
+  return getSunDirection().multiplyScalar(SHADOW_LIGHT_DISTANCE);
 }
 
+/**
+ * Orthographic half-extent of the shadow camera, in world units.
+ *
+ * The ship's bounding radius is ~55 units, and at this sun elevation its shadow
+ * reaches ~65, so 70 covers both with little waste. Slack costs resolution
+ * directly: the map holds SHADOW_CAMERA_EXTENT * 2 units across
+ * SHADOW_MAP_SIZE texels, so 70 gives ~0.07 units per texel where the previous
+ * 200 gave ~0.20.
+ */
+export const SHADOW_CAMERA_EXTENT = 70;
+
+export const SHADOW_MAP_SIZE = 2048;
+
+/**
+ * Depth range the shadow camera sees, measured from the light. Brackets the
+ * ship's extent along the light direction, with margin for it rising out of the
+ * water during part inspection.
+ */
+export const SHADOW_CAMERA_NEAR = 50;
+export const SHADOW_CAMERA_FAR = 260;
+
+/**
+ * Offsets the shadow lookup along the surface normal, to stop a surface
+ * shadowing itself through depth-buffer quantisation. Preferred over a plain
+ * depth bias, which at this texel size detaches the shadow from the hull.
+ */
+export const SHADOW_NORMAL_BIAS = 0.05;
+
+/**
+ * Scene lighting.
+ *
+ * The sun is the only light. Ambient and hemisphere fills were removed because
+ * the ship is almost entirely metal — 0.93 to 1.00 metalness across the hull,
+ * deck and towers, measured from the model's own maps — and metal has no
+ * diffuse response, so neither fill reached the surfaces they were meant to
+ * light. What lights the hull is the sky probe it reflects, scaled by
+ * ENVIRONMENT_MAP_INTENSITY.
+ *
+ * The trade this makes: the model's genuinely dielectric parts — containers,
+ * decals, the logo, all at metalness 0 — did respond to those fills and are
+ * darker without them. They are now lit by the sun and the probe alone.
+ */
 export const LIGHT_INTENSITY = {
-  ambient: 0.25,
-  sun: 7,
+  /** Direct sun, and the only light the shadows block. */
+  sun: 4,
 } as const;
 
 /**
@@ -28,6 +102,40 @@ export const LIGHT_INTENSITY = {
  * materials. Raise for shinier metal, lower for a flatter look.
  */
 export const ENVIRONMENT_MAP_INTENSITY = 0.35;
+
+/**
+ * Whether the baked sky probe lights the ship at all.
+ *
+ * Off means the hull is lit purely by the ambient, hemisphere and directional
+ * lights, and its metal reflects nothing — flatter and darker, but fully under
+ * the control of the three light intensities. On, the sky also contributes,
+ * which is what gives metal something to reflect.
+ *
+ * The probe is baked either way, so the Inspector's Lights panel can switch
+ * this live; the bake is a one-off at startup and cheap to leave in place.
+ *
+ * **Do not remove the probe to turn it off. Set this to `false`.**
+ */
+export const IS_ENVIRONMENT_LIGHTING_ENABLED = true;
+
+/**
+ * Sky overrides used only when baking the environment probe.
+ *
+ * The probe is rendered from the same sky the camera sees, which includes the
+ * sun's disc and halo — so every metal surface on the ship picked up a bright
+ * hot spot from it, on top of the directional light already representing that
+ * same sun. The hull was effectively lit by the sun twice.
+ *
+ * Mie scattering is what draws the sun's glare in this sky model, so flattening
+ * it for the bake keeps the sky's colour and its bright-above/dark-below
+ * gradient — which is what the probe is for — while dropping the hot spot.
+ *
+ * The visible sky is untouched; only the probe uses these.
+ */
+export const ENVIRONMENT_SKY_OVERRIDES = {
+  mieCoefficient: 0.0005,
+  mieDirectionalG: 0.05,
+} as const;
 
 export const SKY_SCALE = 10_000;
 
@@ -56,6 +164,26 @@ export const WATER_OPTIONS = {
   waterColor: 0x001e0f,
   distortionScale: 3.7,
 } as const;
+
+/**
+ * Whether the water renders true planar reflections.
+ *
+ * `WaterMesh` reflects by re-rendering the entire scene from a mirrored camera
+ * into a second target, so the whole ship is rasterised twice per frame — the
+ * `Scene [ Reflector ]` entry in the Inspector's GPU breakdown, and confirmed by
+ * the triangle counter reading almost exactly twice the model's own count.
+ *
+ * Set to `false` to swap in a flat, environment-lit water surface that keeps
+ * the plane and its colour but drops the second scene pass. The reflection is
+ * visibly lost, so this is a performance trade, not a free win.
+ *
+ * Measured, and worth not re-testing: switching this off did **not** fix the
+ * slowdown when orbiting close to the engine. The second pass is real cost but
+ * was not the bottleneck — the engine node's triangle count was.
+ *
+ * **Do not delete the reflective path to turn it off. Set this to `false`.**
+ */
+export const IS_WATER_REFLECTION_ENABLED = true;
 
 /**
  * Reflection render-target scale for the water. WaterMesh replaces the old
@@ -102,8 +230,30 @@ export const LOADING_RING_TIMING = {
  */
 export const RING_WATERLINE_Y = 0.5;
 
+/**
+ * three's built-in Inspector: frame timing, draw calls, compute passes, memory
+ * and a console, in a panel beside the canvas. Development only — it also
+ * enables GPU timestamp queries, which cost something to collect.
+ *
+ * **Do not delete the Inspector wiring to turn it off. Set this to `false`.**
+ * It was deleted once (b8cd4d4) and had to be reconstructed from that commit;
+ * the wiring is small but carries two non-obvious details that are expensive to
+ * rediscover — the pre-`init()` attach in `webgpu-renderer.ts`, and the
+ * `:root:root` override in `globals.css` that stops the Inspector's stylesheet
+ * repainting the app's text.
+ */
+export const IS_SCENE_INSPECTOR_ENABLED = process.env.NODE_ENV === "development";
+
 /** The backend readout is a development diagnostic, not product UI. */
 export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
+
+/**
+ * Per-frame draw call and triangle counts, which the Inspector does not
+ * report. Development only.
+ *
+ * **Do not delete the wiring to turn this off. Set this to `false`.**
+ */
+export const IS_SCENE_STATS_ENABLED = process.env.NODE_ENV === "development";
 
 export const SCENE_BACKGROUND_COLOR = "#c8d4e0";
 

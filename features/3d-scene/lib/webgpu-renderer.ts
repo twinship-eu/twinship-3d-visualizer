@@ -1,8 +1,19 @@
-import { ACESFilmicToneMapping, PCFShadowMap, WebGPURenderer } from "three/webgpu";
+import {
+  ACESFilmicToneMapping,
+  PCFSoftShadowMap,
+  WebGPURenderer,
+} from "three/webgpu";
+import { Inspector } from "three/examples/jsm/inspector/Inspector.js";
 import type { Renderer } from "@react-three/fiber";
+import { IS_SCENE_INSPECTOR_ENABLED } from "./3d-scene-config";
 
-/** Tone mapping exposure; higher for midday (0.1 = dusk, ~0.3 = noon). */
-const TONE_MAPPING_EXPOSURE = 0.3;
+/**
+ * Tone mapping exposure; higher for midday (0.1 = dusk, ~0.3 = noon).
+ *
+ * Scales the whole image, sky included, unlike the light intensities in
+ * `3d-scene-config.ts`, which reach only what they illuminate.
+ */
+export const TONE_MAPPING_EXPOSURE = 0.6;
 
 /** Query param pinning the renderer to the WebGL2 backend, for reproducing fallback bugs. */
 const FORCE_WEBGL_PARAM = "forceWebGL";
@@ -55,7 +66,16 @@ async function initRenderer(
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFShadowMap;
+  // Soft rather than plain PCF: more taps per pixel, but the hard stair-stepped
+  // edge of a single-tap lookup is obvious on a shadow this large.
+  renderer.shadowMap.type = PCFSoftShadowMap;
+
+  if (IS_SCENE_INSPECTOR_ENABLED) {
+    // Must be assigned *before* init(): the renderer calls inspector.init() from
+    // inside its own init(), and the `inspector` setter does not re-run it. Set
+    // afterwards and the panel silently never attaches.
+    renderer.inspector = new Inspector();
+  }
 
   // Must complete before the first render and before PMREMGenerator.fromScene().
   await renderer.init();
@@ -122,6 +142,17 @@ export function getMaxTextureAnisotropy(renderer: unknown): number {
     renderer as { getMaxAnisotropy?: () => number | undefined }
   )?.getMaxAnisotropy?.();
   return reported ?? ASSUMED_MAX_ANISOTROPY;
+}
+
+/**
+ * The scene's Inspector, if one was attached. Narrowed from the renderer's
+ * `InspectorBase`-typed field, which does not expose `createParameters`.
+ */
+export function getSceneInspector(renderer: unknown): Inspector | null {
+  const inspector = (renderer as { inspector?: unknown }).inspector;
+  const hasParameters =
+    typeof (inspector as Inspector | undefined)?.createParameters === "function";
+  return hasParameters ? (inspector as Inspector) : null;
 }
 
 /** True when the renderer resolved to the WebGPU backend rather than WebGL2. */

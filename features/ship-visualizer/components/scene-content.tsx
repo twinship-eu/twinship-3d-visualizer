@@ -20,9 +20,11 @@ import {
   SHIP_INTERACTION_Y_OFFSET,
   SHIP_TRANSITION_DURATION_MS,
   SHIP_VERTICAL_OFFSET,
+  POINTER_DRAG_THRESHOLD_PX,
 } from "../ship-visualizer-config";
 import ShipModel from "./ship-model";
 import { useSceneInteraction } from "@/features/3d-scene/components/scene-interaction-context";
+import { usePointerDragGuard } from "../hooks/use-pointer-drag-guard";
 
 type ShipDisplayMode =
   | "animated"
@@ -54,10 +56,10 @@ export default function Ship({
   onHover?: (node: ShipTreeNode | null) => void;
   onSelectByClick?: (node: ShipTreeNode | null) => void;
 }) {
-  const isPointerDown = useRef(false);
-  const isDragging = useRef(false);
-  const pointerDownAt = useRef({ x: 0, y: 0 });
   const floatGroupRef = useRef<Group>(null);
+  const { getDidDrag, getIsDragging } = usePointerDragGuard(
+    POINTER_DRAG_THRESHOLD_PX
+  );
   /** Last fade factor written, so the restore happens once and not per frame. */
   const lastFadeRef = useRef(1);
   const { isOrbitControlsActive } = useSceneInteraction();
@@ -69,7 +71,6 @@ export default function Ship({
   const transitionStartYRef = useRef(0);
   const transitionStartRotRef = useRef({ x: 0, z: 0 });
 
-  const DRAG_THRESHOLD_PX = 4;
   const hasInteraction =
     selectedStructureNode !== null ||
     hoveredStructureNode !== null ||
@@ -173,43 +174,13 @@ export default function Ship({
     }
   });
 
-  const getClientCoords = (e: { nativeEvent?: { clientX: number; clientY: number }; clientX?: number; clientY?: number }) => {
-    const n = e.nativeEvent;
-    return { x: n?.clientX ?? e.clientX ?? 0, y: n?.clientY ?? e.clientY ?? 0 };
-  };
-
-  const handlePointerDown = useCallback(
-    (e: { nativeEvent?: { clientX: number; clientY: number }; clientX?: number; clientY?: number }) => {
-      isPointerDown.current = true;
-      isDragging.current = false;
-      const { x, y } = getClientCoords(e);
-      pointerDownAt.current = { x, y };
-    },
-    []
-  );
-
   const handlePointerMove = useCallback(
-    (e: {
-      intersections: { object: Object3D }[];
-      nativeEvent?: { clientX: number; clientY: number };
-      clientX?: number;
-      clientY?: number;
-    }) => {
-      if (isOrbitControlsActive) {
+    (e: { intersections: { object: Object3D }[] }) => {
+      // Dragging is a camera gesture, so nothing should highlight during it.
+      if (isOrbitControlsActive || getIsDragging()) {
         if (onHover) onHover(null);
         return;
       }
-
-      if (isPointerDown.current && !isDragging.current) {
-        const { x, y } = getClientCoords(e);
-        const dx = x - pointerDownAt.current.x;
-        const dy = y - pointerDownAt.current.y;
-        if (Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
-          isDragging.current = true;
-          if (onHover) onHover(null);
-        }
-      }
-      if (isDragging.current) return;
       if (!tree?.length || !onHover) return;
       if (e.intersections.length === 0) {
         onHover(null);
@@ -228,23 +199,17 @@ export default function Ship({
 
       onHover(hoveredNode);
     },
-    [tree, onHover, isOrbitControlsActive, hiddenNodeIds]
+    [tree, onHover, isOrbitControlsActive, hiddenNodeIds, getIsDragging]
   );
 
-  const handlePointerUp = useCallback(() => {
-    isPointerDown.current = false;
-    isDragging.current = false;
-  }, []);
-
   const handlePointerLeave = useCallback(() => {
-    isPointerDown.current = false;
-    isDragging.current = false;
     onHover?.(null);
   }, [onHover]);
 
   const handleClick = useCallback(
     (e: { intersections: { object: Object3D }[] }) => {
-      if (isDragging.current) return;
+      // A gesture that moved is a camera drag, wherever it was released.
+      if (getDidDrag()) return;
       if (!tree?.length || !onSelectByClick || e.intersections.length === 0)
         return;
 
@@ -260,7 +225,7 @@ export default function Ship({
 
       if (clickedNode) onSelectByClick(clickedNode);
     },
-    [tree, onSelectByClick, hiddenNodeIds]
+    [tree, onSelectByClick, hiddenNodeIds, getDidDrag]
   );
 
   return (
@@ -268,9 +233,7 @@ export default function Ship({
       <group
         ref={floatGroupRef}
         position={[0, SHIP_VERTICAL_OFFSET, 0]}
-        onPointerDown={isInteractive ? handlePointerDown : undefined}
         onPointerMove={isInteractive ? handlePointerMove : undefined}
-        onPointerUp={isInteractive ? handlePointerUp : undefined}
         onPointerLeave={isInteractive ? handlePointerLeave : undefined}
         onClick={isInteractive ? handleClick : undefined}
       >
