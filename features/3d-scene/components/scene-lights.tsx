@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { DirectionalLight } from "three";
 import {
+  ANDROID_HEMISPHERE_GROUND_COLOR,
+  ANDROID_HEMISPHERE_SKY_COLOR,
   ENVIRONMENT_MAP_INTENSITY,
   getShadowLightPosition,
   IS_ENVIRONMENT_LIGHTING_ENABLED,
@@ -18,6 +20,7 @@ import {
 import { SHIP_MATERIAL_TUNING } from "../lib/scene-material-tuning";
 import {
   asSceneRenderer,
+  canAssignEnvironmentProbe,
   getSceneInspector,
   TONE_MAPPING_EXPOSURE,
 } from "../lib/webgpu-renderer";
@@ -42,6 +45,9 @@ const LIGHT_TUNING = {
 export function SceneLights() {
   const gl = useThree((state) => state.gl);
   const sunRef = useRef<DirectionalLight>(null);
+  // Read once: the UA does not change for the life of the page, and branching
+  // inside the Canvas on it matches how shadows are gated.
+  const useAndroidFill = !canAssignEnvironmentProbe();
 
   useEffect(() => {
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
@@ -49,8 +55,8 @@ export function SceneLights() {
     if (inspector === null) return;
 
     const panel = inspector.createParameters("Lights");
-    // The sun is the scene's only light; everything else on the ship comes
-    // from the environment probe below.
+    // The sun is the scene's only light on desktop; on Android a hemisphere
+    // stands in for the skipped environment probe.
     panel.add(LIGHT_TUNING, "sun", 0, 20, 0.1);
     // Lights the metal via the baked sky probe, and is not blocked by shadows.
     panel.add(LIGHT_TUNING, "skyLightsShip");
@@ -93,6 +99,15 @@ export function SceneLights() {
         shadow-camera-bottom={-SHADOW_CAMERA_EXTENT}
         shadow-normalBias={SHADOW_NORMAL_BIAS}
       />
+      {useAndroidFill && (
+        <hemisphereLight
+          args={[
+            ANDROID_HEMISPHERE_SKY_COLOR,
+            ANDROID_HEMISPHERE_GROUND_COLOR,
+            LIGHT_INTENSITY.androidHemisphere,
+          ]}
+        />
+      )}
     </>
   );
 }

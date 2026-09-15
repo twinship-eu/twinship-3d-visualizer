@@ -9,7 +9,10 @@ import {
   ENVIRONMENT_SKY_OVERRIDES,
   IS_ENVIRONMENT_LIGHTING_ENABLED,
 } from "../lib/3d-scene-config";
-import { asSceneRenderer } from "../lib/webgpu-renderer";
+import {
+  asSceneRenderer,
+  canAssignEnvironmentProbe,
+} from "../lib/webgpu-renderer";
 import { createSky } from "./scene-sky";
 
 /**
@@ -24,11 +27,20 @@ import { createSky } from "./scene-sky";
  *
  * The probe is generated once; the sky's cloud animation is far too slow to
  * justify re-baking per frame.
+ *
+ * On Android the bake is skipped entirely: the PMREM samples black / blown on
+ * Mali devices and blacks out the engine ship. See `canAssignEnvironmentProbe`.
  */
 export function SceneEnvironmentMap() {
   const { scene, gl } = useThree();
 
   useEffect(() => {
+    if (!canAssignEnvironmentProbe()) {
+      scene.environment = null;
+      scene.environmentIntensity = 0;
+      return;
+    }
+
     const pmremGenerator = new PMREMGenerator(asSceneRenderer(gl));
     const skyScene = new Scene();
     // Baked from a sky with the sun's glare damped: the directional light

@@ -19,6 +19,17 @@ export const TONE_MAPPING_EXPOSURE = 0.6;
 const FORCE_WEBGL_PARAM = "forceWebGL";
 
 /**
+ * Whether the page is running under an Android user agent.
+ *
+ * Guarded for SSR: this module is pulled in by client components that Next
+ * still evaluates on the server. The server answer is "not Android".
+ */
+export function isAndroidUserAgent(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android/.test(navigator.userAgent);
+}
+
+/**
  * Whether shadows can be rendered at all on this device.
  *
  * three refuses depth-texture comparison on any user agent containing
@@ -48,8 +59,23 @@ const FORCE_WEBGL_PARAM = "forceWebGL";
  * a debugging path, and keeping one rule is worth more than covering it.
  */
 export function canRenderShadows(): boolean {
-  if (typeof navigator === "undefined") return true;
-  return /Android/.test(navigator.userAgent) === false;
+  return !isAndroidUserAgent();
+}
+
+/**
+ * Whether the sky-baked PMREM probe may be assigned as `scene.environment`.
+ *
+ * On Pixel / Mali (and Android more broadly), that probe is assigned with a
+ * real size but samples badly: roughness 1 metals go black, roughness 0 blows
+ * out white, and clearing `scene.environment` restores the textured ship under
+ * the sun alone. The engine GLB is almost fully metallic and the scene has no
+ * ambient fill, so a bad probe has nowhere else to fall back to.
+ *
+ * Desktop and iOS keep the bake. Android skips it — the same outcome as the
+ * `?diag` "env OFF" preset that made the Pixel readout look correct.
+ */
+export function canAssignEnvironmentProbe(): boolean {
+  return !isAndroidUserAgent();
 }
 
 /**

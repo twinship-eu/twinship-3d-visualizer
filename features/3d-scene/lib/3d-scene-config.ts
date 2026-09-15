@@ -81,21 +81,33 @@ export const SHADOW_NORMAL_BIAS = 0.05;
 /**
  * Scene lighting.
  *
- * The sun is the only light. Ambient and hemisphere fills were removed because
- * the ship is almost entirely metal — 0.93 to 1.00 metalness across the hull,
- * deck and towers, measured from the model's own maps — and metal has no
- * diffuse response, so neither fill reached the surfaces they were meant to
- * light. What lights the hull is the sky probe it reflects, scaled by
- * ENVIRONMENT_MAP_INTENSITY.
+ * On desktop and iOS the sun is paired with the sky PMREM probe: the ship is
+ * almost entirely metal — 0.93 to 1.00 metalness across the hull, deck and
+ * towers — and metal has no diffuse response, so ambient / hemisphere fills
+ * never reached those surfaces. What lights the hull there is the probe it
+ * reflects, scaled by ENVIRONMENT_MAP_INTENSITY.
  *
- * The trade this makes: the model's genuinely dielectric parts — containers,
- * decals, the logo, all at metalness 0 — did respond to those fills and are
- * darker without them. They are now lit by the sun and the probe alone.
+ * On Android the probe is not assigned (see `canAssignEnvironmentProbe`), so a
+ * weak hemisphere fill comes back as a substitute for the missing sky light.
+ * It cannot restore metallic reflections; it only keeps the diffuse remainder
+ * of the materials from sitting in pure sun/shadow.
  */
 export const LIGHT_INTENSITY = {
   /** Direct sun, and the only light the shadows block. */
   sun: 4,
+  /**
+   * Hemisphere fill used only when the environment probe is skipped (Android).
+   * Tuned against the Pixel `env OFF` readout: enough to lift shadowed paint
+   * without washing out the sun side.
+   */
+  androidHemisphere: 0.85,
 } as const;
+
+/** Sky colour of the Android-only hemisphere fill. */
+export const ANDROID_HEMISPHERE_SKY_COLOR = "#8ec7ff";
+
+/** Ground colour of the Android-only hemisphere fill. */
+export const ANDROID_HEMISPHERE_GROUND_COLOR = "#3a4a3c";
 
 /**
  * Strength of the sky-baked IBL probe that lights the ship's metallic
