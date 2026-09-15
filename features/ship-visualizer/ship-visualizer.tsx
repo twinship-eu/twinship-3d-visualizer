@@ -160,7 +160,7 @@ export function ShipVisualizer() {
 
       <SidebarToggleButton
         isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen((open) => !open)}
+        onOpen={() => setIsSidebarOpen(true)}
       />
 
       <div
@@ -184,6 +184,7 @@ export function ShipVisualizer() {
           }}
           selectedNodeId={selectedStructureNode?.id ?? null}
           isLoading={modelTree === null}
+          onClose={() => setIsSidebarOpen(false)}
         />
       </div>
       <div className="relative flex min-w-0 flex-1 flex-col">

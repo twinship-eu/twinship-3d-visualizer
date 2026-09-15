@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { SearchIcon, Ship } from "lucide-react";
+import { SearchIcon, Ship, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ShipTreeNode } from "../ship-visualizer/ship-visualizer-types";
 import { filterShipTree } from "../ship-visualizer/lib/filter-tree";
@@ -17,6 +17,11 @@ type Props = {
   selectedNodeId?: string | null;
   /** When true, show skeleton instead of tree (e.g. while ship model is loading). */
   isLoading?: boolean;
+  /**
+   * Dismisses the panel. Only supplied below the desktop breakpoint, where the
+   * panel is an overlay; a docked column has nothing to dismiss.
+   */
+  onClose?: () => void;
 };
 
 export function OntologyExplorer({
@@ -26,6 +31,7 @@ export function OntologyExplorer({
   onSelect,
   selectedNodeId,
   isLoading = false,
+  onClose,
 }: Props) {
   const [search, setSearch] = useState("");
   const [opacityByNodeId, setOpacityByNodeId] = useState<Record<string, number>>(
@@ -72,11 +78,28 @@ export function OntologyExplorer({
     */
     <div className="flex h-full min-h-0 w-full flex-col border-r border-border bg-white dark:bg-sidebar">
       <div className="shrink-0 border-b border-border px-3 py-3">
-        <div className="mb-3 flex items-center justify-center gap-2">
-          <Ship className="size-5 shrink-0 text-primary" aria-hidden />
-          <h2 className="text-sm font-bold uppercase tracking-wide text-text-primary">
-            Ontology Explorer
-          </h2>
+        <div className="mb-3 flex items-center gap-2">
+          {/*
+            Spacer that balances the close button, so the title stays optically
+            centred whether or not the button is there.
+          */}
+          {onClose && <span className="size-8 shrink-0 lg:hidden" aria-hidden />}
+          <div className="flex flex-1 items-center justify-center gap-2">
+            <Ship className="size-5 shrink-0 text-primary" aria-hidden />
+            <h2 className="text-sm font-bold uppercase tracking-wide text-text-primary">
+              Ontology Explorer
+            </h2>
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close components panel"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:hidden"
+            >
+              <X className="size-5" aria-hidden />
+            </button>
+          )}
         </div>
         <Input
           type="search"

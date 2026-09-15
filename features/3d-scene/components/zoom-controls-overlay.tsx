@@ -98,10 +98,12 @@ export function ZoomControlsOverlay() {
 
   return (
     <div
-      // Vertically centred below lg so the bottom sheet, which can reach 45vh,
-      // never covers the controls. Back to the bottom-left corner at lg, where
-      // the details panel floats on the right instead.
-      className="pointer-events-none absolute left-3 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1 lg:left-4 lg:top-auto lg:bottom-24 lg:translate-y-0"
+      /*
+        Below lg the controls sit 150px above the hint bar. That bar is 16px off
+        the bottom and about 36px tall, so its top edge is at 52px and the
+        controls start at 202px.
+      */
+      className="pointer-events-none absolute left-3 bottom-[202px] z-20 flex flex-col items-center gap-1 lg:left-4 lg:bottom-24"
       aria-label="Zoom controls"
     >
       <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-md bg-white/95 p-1 shadow-md">
