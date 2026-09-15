@@ -217,6 +217,10 @@ export const WATER_OPTIONS = {
  * slowdown when orbiting close to the engine. The second pass is real cost but
  * was not the bottleneck — the engine node's triangle count was.
  *
+ * Phones ignore this flag and always take the flat path — see
+ * `canUseWaterReflections`. The reflector's edge flicker survives `?forceWebGL`,
+ * so it is not a WebGPU-only bug.
+ *
  * **Do not delete the reflective path to turn it off. Set this to `false`.**
  */
 export const IS_WATER_REFLECTION_ENABLED = true;
