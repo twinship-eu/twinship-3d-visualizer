@@ -20,6 +20,7 @@ const PRESETS: { label: string; preset: DiagnosticPreset }[] = [
   { label: "metal 0", preset: "metal0" },
   { label: "rough 0", preset: "rough0" },
   { label: "env 1.0", preset: "envUp" },
+  { label: "env OFF", preset: "envOff" },
   { label: "reset", preset: "reset" },
 ];
 
@@ -49,6 +50,8 @@ export function SceneDiagnosticsOverlay() {
     ["tone", SCENE_DIAGNOSTICS.toneMapping],
     ["meshes", SCENE_DIAGNOSTICS.meshCount],
     ["preset", SCENE_DIAGNOSTICS.activePreset],
+    ["gpu", SCENE_DIAGNOSTICS.gpu],
+    ["floatRT", SCENE_DIAGNOSTICS.floatTargets],
   ];
 
   return (

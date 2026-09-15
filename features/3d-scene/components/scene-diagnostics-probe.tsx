@@ -65,6 +65,48 @@ function describeMaterial(
 }
 
 /**
+ * The GPU's own name, through WEBGL_debug_renderer_info.
+ *
+ * Read from a scratch WebGL context rather than the live renderer, so it works
+ * whichever backend is in use. Names the driver, which is the one thing a
+ * desktop-versus-phone comparison cannot otherwise tell us.
+ */
+function readGpuName(): string {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    if (!gl) return "no webgl context";
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    if (!info) return "debug_renderer_info unavailable";
+    return String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
+  } catch {
+    return "unreadable";
+  }
+}
+
+/**
+ * Whether half-float and float render targets are usable.
+ *
+ * PMREM bakes into a half-float target; a device that cannot render to or
+ * filter that format yields a probe with correct dimensions that samples black.
+ */
+function readFloatSupport(): string {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2");
+    if (!gl) return "no webgl2";
+    const parts = [
+      gl.getExtension("EXT_color_buffer_half_float") ? "half:y" : "half:N",
+      gl.getExtension("EXT_color_buffer_float") ? "float:y" : "float:N",
+      gl.getExtension("OES_texture_float_linear") ? "linear:y" : "linear:N",
+    ];
+    return parts.join(" ");
+  } catch {
+    return "unreadable";
+  }
+}
+
+/**
  * Reads renderer and scene state into SCENE_DIAGNOSTICS.
  *
  * Inside the Canvas, because that is where `useThree` reaches the renderer.
@@ -78,6 +120,7 @@ export function SceneDiagnosticsProbe() {
     /** Original metalness and roughness, so `reset` is exact rather than a guess. */
     const originals = new Map<string, { m?: number; r?: number }>();
     const originalEnvIntensity = scene.environmentIntensity;
+    const originalEnvironment = scene.environment;
 
     DIAGNOSTIC_ACTIONS.apply = (preset: DiagnosticPreset) => {
       scene.traverse((object) => {
@@ -107,7 +150,13 @@ export function SceneDiagnosticsProbe() {
       });
 
       if (preset === "envUp") scene.environmentIntensity = 1;
-      if (preset === "reset") scene.environmentIntensity = originalEnvIntensity;
+      // Removing the probe entirely: if the ship looks no different without it,
+      // it was contributing nothing and the probe is the fault.
+      if (preset === "envOff") scene.environment = null;
+      if (preset === "reset") {
+        scene.environmentIntensity = originalEnvIntensity;
+        scene.environment = originalEnvironment;
+      }
 
       SCENE_DIAGNOSTICS.activePreset = preset;
     };
@@ -171,6 +220,9 @@ export function SceneDiagnosticsProbe() {
       });
       SCENE_DIAGNOSTICS.materials = described;
       SCENE_DIAGNOSTICS.meshCount = String(meshCount);
+
+      SCENE_DIAGNOSTICS.gpu = readGpuName();
+      SCENE_DIAGNOSTICS.floatTargets = readFloatSupport();
 
       const size = renderer.getDrawingBufferSize(new Vector2());
       SCENE_DIAGNOSTICS.drawingBufferSize = `${Math.round(
