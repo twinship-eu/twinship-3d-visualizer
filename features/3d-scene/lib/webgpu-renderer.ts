@@ -75,6 +75,18 @@ export function needsNoEnvLightingPath(): boolean {
 }
 
 /**
+ * Whether `WaterMesh` planar reflections may run on this device.
+ *
+ * The mirrored scene pass shows up on phones as flickering triangles along the
+ * left/right of the water, on both WebGPU and WebGL2 (`?forceWebGL` does not
+ * clear it). Desktop keeps the reflector; Android and iOS use the flat water
+ * path instead.
+ */
+export function canUseWaterReflections(): boolean {
+  return !isAndroidUserAgent() && !isIOSUserAgent();
+}
+
+/**
  * Whether shadows can be rendered at all on this device.
  *
  * three refuses depth-texture comparison on any user agent containing
