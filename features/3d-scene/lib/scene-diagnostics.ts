@@ -30,8 +30,24 @@ export type SceneDiagnostics = {
   depthCompare: string;
   /** Renderer pixel size, to catch a zero-sized canvas. */
   drawingBufferSize: string;
+  /** scene.environmentIntensity; a probe at zero lights metal no better than none. */
+  environmentIntensity: string;
+  /** Whether the probe's texture reports usable dimensions. */
+  environmentSize: string;
+  /** Tone mapping and exposure, which scale the whole image. */
+  toneMapping: string;
+  /** Per-material readout for the ship: the surfaces that render black. */
+  materials: string[];
   /** Captured console.error and console.warn lines, oldest first. */
   lines: string[];
+  /**
+   * Every error and warning seen, including those past MAX_CAPTURED_LINES.
+   *
+   * Reported separately so a small `lines` count cannot be misread as a quiet
+   * console: "3 of 3" and "12 of 400" look very different and mean very
+   * different things.
+   */
+  totalCaptured: number;
 };
 
 /**
@@ -46,7 +62,12 @@ export const SCENE_DIAGNOSTICS: SceneDiagnostics = {
   shadowsEnabled: "…",
   depthCompare: "…",
   drawingBufferSize: "…",
+  environmentIntensity: "…",
+  environmentSize: "…",
+  toneMapping: "…",
+  materials: [],
   lines: [],
+  totalCaptured: 0,
 };
 
 /** Whether `?diag` is present. SSR-safe: this module loads on the server too. */
@@ -69,6 +90,8 @@ function record(level: string, args: unknown[]): void {
       }
     })
     .join(" ");
+
+  SCENE_DIAGNOSTICS.totalCaptured += 1;
 
   const line = `${level}: ${text}`.slice(0, MAX_LINE_LENGTH);
   // Keeps the EARLIEST lines. A cascade of follow-on errors is noise; the first
@@ -102,5 +125,11 @@ export function installConsoleCapture(): void {
 
   window.addEventListener("unhandledrejection", (event) => {
     record("REJECT", [event.reason]);
+  });
+
+  // Uncaught exceptions never reach console.error's wrapper, and a WebGPU
+  // device loss arrives this way rather than as a logged message.
+  window.addEventListener("error", (event) => {
+    record("UNCAUGHT", [event.message]);
   });
 }
