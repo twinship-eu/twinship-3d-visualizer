@@ -15,6 +15,33 @@ import { useSyncExternalStore } from "react";
  */
 
 
+/**
+ * Live experiments the overlay can run against the scene.
+ *
+ * `metal0` removes metalness, so the surface is lit by its own albedo instead
+ * of by the environment probe. `rough0` makes it a mirror rather than a fully
+ * blurred reflection, which exercises a different mip of that probe. `envUp`
+ * raises the probe's contribution. Between them they say whether the ship is
+ * black because the probe is not reaching it.
+ */
+export type DiagnosticPreset =
+  | "metal0"
+  | "rough0"
+  | "envUp"
+  | "envOff"
+  | "aniso1"
+  | "noMips"
+  | "reset";
+
+/**
+ * Registered by the probe, which is inside the Canvas and can reach the scene;
+ * called by the overlay, which is outside it. A shared mutable for the same
+ * reason as SCENE_STATS.
+ */
+export const DIAGNOSTIC_ACTIONS: {
+  apply: ((preset: DiagnosticPreset) => void) | null;
+} = { apply: null };
+
 /** Query param that switches the overlay on. */
 const DIAGNOSTICS_PARAM = "diag";
 
@@ -45,6 +72,19 @@ export type SceneDiagnostics = {
   materials: string[];
   /** Meshes in the scene, so an empty stage is not mistaken for a broken one. */
   meshCount: string;
+  /** Which live experiment is currently applied. */
+  activePreset: string;
+  /** The actual GPU, via WEBGL_debug_renderer_info. Names the driver at fault. */
+  gpu: string;
+  /**
+   * Float render-target support.
+   *
+   * PMREM bakes the environment probe into a half-float target. A device that
+   * cannot render to, or filter, that format produces a probe that exists at
+   * full dimensions and samples black -- which is exactly what a metalness 0.85
+   * surface would show as a black ship on every backend.
+   */
+  floatTargets: string;
   /** Captured console.error and console.warn lines, oldest first. */
   lines: string[];
   /**
@@ -74,6 +114,9 @@ export const SCENE_DIAGNOSTICS: SceneDiagnostics = {
   toneMapping: "…",
   materials: [],
   meshCount: "…",
+  activePreset: "none",
+  gpu: "…",
+  floatTargets: "…",
   lines: [],
   totalCaptured: 0,
 };

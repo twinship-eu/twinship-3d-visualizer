@@ -2,9 +2,13 @@
 
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
-import { Mesh, Texture, Vector2, type Material } from "three";
+import { LinearFilter, Mesh, Texture, Vector2, type Material } from "three";
 import { asSceneRenderer, isWebGPUBackend } from "../lib/webgpu-renderer";
-import { SCENE_DIAGNOSTICS } from "../lib/scene-diagnostics";
+import {
+  DIAGNOSTIC_ACTIONS,
+  SCENE_DIAGNOSTICS,
+  type DiagnosticPreset,
+} from "../lib/scene-diagnostics";
 
 /**
  * How often to re-read the scene, in ms.
@@ -22,8 +26,18 @@ const DEPTH_TEXTURE_COMPARE = "depthTextureCompare";
 /** Materials to report. Enough to see a pattern without filling the screen. */
 const MAX_MATERIALS_REPORTED = 5;
 
+/** Texture slots worth re-filtering; the same set the loader applies anisotropy to. */
+const TEXTURE_SLOTS = [
+  "map",
+  "normalMap",
+  "roughnessMap",
+  "metalnessMap",
+  "aoMap",
+] as const;
+
 type InspectableMaterial = Material & {
   name?: string;
+  needsUpdate?: boolean;
   map?: Texture | null;
   metalness?: number;
   roughness?: number;
@@ -60,6 +74,48 @@ function describeMaterial(
 }
 
 /**
+ * The GPU's own name, through WEBGL_debug_renderer_info.
+ *
+ * Read from a scratch WebGL context rather than the live renderer, so it works
+ * whichever backend is in use. Names the driver, which is the one thing a
+ * desktop-versus-phone comparison cannot otherwise tell us.
+ */
+function readGpuName(): string {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    if (!gl) return "no webgl context";
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    if (!info) return "debug_renderer_info unavailable";
+    return String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
+  } catch {
+    return "unreadable";
+  }
+}
+
+/**
+ * Whether half-float and float render targets are usable.
+ *
+ * PMREM bakes into a half-float target; a device that cannot render to or
+ * filter that format yields a probe with correct dimensions that samples black.
+ */
+function readFloatSupport(): string {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2");
+    if (!gl) return "no webgl2";
+    const parts = [
+      gl.getExtension("EXT_color_buffer_half_float") ? "half:y" : "half:N",
+      gl.getExtension("EXT_color_buffer_float") ? "float:y" : "float:N",
+      gl.getExtension("OES_texture_float_linear") ? "linear:y" : "linear:N",
+    ];
+    return parts.join(" ");
+  } catch {
+    return "unreadable";
+  }
+}
+
+/**
  * Reads renderer and scene state into SCENE_DIAGNOSTICS.
  *
  * Inside the Canvas, because that is where `useThree` reaches the renderer.
@@ -68,6 +124,81 @@ function describeMaterial(
 export function SceneDiagnosticsProbe() {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
+
+  useEffect(() => {
+    /** Original metalness and roughness, so `reset` is exact rather than a guess. */
+    const originals = new Map<string, { m?: number; r?: number }>();
+    const originalEnvIntensity = scene.environmentIntensity;
+    const originalEnvironment = scene.environment;
+
+    DIAGNOSTIC_ACTIONS.apply = (preset: DiagnosticPreset) => {
+      scene.traverse((object) => {
+        const mesh = object as Mesh;
+        if (!mesh.isMesh || !mesh.material) return;
+        const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const entry of list) {
+          const material = entry as InspectableMaterial;
+          if (typeof material.metalness !== "number") continue;
+
+          if (!originals.has(material.uuid)) {
+            originals.set(material.uuid, {
+              m: material.metalness,
+              r: material.roughness,
+            });
+          }
+          const original = originals.get(material.uuid);
+
+          if (preset === "metal0") material.metalness = 0;
+
+          /*
+            Anisotropy and mipmaps, tested per texture.
+
+            The loader sets anisotropy to the reported maximum -- 16 -- on every
+            ship texture, and on nothing else. The ship is also the only thing
+            that renders black, which makes this the most specific suspect in
+            our own code rather than in a driver. ARM's Mali and Immortalis
+            drivers are documented as mishandling high anisotropy and mipmap
+            allocation; dropping to 1, or turning mipmaps off entirely, says
+            whether either is what this device is failing on.
+          */
+          if (preset === "aniso1" || preset === "noMips") {
+            const slots = material as unknown as Record<string, Texture | null>;
+            for (const slot of TEXTURE_SLOTS) {
+              const texture = slots[slot];
+              if (!texture) continue;
+              if (preset === "aniso1") texture.anisotropy = 1;
+              if (preset === "noMips") {
+                texture.generateMipmaps = false;
+                texture.minFilter = LinearFilter;
+              }
+              texture.needsUpdate = true;
+            }
+          }
+          if (preset === "rough0") material.roughness = 0;
+          if (preset === "reset") {
+            if (original?.m !== undefined) material.metalness = original.m;
+            if (original?.r !== undefined) material.roughness = original.r;
+          }
+          material.needsUpdate = true;
+        }
+      });
+
+      if (preset === "envUp") scene.environmentIntensity = 1;
+      // Removing the probe entirely: if the ship looks no different without it,
+      // it was contributing nothing and the probe is the fault.
+      if (preset === "envOff") scene.environment = null;
+      if (preset === "reset") {
+        scene.environmentIntensity = originalEnvIntensity;
+        scene.environment = originalEnvironment;
+      }
+
+      SCENE_DIAGNOSTICS.activePreset = preset;
+    };
+
+    return () => {
+      DIAGNOSTIC_ACTIONS.apply = null;
+    };
+  }, [scene]);
 
   useEffect(() => {
     const read = () => {
@@ -123,6 +254,9 @@ export function SceneDiagnosticsProbe() {
       });
       SCENE_DIAGNOSTICS.materials = described;
       SCENE_DIAGNOSTICS.meshCount = String(meshCount);
+
+      SCENE_DIAGNOSTICS.gpu = readGpuName();
+      SCENE_DIAGNOSTICS.floatTargets = readFloatSupport();
 
       const size = renderer.getDrawingBufferSize(new Vector2());
       SCENE_DIAGNOSTICS.drawingBufferSize = `${Math.round(
