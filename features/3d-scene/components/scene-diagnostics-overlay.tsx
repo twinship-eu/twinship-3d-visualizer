@@ -27,6 +27,7 @@ export function SceneDiagnosticsOverlay() {
     ["envIntensity", SCENE_DIAGNOSTICS.environmentIntensity],
     ["envSize", SCENE_DIAGNOSTICS.environmentSize],
     ["tone", SCENE_DIAGNOSTICS.toneMapping],
+    ["meshes", SCENE_DIAGNOSTICS.meshCount],
   ];
 
   return (

@@ -7,13 +7,14 @@ import { asSceneRenderer, isWebGPUBackend } from "../lib/webgpu-renderer";
 import { SCENE_DIAGNOSTICS } from "../lib/scene-diagnostics";
 
 /**
- * Delay before reading the scene, in ms.
+ * How often to re-read the scene, in ms.
  *
- * The environment probe is baked in an effect that renders the sky through
- * PMREMGenerator, so reading `scene.environment` on the same tick would report
- * a null that is merely early rather than wrong.
+ * Read once at 1500ms and the ship is missing: the model is ~40 MB, and on a
+ * phone it is still downloading. The first readout from a device reported only
+ * the water and the loading ring for exactly that reason. Re-reading keeps the
+ * panel current as the scene fills in.
  */
-const READ_DELAY_MS = 1500;
+const READ_INTERVAL_MS = 2000;
 
 /** three's `Compatibility.TEXTURE_COMPARE` key; not re-exported from three/webgpu. */
 const DEPTH_TEXTURE_COMPARE = "depthTextureCompare";
@@ -37,8 +38,11 @@ type InspectableMaterial = Material & {
  * roughness answer whether the surface is a mirror; colour answers whether the
  * base is black before any lighting is applied.
  */
-function describeMaterial(material: InspectableMaterial): string {
-  const name = material.name || material.type;
+function describeMaterial(
+  material: InspectableMaterial,
+  meshName: string
+): string {
+  const name = `${meshName || "?"}/${material.name || material.type}`;
   const hasMap = material.map ? "map" : "NOMAP";
   const image = material.map?.image as { width?: number } | undefined;
   const mapSize = image ? `${image.width ?? "?"}px` : "-";
@@ -66,7 +70,7 @@ export function SceneDiagnosticsProbe() {
   const scene = useThree((state) => state.scene);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const read = () => {
       const renderer = asSceneRenderer(gl);
 
       SCENE_DIAGNOSTICS.backend = isWebGPUBackend(gl) ? "WebGPU" : "WebGL2";
@@ -100,27 +104,35 @@ export function SceneDiagnosticsProbe() {
 
       const seen = new Set<string>();
       const described: string[] = [];
+      let meshCount = 0;
       scene.traverse((object) => {
+        if ((object as Mesh).isMesh) meshCount += 1;
         if (described.length >= MAX_MATERIALS_REPORTED) return;
         const mesh = object as Mesh;
         if (!mesh.isMesh || !mesh.material) return;
         const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const material of list) {
-          const line = describeMaterial(material as InspectableMaterial);
+          const line = describeMaterial(
+            material as InspectableMaterial,
+            mesh.name
+          );
           if (seen.has(line) || described.length >= MAX_MATERIALS_REPORTED) continue;
           seen.add(line);
           described.push(line);
         }
       });
       SCENE_DIAGNOSTICS.materials = described;
+      SCENE_DIAGNOSTICS.meshCount = String(meshCount);
 
       const size = renderer.getDrawingBufferSize(new Vector2());
       SCENE_DIAGNOSTICS.drawingBufferSize = `${Math.round(
         size.width
       )}x${Math.round(size.height)}`;
-    }, READ_DELAY_MS);
+    };
 
-    return () => clearTimeout(timer);
+    read();
+    const timer = setInterval(read, READ_INTERVAL_MS);
+    return () => clearInterval(timer);
   }, [gl, scene]);
 
   return null;
