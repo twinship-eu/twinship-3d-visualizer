@@ -73,6 +73,9 @@ function shouldForceNoEnv(): boolean {
  * a debugging path, and keeping one rule is worth more than covering it.
  */
 export function canRenderShadows(): boolean {
+  // `?forceNoEnv` must match the Android path, which also drops shadows —
+  // otherwise a desktop preview stays much darker than the phone.
+  if (shouldForceNoEnv()) return false;
   return !isAndroidUserAgent();
 }
 

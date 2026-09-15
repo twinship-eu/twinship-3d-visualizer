@@ -2,10 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import type { DirectionalLight, HemisphereLight } from "three";
 import {
+  Vector3,
+  type AmbientLight,
+  type DirectionalLight,
+  type HemisphereLight,
+} from "three";
+import {
+  ANDROID_AMBIENT_COLOR,
+  ANDROID_FILL_COLOR,
   ANDROID_HEMISPHERE_GROUND_COLOR,
   ANDROID_HEMISPHERE_SKY_COLOR,
+  ANDROID_METALNESS_SCALE,
   ENVIRONMENT_MAP_INTENSITY,
   getShadowLightPosition,
   IS_ENVIRONMENT_LIGHTING_ENABLED,
@@ -27,6 +35,9 @@ import {
 
 const SUN_POS = getShadowLightPosition();
 
+/** Opposite the sun on the horizontal, a bit lower — softens the dark hull side. */
+const FILL_POS = new Vector3(-SUN_POS.x, Math.max(SUN_POS.y * 0.45, 20), -SUN_POS.z);
+
 /**
  * Live values behind the Inspector's Lights panel.
  *
@@ -39,19 +50,31 @@ const LIGHT_TUNING = {
   /** Whether the baked sky probe lights the ship at all. */
   skyLightsShip: IS_ENVIRONMENT_LIGHTING_ENABLED,
   environment: ENVIRONMENT_MAP_INTENSITY,
-  /** Hemisphere fill used when the sky probe is skipped (Android / ?forceNoEnv). */
+  ambient: LIGHT_INTENSITY.androidAmbient,
+  ambientColor: ANDROID_AMBIENT_COLOR,
   hemisphere: LIGHT_INTENSITY.androidHemisphere,
   hemisphereSky: ANDROID_HEMISPHERE_SKY_COLOR,
   hemisphereGround: ANDROID_HEMISPHERE_GROUND_COLOR,
+  fill: LIGHT_INTENSITY.androidFill,
+  fillColor: ANDROID_FILL_COLOR,
   exposure: TONE_MAPPING_EXPOSURE,
 };
 
 export function SceneLights() {
   const gl = useThree((state) => state.gl);
   const sunRef = useRef<DirectionalLight>(null);
+  const ambientRef = useRef<AmbientLight>(null);
   const hemisphereRef = useRef<HemisphereLight>(null);
+  const fillRef = useRef<DirectionalLight>(null);
   // Read once: the UA / query string do not change for the life of the page.
   const useAndroidFill = !canAssignEnvironmentProbe();
+
+  useEffect(() => {
+    if (!useAndroidFill) return;
+    // Start the no-env path on the metalness that can actually take diffuse
+    // light; the Inspector can still push it live.
+    SHIP_MATERIAL_TUNING.metalnessScale = ANDROID_METALNESS_SCALE;
+  }, [useAndroidFill]);
 
   useEffect(() => {
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
@@ -63,9 +86,13 @@ export function SceneLights() {
     if (useAndroidFill) {
       // Substitute for the skipped sky probe. Tune under `?forceNoEnv` on
       // desktop, then copy the numbers into `3d-scene-config.ts`.
-      panel.add(LIGHT_TUNING, "hemisphere", 0, 5, 0.05);
+      panel.add(LIGHT_TUNING, "ambient", 0, 10, 0.05);
+      panel.addColor(LIGHT_TUNING, "ambientColor");
+      panel.add(LIGHT_TUNING, "hemisphere", 0, 20, 0.05);
       panel.addColor(LIGHT_TUNING, "hemisphereSky");
       panel.addColor(LIGHT_TUNING, "hemisphereGround");
+      panel.add(LIGHT_TUNING, "fill", 0, 20, 0.05);
+      panel.addColor(LIGHT_TUNING, "fillColor");
     } else {
       // Lights the metal via the baked sky probe, and is not blocked by shadows.
       panel.add(LIGHT_TUNING, "skyLightsShip");
@@ -73,8 +100,7 @@ export function SceneLights() {
     }
     // Scales the whole image, sky included, unlike the lights above.
     panel.add(LIGHT_TUNING, "exposure", 0, 1.5, 0.01);
-    // Not a light, but the reason fills look inert on full metal: metalness 1
-    // has no diffuse response.
+    // Without a probe this is the main lever for the fills to reach the hull.
     panel.add(SHIP_MATERIAL_TUNING, "metalnessScale", 0, 1, 0.05);
   }, [gl, useAndroidFill]);
 
@@ -86,10 +112,18 @@ export function SceneLights() {
   useFrame((state) => {
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
     if (sunRef.current) sunRef.current.intensity = LIGHT_TUNING.sun;
+    if (ambientRef.current) {
+      ambientRef.current.intensity = LIGHT_TUNING.ambient;
+      ambientRef.current.color.set(LIGHT_TUNING.ambientColor);
+    }
     if (hemisphereRef.current) {
       hemisphereRef.current.intensity = LIGHT_TUNING.hemisphere;
       hemisphereRef.current.color.set(LIGHT_TUNING.hemisphereSky);
       hemisphereRef.current.groundColor.set(LIGHT_TUNING.hemisphereGround);
+    }
+    if (fillRef.current) {
+      fillRef.current.intensity = LIGHT_TUNING.fill;
+      fillRef.current.color.set(LIGHT_TUNING.fillColor);
     }
     if (!useAndroidFill) {
       state.scene.environmentIntensity = LIGHT_TUNING.skyLightsShip
@@ -117,14 +151,27 @@ export function SceneLights() {
         shadow-normalBias={SHADOW_NORMAL_BIAS}
       />
       {useAndroidFill && (
-        <hemisphereLight
-          ref={hemisphereRef}
-          args={[
-            ANDROID_HEMISPHERE_SKY_COLOR,
-            ANDROID_HEMISPHERE_GROUND_COLOR,
-            LIGHT_INTENSITY.androidHemisphere,
-          ]}
-        />
+        <>
+          <ambientLight
+            ref={ambientRef}
+            color={ANDROID_AMBIENT_COLOR}
+            intensity={LIGHT_INTENSITY.androidAmbient}
+          />
+          <hemisphereLight
+            ref={hemisphereRef}
+            args={[
+              ANDROID_HEMISPHERE_SKY_COLOR,
+              ANDROID_HEMISPHERE_GROUND_COLOR,
+              LIGHT_INTENSITY.androidHemisphere,
+            ]}
+          />
+          <directionalLight
+            ref={fillRef}
+            position={[FILL_POS.x, FILL_POS.y, FILL_POS.z]}
+            intensity={LIGHT_INTENSITY.androidFill}
+            color={ANDROID_FILL_COLOR}
+          />
+        </>
       )}
     </>
   );

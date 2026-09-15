@@ -92,25 +92,46 @@ export const SHADOW_NORMAL_BIAS = 0.05;
  * It cannot restore metallic reflections; it only keeps the diffuse remainder
  * of the materials from sitting in pure sun/shadow.
  *
- * Desktop can preview that path with `?forceNoEnv` and tune the hemisphere
- * from the Inspector's Lights panel before copying values back here.
+ * Desktop can preview that path with `?forceNoEnv` (also drops shadows, like
+ * Android) and tune the fills from the Inspector's Lights panel before
+ * copying values back here.
  */
 export const LIGHT_INTENSITY = {
   /** Direct sun, and the only light the shadows block. */
   sun: 4,
+  /** Flat ambient fill used only when the environment probe is skipped. */
+  androidAmbient: 0.75,
   /**
    * Hemisphere fill used only when the environment probe is skipped (Android).
-   * Tuned against the Pixel `env OFF` readout: enough to lift shadowed paint
-   * without washing out the sun side.
+   * Lifts sky-facing vs ground-facing diffuse after metalness is lowered.
    */
-  androidHemisphere: 0.85,
+  androidHemisphere: 2,
+  /**
+   * Second directional, opposite the sun, no shadows. Softens the dark side
+   * of the hull when there is no environment probe to reflect.
+   */
+  androidFill: 1.5,
 } as const;
 
+/**
+ * Metalness scale used when the environment probe is skipped.
+ *
+ * Without a probe, high metalness has nothing to reflect and reads as black /
+ * charcoal even under strong fills. Desktop with IBL keeps SHIP_METALNESS_SCALE.
+ */
+export const ANDROID_METALNESS_SCALE = 0.35;
+
 /** Sky colour of the Android-only hemisphere fill. */
-export const ANDROID_HEMISPHERE_SKY_COLOR = "#8ec7ff";
+export const ANDROID_HEMISPHERE_SKY_COLOR = "#ffffff";
 
 /** Ground colour of the Android-only hemisphere fill. */
-export const ANDROID_HEMISPHERE_GROUND_COLOR = "#3a4a3c";
+export const ANDROID_HEMISPHERE_GROUND_COLOR = "#5a6a5c";
+
+/** Colour of the Android-only ambient fill. */
+export const ANDROID_AMBIENT_COLOR = "#ffffff";
+
+/** Colour of the Android-only fill directional. */
+export const ANDROID_FILL_COLOR = "#cfe4ff";
 
 /**
  * Strength of the sky-baked IBL probe that lights the ship's metallic
