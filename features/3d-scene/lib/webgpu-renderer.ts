@@ -19,6 +19,31 @@ export const TONE_MAPPING_EXPOSURE = 0.6;
 const FORCE_WEBGL_PARAM = "forceWebGL";
 
 /**
+ * Query param that skips the sky PMREM and enables the Android hemisphere fill,
+ * so that path can be tuned on desktop before deploying phone values.
+ */
+const FORCE_NO_ENV_PARAM = "forceNoEnv";
+
+/**
+ * Whether the page is running under an Android user agent.
+ *
+ * Guarded for SSR: this module is pulled in by client components that Next
+ * still evaluates on the server. The server answer is "not Android".
+ */
+export function isAndroidUserAgent(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android/.test(navigator.userAgent);
+}
+
+/**
+ * Reads the `?forceNoEnv` escape hatch. Guarded for SSR like `?forceWebGL`.
+ */
+function shouldForceNoEnv(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).has(FORCE_NO_ENV_PARAM);
+}
+
+/**
  * Whether shadows can be rendered at all on this device.
  *
  * three refuses depth-texture comparison on any user agent containing
@@ -48,8 +73,30 @@ const FORCE_WEBGL_PARAM = "forceWebGL";
  * a debugging path, and keeping one rule is worth more than covering it.
  */
 export function canRenderShadows(): boolean {
-  if (typeof navigator === "undefined") return true;
-  return /Android/.test(navigator.userAgent) === false;
+  // `?forceNoEnv` must match the Android path, which also drops shadows —
+  // otherwise a desktop preview stays much darker than the phone.
+  if (shouldForceNoEnv()) return false;
+  return !isAndroidUserAgent();
+}
+
+/**
+ * Whether the sky-baked PMREM probe may be assigned as `scene.environment`.
+ *
+ * On Pixel / Mali (and Android more broadly), that probe is assigned with a
+ * real size but samples badly: roughness 1 metals go black, roughness 0 blows
+ * out white, and clearing `scene.environment` restores the textured ship under
+ * the sun alone. The engine GLB is almost fully metallic and the scene has no
+ * ambient fill, so a bad probe has nowhere else to fall back to.
+ *
+ * Desktop and iOS keep the bake. Android skips it — the same outcome as the
+ * `?diag` "env OFF" preset that made the Pixel readout look correct.
+ *
+ * `?forceNoEnv` forces the same skip on any device, so the Lights panel can
+ * tune the substitute hemisphere on a desktop before those numbers ship.
+ */
+export function canAssignEnvironmentProbe(): boolean {
+  if (shouldForceNoEnv()) return false;
+  return !isAndroidUserAgent();
 }
 
 /**
