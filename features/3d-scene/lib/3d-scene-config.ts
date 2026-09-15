@@ -91,6 +91,9 @@ export const SHADOW_NORMAL_BIAS = 0.05;
  * weak hemisphere fill comes back as a substitute for the missing sky light.
  * It cannot restore metallic reflections; it only keeps the diffuse remainder
  * of the materials from sitting in pure sun/shadow.
+ *
+ * Desktop can preview that path with `?forceNoEnv` and tune the hemisphere
+ * from the Inspector's Lights panel before copying values back here.
  */
 export const LIGHT_INTENSITY = {
   /** Direct sun, and the only light the shadows block. */

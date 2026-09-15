@@ -19,6 +19,12 @@ export const TONE_MAPPING_EXPOSURE = 0.6;
 const FORCE_WEBGL_PARAM = "forceWebGL";
 
 /**
+ * Query param that skips the sky PMREM and enables the Android hemisphere fill,
+ * so that path can be tuned on desktop before deploying phone values.
+ */
+const FORCE_NO_ENV_PARAM = "forceNoEnv";
+
+/**
  * Whether the page is running under an Android user agent.
  *
  * Guarded for SSR: this module is pulled in by client components that Next
@@ -27,6 +33,14 @@ const FORCE_WEBGL_PARAM = "forceWebGL";
 export function isAndroidUserAgent(): boolean {
   if (typeof navigator === "undefined") return false;
   return /Android/.test(navigator.userAgent);
+}
+
+/**
+ * Reads the `?forceNoEnv` escape hatch. Guarded for SSR like `?forceWebGL`.
+ */
+function shouldForceNoEnv(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).has(FORCE_NO_ENV_PARAM);
 }
 
 /**
@@ -73,8 +87,12 @@ export function canRenderShadows(): boolean {
  *
  * Desktop and iOS keep the bake. Android skips it — the same outcome as the
  * `?diag` "env OFF" preset that made the Pixel readout look correct.
+ *
+ * `?forceNoEnv` forces the same skip on any device, so the Lights panel can
+ * tune the substitute hemisphere on a desktop before those numbers ship.
  */
 export function canAssignEnvironmentProbe(): boolean {
+  if (shouldForceNoEnv()) return false;
   return !isAndroidUserAgent();
 }
 
