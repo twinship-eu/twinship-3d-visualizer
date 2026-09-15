@@ -67,14 +67,14 @@ export function SceneLights() {
   const hemisphereRef = useRef<HemisphereLight>(null);
   const fillRef = useRef<DirectionalLight>(null);
   // Read once: the UA / query string do not change for the life of the page.
-  const useAndroidFill = !canAssignEnvironmentProbe();
+  const useMobileFill = !canAssignEnvironmentProbe();
 
   useEffect(() => {
-    if (!useAndroidFill) return;
+    if (!useMobileFill) return;
     // Start the no-env path on the metalness that can actually take diffuse
     // light; the Inspector can still push it live.
     SHIP_MATERIAL_TUNING.metalnessScale = ANDROID_METALNESS_SCALE;
-  }, [useAndroidFill]);
+  }, [useMobileFill]);
 
   useEffect(() => {
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
@@ -83,7 +83,7 @@ export function SceneLights() {
 
     const panel = inspector.createParameters("Lights");
     panel.add(LIGHT_TUNING, "sun", 0, 20, 0.1);
-    if (useAndroidFill) {
+    if (useMobileFill) {
       // Substitute for the skipped sky probe. Tune under `?forceNoEnv` on
       // desktop, then copy the numbers into `3d-scene-config.ts`.
       panel.add(LIGHT_TUNING, "ambient", 0, 10, 0.05);
@@ -102,7 +102,7 @@ export function SceneLights() {
     panel.add(LIGHT_TUNING, "exposure", 0, 1.5, 0.01);
     // Without a probe this is the main lever for the fills to reach the hull.
     panel.add(SHIP_MATERIAL_TUNING, "metalnessScale", 0, 1, 0.05);
-  }, [gl, useAndroidFill]);
+  }, [gl, useMobileFill]);
 
   // Applied per frame rather than through change handlers: it is a handful of
   // assignments, and it cannot drift out of sync with the panel.
@@ -125,7 +125,7 @@ export function SceneLights() {
       fillRef.current.intensity = LIGHT_TUNING.fill;
       fillRef.current.color.set(LIGHT_TUNING.fillColor);
     }
-    if (!useAndroidFill) {
+    if (!useMobileFill) {
       state.scene.environmentIntensity = LIGHT_TUNING.skyLightsShip
         ? LIGHT_TUNING.environment
         : 0;
@@ -150,7 +150,7 @@ export function SceneLights() {
         shadow-camera-bottom={-SHADOW_CAMERA_EXTENT}
         shadow-normalBias={SHADOW_NORMAL_BIAS}
       />
-      {useAndroidFill && (
+      {useMobileFill && (
         <>
           <ambientLight
             ref={ambientRef}

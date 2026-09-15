@@ -81,19 +81,19 @@ export const SHADOW_NORMAL_BIAS = 0.05;
 /**
  * Scene lighting.
  *
- * On desktop and iOS the sun is paired with the sky PMREM probe: the ship is
+ * On desktop the sun is paired with the sky PMREM probe: the ship is
  * almost entirely metal — 0.93 to 1.00 metalness across the hull, deck and
  * towers — and metal has no diffuse response, so ambient / hemisphere fills
  * never reached those surfaces. What lights the hull there is the probe it
  * reflects, scaled by ENVIRONMENT_MAP_INTENSITY.
  *
- * On Android the probe is not assigned (see `canAssignEnvironmentProbe`), so a
- * weak hemisphere fill comes back as a substitute for the missing sky light.
- * It cannot restore metallic reflections; it only keeps the diffuse remainder
- * of the materials from sitting in pure sun/shadow.
+ * On Android and iOS the probe is not assigned (see `canAssignEnvironmentProbe`),
+ * so a weak hemisphere fill comes back as a substitute for the missing sky
+ * light. It cannot restore metallic reflections; it only keeps the diffuse
+ * remainder of the materials from sitting in pure sun/shadow.
  *
  * Desktop can preview that path with `?forceNoEnv` (also drops shadows, like
- * Android) and tune the fills from the Inspector's Lights panel before
+ * the phones) and tune the fills from the Inspector's Lights panel before
  * copying values back here.
  */
 export const LIGHT_INTENSITY = {
