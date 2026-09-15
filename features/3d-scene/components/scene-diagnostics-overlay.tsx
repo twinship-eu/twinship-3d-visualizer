@@ -1,7 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SCENE_DIAGNOSTICS } from "../lib/scene-diagnostics";
+import {
+  DIAGNOSTIC_ACTIONS,
+  SCENE_DIAGNOSTICS,
+  type DiagnosticPreset,
+} from "../lib/scene-diagnostics";
+
+/**
+ * Live experiments, run by tapping.
+ *
+ * The ship's materials are metalness 0.85 at roughness 1.0, so they are lit
+ * almost entirely by a fully blurred reflection of the environment probe.
+ * Removing the metalness shows the albedo instead; dropping the roughness
+ * samples a sharp mip rather than the roughest one. If either brings the ship
+ * back, the probe is what is failing to reach it.
+ */
+const PRESETS: { label: string; preset: DiagnosticPreset }[] = [
+  { label: "metal 0", preset: "metal0" },
+  { label: "rough 0", preset: "rough0" },
+  { label: "env 1.0", preset: "envUp" },
+  { label: "reset", preset: "reset" },
+];
 
 /** How often the readout re-renders, in ms. Slow: it is read by eye. */
 const REFRESH_MS = 500;
@@ -28,15 +48,28 @@ export function SceneDiagnosticsOverlay() {
     ["envSize", SCENE_DIAGNOSTICS.environmentSize],
     ["tone", SCENE_DIAGNOSTICS.toneMapping],
     ["meshes", SCENE_DIAGNOSTICS.meshCount],
+    ["preset", SCENE_DIAGNOSTICS.activePreset],
   ];
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-[60] max-h-[55vh] overflow-y-auto bg-black/85 p-2 font-mono text-[10px] leading-snug text-lime-300">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-[60] max-h-[60vh] overflow-y-auto bg-black/85 p-2 font-mono text-[10px] leading-snug text-lime-300">
       {rows.map(([label, value]) => (
         <div key={label}>
           <span className="text-lime-500">{label}:</span> {value}
         </div>
       ))}
+      <div className="pointer-events-auto mt-1 flex flex-wrap gap-1">
+        {PRESETS.map(({ label, preset }) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => DIAGNOSTIC_ACTIONS.apply?.(preset)}
+            className="rounded border border-lime-600 px-2 py-1 text-lime-200 active:bg-lime-900"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="mt-1 text-lime-500">materials:</div>
       {SCENE_DIAGNOSTICS.materials.length === 0 && <div>(none read)</div>}
       {SCENE_DIAGNOSTICS.materials.map((line) => (

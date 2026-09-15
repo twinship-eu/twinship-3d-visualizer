@@ -4,7 +4,11 @@ import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import { Mesh, Texture, Vector2, type Material } from "three";
 import { asSceneRenderer, isWebGPUBackend } from "../lib/webgpu-renderer";
-import { SCENE_DIAGNOSTICS } from "../lib/scene-diagnostics";
+import {
+  DIAGNOSTIC_ACTIONS,
+  SCENE_DIAGNOSTICS,
+  type DiagnosticPreset,
+} from "../lib/scene-diagnostics";
 
 /**
  * How often to re-read the scene, in ms.
@@ -24,6 +28,7 @@ const MAX_MATERIALS_REPORTED = 5;
 
 type InspectableMaterial = Material & {
   name?: string;
+  needsUpdate?: boolean;
   map?: Texture | null;
   metalness?: number;
   roughness?: number;
@@ -68,6 +73,49 @@ function describeMaterial(
 export function SceneDiagnosticsProbe() {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
+
+  useEffect(() => {
+    /** Original metalness and roughness, so `reset` is exact rather than a guess. */
+    const originals = new Map<string, { m?: number; r?: number }>();
+    const originalEnvIntensity = scene.environmentIntensity;
+
+    DIAGNOSTIC_ACTIONS.apply = (preset: DiagnosticPreset) => {
+      scene.traverse((object) => {
+        const mesh = object as Mesh;
+        if (!mesh.isMesh || !mesh.material) return;
+        const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const entry of list) {
+          const material = entry as InspectableMaterial;
+          if (typeof material.metalness !== "number") continue;
+
+          if (!originals.has(material.uuid)) {
+            originals.set(material.uuid, {
+              m: material.metalness,
+              r: material.roughness,
+            });
+          }
+          const original = originals.get(material.uuid);
+
+          if (preset === "metal0") material.metalness = 0;
+          if (preset === "rough0") material.roughness = 0;
+          if (preset === "reset") {
+            if (original?.m !== undefined) material.metalness = original.m;
+            if (original?.r !== undefined) material.roughness = original.r;
+          }
+          material.needsUpdate = true;
+        }
+      });
+
+      if (preset === "envUp") scene.environmentIntensity = 1;
+      if (preset === "reset") scene.environmentIntensity = originalEnvIntensity;
+
+      SCENE_DIAGNOSTICS.activePreset = preset;
+    };
+
+    return () => {
+      DIAGNOSTIC_ACTIONS.apply = null;
+    };
+  }, [scene]);
 
   useEffect(() => {
     const read = () => {
