@@ -17,6 +17,17 @@ import { SceneSky } from "./components/scene-sky";
 import { SceneEnvironmentMap } from "./components/scene-environment-map";
 import { SceneWater } from "./components/scene-water";
 import { canRenderShadows, createSceneRenderer } from "./lib/webgpu-renderer";
+import {
+  installConsoleCapture,
+  isDiagnosticsEnabled,
+} from "./lib/scene-diagnostics";
+import { SceneDiagnosticsProbe } from "./components/scene-diagnostics-probe";
+import { SceneDiagnosticsOverlay } from "./components/scene-diagnostics-overlay";
+
+// Installed at module scope so the wrap is in place before the Canvas mounts
+// and three starts reporting; an effect would run too late to catch the first
+// errors, which are the ones that explain the rest. Inert without `?diag`.
+installConsoleCapture();
 import { RendererBackendProbe } from "./components/renderer-backend-probe";
 import { RendererBackendBadge } from "./components/renderer-backend-badge";
 import { SceneStatsProbe } from "./components/scene-stats-probe";
@@ -80,6 +91,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         >
           <RendererBackendProbe onResolved={setIsWebGPU} />
           {IS_SCENE_STATS_ENABLED && <SceneStatsProbe />}
+          {isDiagnosticsEnabled() && <SceneDiagnosticsProbe />}
           <SceneSky />
           <SceneEnvironmentMap />
           <SceneWater />
@@ -100,6 +112,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         <ZoomControlsOverlay />
         {IS_RENDERER_BADGE_ENABLED && <RendererBackendBadge isWebGPU={isWebGPU} />}
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
+        {isDiagnosticsEnabled() && <SceneDiagnosticsOverlay />}
       </ZoomControlsProvider>
     </SceneInteractionProvider>
   );
