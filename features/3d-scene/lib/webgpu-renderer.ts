@@ -19,6 +19,15 @@ export const TONE_MAPPING_EXPOSURE = 0.6;
 const FORCE_WEBGL_PARAM = "forceWebGL";
 
 /**
+ * three's `Compatibility.TEXTURE_COMPARE` key, as a literal.
+ *
+ * The `Compatibility` object is not re-exported from `three/webgpu`, and the
+ * key is only ever compared as a string internally, so naming it here is the
+ * whole of what the renderer's `hasCompatibility` needs.
+ */
+const DEPTH_TEXTURE_COMPARE = "depthTextureCompare";
+
+/**
  * The slice of R3F's default renderer props this factory needs. R3F declares
  * `DefaultGLProps` but does not re-export it from the package root, and the
  * canvas is the only field a WebGPURenderer takes from it.
@@ -65,7 +74,30 @@ async function initRenderer(
   });
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
-  renderer.shadowMap.enabled = true;
+  /*
+    Shadows require sampling the shadow map with a depth comparison, and three
+    refuses to do that on any user agent containing "Android"
+    (WebGPUBackend.js: `/Android/.test( navigator.userAgent ) === false`), as a
+    blanket workaround for Android WebGPU drivers.
+
+    Its own shadow code does not honour that. ShadowNode always sets the depth
+    texture's compareFunction to LessEqualCompare, while the no-compare fallback
+    in TextureNode handles only null or LessCompare. LessEqualCompare therefore
+    falls through to a branch that emits a comparison the backend cannot
+    perform, and every shadow-receiving material compiles to an invalid
+    fragment shader -- which surfaces as a wall of "Invalid ShaderModule ... is
+    invalid due to a previous error" and, on a phone, no ship.
+
+    Keying off the capability rather than off the user agent means this corrects
+    itself the moment three fixes the underlying bug, and never disables shadows
+    on a device that could have drawn them. Losing shadows on Android is also
+    the cheaper half of the trade: shadow maps are among the most expensive
+    things a mobile GPU does.
+  */
+  const canCompareDepthTextures = renderer.hasCompatibility(
+    DEPTH_TEXTURE_COMPARE
+  );
+  renderer.shadowMap.enabled = canCompareDepthTextures;
   // Soft rather than plain PCF: more taps per pixel, but the hard stair-stepped
   // edge of a single-tap lookup is obvious on a shadow this large.
   renderer.shadowMap.type = PCFSoftShadowMap;
