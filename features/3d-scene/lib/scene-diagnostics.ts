@@ -1,3 +1,7 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+
 /**
  * On-screen diagnostics for devices whose console cannot be reached.
  *
@@ -9,6 +13,7 @@
  * Opt-in through `?diag`, not through NODE_ENV: the whole point is to run it
  * against a production deployment. It is inert without the query param.
  */
+
 
 /** Query param that switches the overlay on. */
 const DIAGNOSTICS_PARAM = "diag";
@@ -38,6 +43,8 @@ export type SceneDiagnostics = {
   toneMapping: string;
   /** Per-material readout for the ship: the surfaces that render black. */
   materials: string[];
+  /** Meshes in the scene, so an empty stage is not mistaken for a broken one. */
+  meshCount: string;
   /** Captured console.error and console.warn lines, oldest first. */
   lines: string[];
   /**
@@ -66,14 +73,48 @@ export const SCENE_DIAGNOSTICS: SceneDiagnostics = {
   environmentSize: "…",
   toneMapping: "…",
   materials: [],
+  meshCount: "…",
   lines: [],
   totalCaptured: 0,
 };
 
-/** Whether `?diag` is present. SSR-safe: this module loads on the server too. */
+/**
+ * Whether `?diag` is present.
+ *
+ * Returns false during server rendering, which is why callers must not branch
+ * on it during the first client render either: the server would emit no
+ * overlay, the client would emit one, and React reports the difference as a
+ * hydration failure (minified error #418). `useIsDiagnosticsEnabled` below
+ * exists to make that hard to get wrong.
+ */
 export function isDiagnosticsEnabled(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).has(DIAGNOSTICS_PARAM);
+}
+
+/** The query string never changes without a reload, so nothing to subscribe to. */
+const subscribeToNothing = () => () => {};
+
+/** What the server renders: no overlay, whatever the URL says. */
+const getServerSnapshot = () => false;
+
+/**
+ * The same answer, but safe to branch on during render.
+ *
+ * useSyncExternalStore is built for precisely this: a value that legitimately
+ * differs between server and client. It takes the server's answer during
+ * hydration and the client's immediately after, so the two trees never
+ * disagree and React raises no hydration error. Reading the query string
+ * directly in render instead is what produced minified error #418.
+ *
+ * Use this in components; the plain function above is for non-render code.
+ */
+export function useIsDiagnosticsEnabled(): boolean {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    isDiagnosticsEnabled,
+    getServerSnapshot
+  );
 }
 
 let isCaptureInstalled = false;

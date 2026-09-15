@@ -19,7 +19,7 @@ import { SceneWater } from "./components/scene-water";
 import { canRenderShadows, createSceneRenderer } from "./lib/webgpu-renderer";
 import {
   installConsoleCapture,
-  isDiagnosticsEnabled,
+  useIsDiagnosticsEnabled,
 } from "./lib/scene-diagnostics";
 import { SceneDiagnosticsProbe } from "./components/scene-diagnostics-probe";
 import { SceneDiagnosticsOverlay } from "./components/scene-diagnostics-overlay";
@@ -75,6 +75,10 @@ export function Scene({
 function SceneWithInteraction({ children }: { children: React.ReactNode }) {
   const [isOrbitControlsActive, setIsOrbitControlsActive] = useState(false);
   const [isWebGPU, setIsWebGPU] = useState<boolean | null>(null);
+  // Deliberately false until mounted: branching on the query string during the
+  // first render makes the client's tree differ from the server's, which React
+  // reports as hydration failure #418.
+  const isDiagnosticsOn = useIsDiagnosticsEnabled();
 
   return (
     <SceneInteractionProvider value={{ isOrbitControlsActive }}>
@@ -91,7 +95,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         >
           <RendererBackendProbe onResolved={setIsWebGPU} />
           {IS_SCENE_STATS_ENABLED && <SceneStatsProbe />}
-          {isDiagnosticsEnabled() && <SceneDiagnosticsProbe />}
+          {isDiagnosticsOn && <SceneDiagnosticsProbe />}
           <SceneSky />
           <SceneEnvironmentMap />
           <SceneWater />
@@ -112,7 +116,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         <ZoomControlsOverlay />
         {IS_RENDERER_BADGE_ENABLED && <RendererBackendBadge isWebGPU={isWebGPU} />}
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
-        {isDiagnosticsEnabled() && <SceneDiagnosticsOverlay />}
+        {isDiagnosticsOn && <SceneDiagnosticsOverlay />}
       </ZoomControlsProvider>
     </SceneInteractionProvider>
   );
