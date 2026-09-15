@@ -19,13 +19,38 @@ export const TONE_MAPPING_EXPOSURE = 0.6;
 const FORCE_WEBGL_PARAM = "forceWebGL";
 
 /**
- * three's `Compatibility.TEXTURE_COMPARE` key, as a literal.
+ * Whether shadows can be rendered at all on this device.
  *
- * The `Compatibility` object is not re-exported from `three/webgpu`, and the
- * key is only ever compared as a string internally, so naming it here is the
- * whole of what the renderer's `hasCompatibility` needs.
+ * three refuses depth-texture comparison on any user agent containing
+ * "Android", as a blanket workaround for Android WebGPU drivers:
+ *
+ *   WebGPUBackend.js
+ *   const compatibilityTextureCompare =
+ *     typeof navigator === 'undefined' ? true
+ *       : /Android/.test( navigator.userAgent ) === false;
+ *
+ * Its own shadow code does not honour that. ShadowNode always sets the depth
+ * texture's compareFunction to LessEqualCompare, while the no-compare fallback
+ * in TextureNode handles only null or LessCompare, so LessEqualCompare falls
+ * through to a branch emitting a comparison the backend cannot perform. Every
+ * shadow-receiving material then compiles to an invalid fragment shader, which
+ * surfaces as a wall of "Invalid ShaderModule ... invalid due to a previous
+ * error" and, on a phone, no ship.
+ *
+ * This mirrors three's rule rather than asking the renderer, because the answer
+ * is needed for React Three Fiber's `shadows` prop, which is evaluated before a
+ * renderer exists. Asking `renderer.hasCompatibility` in the factory below does
+ * not work: R3F re-applies that prop afterwards with
+ * `gl.shadowMap.enabled = !!shadows`, overwriting whatever the factory set.
+ *
+ * Known conservatism: with `?forceWebGL` on an Android agent this also drops
+ * shadows, though the WebGL2 backend could have drawn them. That combination is
+ * a debugging path, and keeping one rule is worth more than covering it.
  */
-const DEPTH_TEXTURE_COMPARE = "depthTextureCompare";
+export function canRenderShadows(): boolean {
+  if (typeof navigator === "undefined") return true;
+  return /Android/.test(navigator.userAgent) === false;
+}
 
 /**
  * The slice of R3F's default renderer props this factory needs. R3F declares
@@ -74,30 +99,10 @@ async function initRenderer(
   });
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
-  /*
-    Shadows require sampling the shadow map with a depth comparison, and three
-    refuses to do that on any user agent containing "Android"
-    (WebGPUBackend.js: `/Android/.test( navigator.userAgent ) === false`), as a
-    blanket workaround for Android WebGPU drivers.
-
-    Its own shadow code does not honour that. ShadowNode always sets the depth
-    texture's compareFunction to LessEqualCompare, while the no-compare fallback
-    in TextureNode handles only null or LessCompare. LessEqualCompare therefore
-    falls through to a branch that emits a comparison the backend cannot
-    perform, and every shadow-receiving material compiles to an invalid
-    fragment shader -- which surfaces as a wall of "Invalid ShaderModule ... is
-    invalid due to a previous error" and, on a phone, no ship.
-
-    Keying off the capability rather than off the user agent means this corrects
-    itself the moment three fixes the underlying bug, and never disables shadows
-    on a device that could have drawn them. Losing shadows on Android is also
-    the cheaper half of the trade: shadow maps are among the most expensive
-    things a mobile GPU does.
-  */
-  const canCompareDepthTextures = renderer.hasCompatibility(
-    DEPTH_TEXTURE_COMPARE
-  );
-  renderer.shadowMap.enabled = canCompareDepthTextures;
+  // Set here for a renderer built outside R3F, but R3F overwrites it from the
+  // Canvas `shadows` prop straight after this factory returns. See
+  // canRenderShadows above: the prop is what actually decides.
+  renderer.shadowMap.enabled = canRenderShadows();
   // Soft rather than plain PCF: more taps per pixel, but the hard stair-stepped
   // edge of a single-tap lookup is obvious on a shadow this large.
   renderer.shadowMap.type = PCFSoftShadowMap;

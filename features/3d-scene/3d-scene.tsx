@@ -16,7 +16,7 @@ import { SceneLights } from "./components/scene-lights";
 import { SceneSky } from "./components/scene-sky";
 import { SceneEnvironmentMap } from "./components/scene-environment-map";
 import { SceneWater } from "./components/scene-water";
-import { createSceneRenderer } from "./lib/webgpu-renderer";
+import { canRenderShadows, createSceneRenderer } from "./lib/webgpu-renderer";
 import { RendererBackendProbe } from "./components/renderer-backend-probe";
 import { RendererBackendBadge } from "./components/renderer-backend-badge";
 import { SceneStatsProbe } from "./components/scene-stats-probe";
@@ -63,7 +63,9 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
     <SceneInteractionProvider value={{ isOrbitControlsActive }}>
       <ZoomControlsProvider>
         <Canvas
-          shadows
+          // False on Android, where three's own shadow path emits invalid
+          // shaders under WebGPU. See canRenderShadows.
+          shadows={canRenderShadows()}
           camera={{
             position: new Vector3(...DEFAULT_CAMERA_POSITION),
             fov: 45,
