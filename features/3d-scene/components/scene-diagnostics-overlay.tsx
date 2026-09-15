@@ -24,6 +24,9 @@ export function SceneDiagnosticsOverlay() {
     ["shadows", SCENE_DIAGNOSTICS.shadowsEnabled],
     ["depthCompare", SCENE_DIAGNOSTICS.depthCompare],
     ["buffer", SCENE_DIAGNOSTICS.drawingBufferSize],
+    ["envIntensity", SCENE_DIAGNOSTICS.environmentIntensity],
+    ["envSize", SCENE_DIAGNOSTICS.environmentSize],
+    ["tone", SCENE_DIAGNOSTICS.toneMapping],
   ];
 
   return (
@@ -33,8 +36,16 @@ export function SceneDiagnosticsOverlay() {
           <span className="text-lime-500">{label}:</span> {value}
         </div>
       ))}
+      <div className="mt-1 text-lime-500">materials:</div>
+      {SCENE_DIAGNOSTICS.materials.length === 0 && <div>(none read)</div>}
+      {SCENE_DIAGNOSTICS.materials.map((line) => (
+        <div key={line} className="break-words text-cyan-300">
+          {line}
+        </div>
+      ))}
       <div className="mt-1 text-lime-500">
-        first {SCENE_DIAGNOSTICS.lines.length} console lines:
+        console: showing {SCENE_DIAGNOSTICS.lines.length} of{" "}
+        {SCENE_DIAGNOSTICS.totalCaptured} total
       </div>
       {SCENE_DIAGNOSTICS.lines.length === 0 && <div>(none)</div>}
       {SCENE_DIAGNOSTICS.lines.map((line, index) => (

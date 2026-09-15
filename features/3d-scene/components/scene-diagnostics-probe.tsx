@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
-import { Vector2 } from "three";
+import { Mesh, Texture, Vector2, type Material } from "three";
 import { asSceneRenderer, isWebGPUBackend } from "../lib/webgpu-renderer";
 import { SCENE_DIAGNOSTICS } from "../lib/scene-diagnostics";
 
@@ -17,6 +17,43 @@ const READ_DELAY_MS = 1500;
 
 /** three's `Compatibility.TEXTURE_COMPARE` key; not re-exported from three/webgpu. */
 const DEPTH_TEXTURE_COMPARE = "depthTextureCompare";
+
+/** Materials to report. Enough to see a pattern without filling the screen. */
+const MAX_MATERIALS_REPORTED = 5;
+
+type InspectableMaterial = Material & {
+  name?: string;
+  map?: Texture | null;
+  metalness?: number;
+  roughness?: number;
+  color?: { getHexString: () => string };
+  envMapIntensity?: number;
+};
+
+/**
+ * Describes one material in a single line.
+ *
+ * `map` answers whether the WebP textures decoded at all; metalness and
+ * roughness answer whether the surface is a mirror; colour answers whether the
+ * base is black before any lighting is applied.
+ */
+function describeMaterial(material: InspectableMaterial): string {
+  const name = material.name || material.type;
+  const hasMap = material.map ? "map" : "NOMAP";
+  const image = material.map?.image as { width?: number } | undefined;
+  const mapSize = image ? `${image.width ?? "?"}px` : "-";
+  const metalness =
+    typeof material.metalness === "number" ? material.metalness.toFixed(2) : "-";
+  const roughness =
+    typeof material.roughness === "number" ? material.roughness.toFixed(2) : "-";
+  const color = material.color ? material.color.getHexString() : "-";
+  const envIntensity =
+    typeof material.envMapIntensity === "number"
+      ? material.envMapIntensity.toFixed(2)
+      : "-";
+
+  return `${name} ${hasMap}/${mapSize} m${metalness} r${roughness} #${color} e${envIntensity}`;
+}
 
 /**
  * Reads renderer and scene state into SCENE_DIAGNOSTICS.
@@ -48,6 +85,34 @@ export function SceneDiagnosticsProbe() {
       } catch {
         SCENE_DIAGNOSTICS.depthCompare = "unavailable";
       }
+
+      const environment = scene.environment;
+      SCENE_DIAGNOSTICS.environmentIntensity = String(
+        scene.environmentIntensity ?? "unset"
+      );
+      const environmentImage = environment?.image as
+        | { width?: number; height?: number }
+        | undefined;
+      SCENE_DIAGNOSTICS.environmentSize = environmentImage
+        ? `${environmentImage.width ?? "?"}x${environmentImage.height ?? "?"}`
+        : "no image";
+      SCENE_DIAGNOSTICS.toneMapping = `${renderer.toneMapping} @ ${renderer.toneMappingExposure}`;
+
+      const seen = new Set<string>();
+      const described: string[] = [];
+      scene.traverse((object) => {
+        if (described.length >= MAX_MATERIALS_REPORTED) return;
+        const mesh = object as Mesh;
+        if (!mesh.isMesh || !mesh.material) return;
+        const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const material of list) {
+          const line = describeMaterial(material as InspectableMaterial);
+          if (seen.has(line) || described.length >= MAX_MATERIALS_REPORTED) continue;
+          seen.add(line);
+          described.push(line);
+        }
+      });
+      SCENE_DIAGNOSTICS.materials = described;
 
       const size = renderer.getDrawingBufferSize(new Vector2());
       SCENE_DIAGNOSTICS.drawingBufferSize = `${Math.round(
