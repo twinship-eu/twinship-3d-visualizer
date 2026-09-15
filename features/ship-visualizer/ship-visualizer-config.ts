@@ -3,6 +3,20 @@ export const SHIP_VISUALIZER_LAYOUT = {
 } as const;
 
 /**
+ * Tailwind classes for the ontology sidebar's width.
+ *
+ * Written as static classes rather than interpolated from
+ * MAX_LEFT_PANEL_WIDTH_PX: Tailwind generates its utilities by scanning source
+ * text, so a class built at runtime from a variable is never emitted and the
+ * element ends up with no width at all. The pixel value is kept in step with
+ * the constant above by hand.
+ *
+ * Below `lg` the panel is an overlay capped at 85% of the viewport, so a narrow
+ * phone always keeps a strip of scene visible beside it.
+ */
+export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,330px)] lg:w-[330px]";
+
+/**
  * The engine model, and the vessel the visualizer opens with.
  *
  * Built from the ~226 MB raw Blender export in two stages:

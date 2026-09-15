@@ -5,11 +5,9 @@ import { SearchIcon, Ship } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ShipTreeNode } from "../ship-visualizer/ship-visualizer-types";
 import { filterShipTree } from "../ship-visualizer/lib/filter-tree";
-import { SHIP_VISUALIZER_LAYOUT } from "../ship-visualizer/ship-visualizer-config";
 import TreeNode from "./components/three-node";
 import { OntologyExplorerSkeleton } from "./components/ontology-explorer-skeleton";
 
-const MAX_WIDTH = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
 
 type Props = {
   tree: ShipTreeNode[];
@@ -66,9 +64,13 @@ export function OntologyExplorer({
   }
 
   return (
-    <div
-      className={`flex h-full min-h-0 w-full max-w-full flex-col border-r border-border bg-white dark:bg-sidebar max-w-[${MAX_WIDTH}px]`}
-    >
+    /*
+      Width is set by the parent, which owns whether this is a docked column or
+      an overlay. The interpolated max-width class that used to sit here was
+      never emitted by Tailwind: utilities are found by scanning source text, so
+      a class assembled from a variable at runtime does not exist in the CSS.
+    */
+    <div className="flex h-full min-h-0 w-full flex-col border-r border-border bg-white dark:bg-sidebar">
       <div className="shrink-0 border-b border-border px-3 py-3">
         <div className="mb-3 flex items-center justify-center gap-2">
           <Ship className="size-5 shrink-0 text-primary" aria-hidden />

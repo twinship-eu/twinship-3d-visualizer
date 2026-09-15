@@ -19,13 +19,20 @@ export function StageControlHints() {
   return (
     <div
       className={cn(
-        "absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md bg-white px-4 py-2 shadow-md w-[630px]",
-        "pointer-events-none"
+        "absolute bottom-4 z-10 flex items-center gap-2 rounded-md bg-white px-4 py-2 shadow-md",
+        // Below lg: span the width available and scroll sideways, since the
+        // full hint row is far wider than a phone. pointer-events must be on
+        // for that scroll to be possible at all -- an element that ignores
+        // pointer events cannot be swiped.
+        "inset-x-2 overflow-x-auto whitespace-nowrap pointer-events-auto",
+        // At lg: the fixed-width centred bar it has always been.
+        "lg:inset-x-auto lg:left-1/2 lg:w-[630px] lg:-translate-x-1/2",
+        "lg:overflow-x-visible lg:pointer-events-none"
       )}
       aria-label="Stage interaction controls"
     >
       {HINTS.map(({ icon: Icon, label }, index) => (
-        <div key={label} className="flex items-center gap-2">
+        <div key={label} className="flex shrink-0 items-center gap-2">
           {index > 0 && (
             <span
               className="h-4 w-px bg-gray-200"
@@ -38,8 +45,8 @@ export function StageControlHints() {
           </span>
         </div>
       ))}
-      <span className="h-4 w-px bg-gray-200" aria-hidden />
-      <span className="flex items-center gap-1.5 text-sm text-gray-700">
+      <span className="h-4 w-px shrink-0 bg-gray-200" aria-hidden />
+      <span className="flex shrink-0 items-center gap-1.5 text-sm text-gray-700">
         <kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-xs font-medium text-gray-600">
           Esc
         </kbd>

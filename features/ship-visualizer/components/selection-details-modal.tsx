@@ -6,7 +6,6 @@ import type { ShipTreeNode } from "../ship-visualizer-types";
 import { getObjectDetailsForNode } from "../selection-details";
 import type { ConnectedComponent } from "./selection-details-modal-types";
 
-const MODAL_WIDTH_PX = 380;
 const SECTION_HEADER_CLASS =
   "flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-blue-600";
 const CONNECTED_HEADER_CLASS =
@@ -38,11 +37,19 @@ export function SelectionDetailsModal({
 
   return (
     <div
-      className="absolute bottom-16 right-4 z-20 flex flex-col rounded-lg bg-white shadow-lg max-h-[60vh]"
-      style={{ width: MODAL_WIDTH_PX, maxWidth: "calc(100vw - 2rem)" }}
+      className={cn(
+        "z-40 flex flex-col bg-white shadow-lg",
+        // Below lg: a bottom sheet spanning the full width, capped so the ship
+        // stays visible above it while its own content scrolls inside.
+        "fixed inset-x-0 bottom-0 max-h-[45vh] rounded-t-2xl",
+        // At lg: the floating panel this has always been.
+        "lg:absolute lg:inset-x-auto lg:bottom-16 lg:right-4 lg:w-[380px] lg:max-h-[60vh] lg:rounded-lg"
+      )}
       role="dialog"
       aria-labelledby="selection-details-title"
     >
+      {/* Grab-handle affordance, so the sheet reads as a sheet. Visual only. */}
+      <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-gray-300 lg:hidden" />
       <header className="flex items-start justify-between gap-2 border-b border-gray-200 px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -105,7 +112,7 @@ export function SelectionDetailsModal({
         </div>
       </header>
 
-      <div className="flex max-h-[60vh] flex-col overflow-y-auto px-4 py-3">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-3 lg:max-h-[60vh]">
         <section className="mb-4">
           <h3 className={cn(SECTION_HEADER_CLASS, "mb-1")}>
             <Info className="h-3.5 w-3.5" aria-hidden />

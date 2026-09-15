@@ -98,7 +98,10 @@ export function ZoomControlsOverlay() {
 
   return (
     <div
-      className="pointer-events-none absolute left-4 bottom-24 z-20 flex flex-col items-center gap-1"
+      // Vertically centred below lg so the bottom sheet, which can reach 45vh,
+      // never covers the controls. Back to the bottom-left corner at lg, where
+      // the details panel floats on the right instead.
+      className="pointer-events-none absolute left-3 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1 lg:left-4 lg:top-auto lg:bottom-24 lg:translate-y-0"
       aria-label="Zoom controls"
     >
       <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-md bg-white/95 p-1 shadow-md">
@@ -106,7 +109,7 @@ export function ZoomControlsOverlay() {
           type="button"
           aria-label="Zoom in"
           onClick={actions.zoomIn}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
         >
           <ZoomIn className="h-4 w-4" aria-hidden />
         </button>
@@ -114,7 +117,7 @@ export function ZoomControlsOverlay() {
           type="button"
           aria-label="Zoom out"
           onClick={actions.zoomOut}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
         >
           <ZoomOut className="h-4 w-4" aria-hidden />
         </button>
@@ -123,7 +126,7 @@ export function ZoomControlsOverlay() {
           type="button"
           aria-label="Reset zoom"
           onClick={actions.resetZoom}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
         >
           <RotateCw className="h-4 w-4" aria-hidden />
         </button>

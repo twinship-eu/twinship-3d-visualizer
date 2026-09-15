@@ -11,22 +11,27 @@ import {
 } from "./lib/map-tree-to-sections";
 import { collectNodeIds } from "./lib/filter-tree";
 import {
-  SHIP_VISUALIZER_LAYOUT,
+  SIDEBAR_WIDTH_CLASS,
   DEFAULT_SHIP_MODEL_PATH,
 } from "./ship-visualizer-config";
+import { SidebarToggleButton } from "./components/sidebar-toggle-button";
+import { cn } from "@/lib/utils";
 import type { ShipTreeNode } from "./ship-visualizer-types";
 import { OntologyExplorer } from "../ontology-explorrer/ontology-explorer";
 import { SelectionDetailsModal } from "./components/selection-details-modal";
 import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
 import { useModelLoadProgress } from "./hooks/use-model-load-progress";
 
-const MAX_WIDTH_PX = SHIP_VISUALIZER_LAYOUT.MAX_LEFT_PANEL_WIDTH_PX;
-
 const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
 
 export function ShipVisualizer() {
   const [selectedModelPath, setSelectedModelPath] =
     useState(DEFAULT_SHIP_MODEL_PATH);
+  /**
+   * Only meaningful below `lg`, where the sidebar is an overlay. At `lg` and
+   * above the panel is statically docked and this is ignored.
+   */
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedStructureNode, setSelectedStructureNode] =
     useState<ShipTreeNode | null>(null);
   const [hoveredStructureNode, setHoveredStructureNode] =
@@ -49,13 +54,18 @@ export function ShipVisualizer() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && selectedStructureNode !== null) {
+      if (e.key !== "Escape") return;
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+        return;
+      }
+      if (selectedStructureNode !== null) {
         setSelectedStructureNode(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedStructureNode]);
+  }, [selectedStructureNode, isSidebarOpen]);
 
   const handleModelTreeLoaded = useCallback((tree: ShipTreeNode[]) => {
     const topLevelOnly = tree.map((node) => ({
@@ -134,16 +144,44 @@ export function ShipVisualizer() {
   );
 
   return (
-    <div className="flex h-full w-full min-h-0 gap-0">
+    <div className="relative flex h-full w-full min-h-0 gap-0">
+      {/*
+        Dims the scene while the overlay sidebar is open, and closes it on tap.
+        `lg:hidden` because above the breakpoint the sidebar never covers
+        anything and there is nothing to dismiss.
+      */}
+      {isSidebarOpen && (
+        <div
+          className="absolute inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      <SidebarToggleButton
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen((open) => !open)}
+      />
+
       <div
-        className={`"flex h-full min-h-0 shrink-0 flex-col" w-[${MAX_WIDTH_PX}px]`}
-        
+        className={cn(
+          // Below lg: an overlay that slides in from the left over the scene.
+          "absolute inset-y-0 left-0 z-40 flex min-h-0 shrink-0 flex-col",
+          "transition-transform duration-300 ease-out",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          // At lg: back to a static docked column, always visible.
+          "lg:relative lg:z-auto lg:translate-x-0 lg:transition-none",
+          SIDEBAR_WIDTH_CLASS
+        )}
       >
         <OntologyExplorer
           tree={tree}
           visibleNodeIds={visibleNodeIds}
           onToggleSectionVisible={setSectionVisible}
-          onSelect={handleSelectNode}
+          onSelect={(node) => {
+            handleSelectNode(node);
+            setIsSidebarOpen(false);
+          }}
           selectedNodeId={selectedStructureNode?.id ?? null}
           isLoading={modelTree === null}
         />
