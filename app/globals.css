@@ -181,3 +181,15 @@
 .profiler-mini-panel {
   --text-primary: #e0e0e0;
 }
+
+/**
+ * The scene is driven by touch gestures, so the browser must not also treat
+ * them as page scrolling or pinch-zoom. Without this a drag on a phone scrolls
+ * the document instead of orbiting the camera, and the two fight each other.
+ *
+ * Set here rather than relying on the renderer: it has to hold whichever
+ * canvas ends up mounted.
+ */
+canvas {
+  touch-action: none;
+}

@@ -1,12 +1,19 @@
 "use client";
 
-import { ExternalLink, Info, Link2, Maximize2, Settings, X } from "lucide-react";
+import {
+  ExternalLink,
+  Info,
+  Link2,
+  Maximize2,
+  Minimize2,
+  Settings,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ShipTreeNode } from "../ship-visualizer-types";
 import { getObjectDetailsForNode } from "../selection-details";
 import type { ConnectedComponent } from "./selection-details-modal-types";
 
-const MODAL_WIDTH_PX = 380;
 const SECTION_HEADER_CLASS =
   "flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-blue-600";
 const CONNECTED_HEADER_CLASS =
@@ -14,12 +21,18 @@ const CONNECTED_HEADER_CLASS =
 
 type Props = {
   selectedNode: ShipTreeNode | null;
+  /** Whether the sheet is at its tall height. Below lg only. */
+  isExpanded?: boolean;
+  /** Toggles that height. Omit to hide the control. */
+  onToggleExpanded?: () => void;
   onClose: () => void;
   onSelectConnectedComponent?: (targetLabel: string) => void;
 };
 
 export function SelectionDetailsModal({
   selectedNode,
+  isExpanded = false,
+  onToggleExpanded,
   onClose,
   onSelectConnectedComponent,
 }: Props) {
@@ -38,11 +51,22 @@ export function SelectionDetailsModal({
 
   return (
     <div
-      className="absolute bottom-16 right-4 z-20 flex flex-col rounded-lg bg-white shadow-lg max-h-[60vh]"
-      style={{ width: MODAL_WIDTH_PX, maxWidth: "calc(100vw - 2rem)" }}
+      className={cn(
+        "z-30 flex flex-col bg-white shadow-lg",
+        // Below lg: a bottom sheet spanning the full width. Its height is
+        // fixed rather than capped, because the scene pads itself by exactly
+        // this much to keep the ship centred -- a height that varied with
+        // content would not line up.
+        "fixed inset-x-0 bottom-0 rounded-t-2xl transition-[height] duration-300 ease-out",
+        isExpanded ? "h-[80vh]" : "h-[45vh]",
+        // At lg: the floating panel this has always been.
+        "lg:absolute lg:inset-x-auto lg:bottom-16 lg:right-4 lg:h-auto lg:w-[380px] lg:max-h-[60vh] lg:rounded-lg"
+      )}
       role="dialog"
       aria-labelledby="selection-details-title"
     >
+      {/* Grab-handle affordance, so the sheet reads as a sheet. Visual only. */}
+      <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-gray-300 lg:hidden" />
       <header className="flex items-start justify-between gap-2 border-b border-gray-200 px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -87,13 +111,21 @@ export function SelectionDetailsModal({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            aria-label="Expand"
-            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            <Maximize2 className="h-5 w-5" aria-hidden />
-          </button>
+          {onToggleExpanded && (
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              aria-label={isExpanded ? "Collapse details" : "Expand details"}
+              aria-expanded={isExpanded}
+              className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+            >
+              {isExpanded ? (
+                <Minimize2 className="h-5 w-5" aria-hidden />
+              ) : (
+                <Maximize2 className="h-5 w-5" aria-hidden />
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -105,7 +137,7 @@ export function SelectionDetailsModal({
         </div>
       </header>
 
-      <div className="flex max-h-[60vh] flex-col overflow-y-auto px-4 py-3">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-3 lg:max-h-[60vh]">
         <section className="mb-4">
           <h3 className={cn(SECTION_HEADER_CLASS, "mb-1")}>
             <Info className="h-3.5 w-3.5" aria-hidden />
