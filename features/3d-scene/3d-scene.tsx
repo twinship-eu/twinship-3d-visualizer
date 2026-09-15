@@ -34,6 +34,11 @@ import {
 type Props = {
   className?: string;
   children: React.ReactNode;
+  /**
+   * Whether the details sheet is covering the bottom of the scene. Below lg it
+   * hides the hint bar, which would otherwise sit behind the sheet.
+   */
+  isDetailsOpen?: boolean;
   /** Scale for grid/fog (e.g. from model bounds); default 1. */
   sceneScale?: number;
 };
@@ -43,6 +48,7 @@ type Props = {
 export function Scene({
   className,
   children,
+  isDetailsOpen = false,
 }: Props) {
   return (
     <div
@@ -50,7 +56,7 @@ export function Scene({
       style={{ backgroundColor: SCENE_BACKGROUND_COLOR }}
     >
       <SceneWithInteraction>{children}</SceneWithInteraction>
-      <StageControlHints />
+      <StageControlHints isDetailsOpen={isDetailsOpen} />
     </div>
   );
 }

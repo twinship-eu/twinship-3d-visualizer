@@ -194,11 +194,20 @@ export function ShipVisualizer() {
         className={cn(
           "relative flex min-w-0 flex-1 flex-col",
           "transition-[padding] duration-300 ease-out",
-          // Below lg the sheet is an opaque panel across the bottom. Padding the
-          // scene by its exact height keeps the ship centred in the space that
-          // is left, instead of behind the sheet.
+          /*
+            Below lg the sheet is an opaque panel across the bottom. Padding the
+            scene by its height keeps the ship centred in the space that is
+            left, instead of behind the sheet.
+
+            The padding is short of the sheet's full height by SHEET_PEEK, so
+            the scene runs a little way behind its top edge and shows through
+            the rounded corners. Matching the height exactly left nothing behind
+            them and the sheet read as square.
+          */
           selectedStructureNode !== null &&
-            (isDetailsExpanded ? "pb-[80vh]" : "pb-[45vh]"),
+            (isDetailsExpanded
+              ? "pb-[calc(80vh-20px)]"
+              : "pb-[calc(45vh-20px)]"),
           "lg:pb-0"
         )}
       >
@@ -213,7 +222,7 @@ export function ShipVisualizer() {
             </div>
           }
         >
-          <Scene>
+          <Scene isDetailsOpen={selectedStructureNode !== null}>
             <Ship
               modelPath={renderedModelPath}
               selectedStructureNode={selectedStructureNode}

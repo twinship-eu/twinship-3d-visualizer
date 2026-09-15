@@ -54,7 +54,12 @@ function HintList({ hints }: { hints: Hint[] }) {
   );
 }
 
-export function StageControlHints() {
+export function StageControlHints({
+  isDetailsOpen = false,
+}: {
+  /** Hides the touch hints below lg, where the sheet would cover them. */
+  isDetailsOpen?: boolean;
+}) {
   return (
     <>
       {/*
@@ -70,6 +75,9 @@ export function StageControlHints() {
           // the hints are wider than the screen.
           "w-fit max-w-[calc(100vw-1rem)] overflow-x-auto whitespace-nowrap",
           "rounded-md bg-white px-4 py-2 shadow-md",
+          // The sheet covers this space, and orbit hints are not what anyone is
+          // reading while a component's details are open.
+          isDetailsOpen && "hidden",
           "lg:hidden"
         )}
         aria-label="Stage touch controls"
