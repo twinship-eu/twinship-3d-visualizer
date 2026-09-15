@@ -19,7 +19,7 @@ export const TONE_MAPPING_EXPOSURE = 0.6;
 const FORCE_WEBGL_PARAM = "forceWebGL";
 
 /**
- * Query param that skips the sky PMREM and enables the Android hemisphere fill,
+ * Query param that skips the sky PMREM and enables the mobile fill lights,
  * so that path can be tuned on desktop before deploying phone values.
  */
 const FORCE_NO_ENV_PARAM = "forceNoEnv";
@@ -36,11 +36,42 @@ export function isAndroidUserAgent(): boolean {
 }
 
 /**
+ * Whether the page is running under an iPhone / iPad / iPod user agent.
+ *
+ * Also treats iPadOS "desktop" Safari (Macintosh UA + touch) as iOS, because
+ * that agent still hits the same WebKit GPU path as the phone.
+ *
+ * Guarded for SSR like `isAndroidUserAgent`.
+ */
+export function isIOSUserAgent(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua)) return true;
+  // iPadOS 13+ can report as Macintosh when requesting the desktop site.
+  return (
+    navigator.platform === "MacIntel" &&
+    typeof navigator.maxTouchPoints === "number" &&
+    navigator.maxTouchPoints > 1
+  );
+}
+
+/**
  * Reads the `?forceNoEnv` escape hatch. Guarded for SSR like `?forceWebGL`.
  */
 function shouldForceNoEnv(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).has(FORCE_NO_ENV_PARAM);
+}
+
+/**
+ * Devices (and the desktop preview flag) that must not use the sky PMREM.
+ *
+ * Android blacks the metallic hull out; iOS Safari paints it a flat saturated
+ * blue with the same jagged edge sparkle. Both recover under sun + fill lights
+ * with the probe cleared — the path tuned via `?forceNoEnv`.
+ */
+export function needsNoEnvLightingPath(): boolean {
+  return shouldForceNoEnv() || isAndroidUserAgent() || isIOSUserAgent();
 }
 
 /**
@@ -71,32 +102,28 @@ function shouldForceNoEnv(): boolean {
  * Known conservatism: with `?forceWebGL` on an Android agent this also drops
  * shadows, though the WebGL2 backend could have drawn them. That combination is
  * a debugging path, and keeping one rule is worth more than covering it.
+ *
+ * iOS is included via `needsNoEnvLightingPath`: the no-env fill intensities were
+ * tuned without shadows, and leaving them on would underexpose the hull again.
  */
 export function canRenderShadows(): boolean {
-  // `?forceNoEnv` must match the Android path, which also drops shadows —
-  // otherwise a desktop preview stays much darker than the phone.
-  if (shouldForceNoEnv()) return false;
-  return !isAndroidUserAgent();
+  return !needsNoEnvLightingPath();
 }
 
 /**
  * Whether the sky-baked PMREM probe may be assigned as `scene.environment`.
  *
- * On Pixel / Mali (and Android more broadly), that probe is assigned with a
- * real size but samples badly: roughness 1 metals go black, roughness 0 blows
- * out white, and clearing `scene.environment` restores the textured ship under
- * the sun alone. The engine GLB is almost fully metallic and the scene has no
- * ambient fill, so a bad probe has nowhere else to fall back to.
+ * On Pixel / Mali the probe is assigned with a real size but samples badly:
+ * roughness 1 metals go black, roughness 0 blows out white. On iOS Safari the
+ * same probe path paints the engine ship a flat saturated blue with jagged
+ * edge sparkle. Clearing `scene.environment` restores a lit, textured hull
+ * under the sun and the mobile fill lights.
  *
- * Desktop and iOS keep the bake. Android skips it — the same outcome as the
- * `?diag` "env OFF" preset that made the Pixel readout look correct.
- *
- * `?forceNoEnv` forces the same skip on any device, so the Lights panel can
- * tune the substitute hemisphere on a desktop before those numbers ship.
+ * Desktop keeps the bake. Android and iOS skip it. `?forceNoEnv` forces the
+ * same skip on any device so the Lights panel can tune the fills on desktop.
  */
 export function canAssignEnvironmentProbe(): boolean {
-  if (shouldForceNoEnv()) return false;
-  return !isAndroidUserAgent();
+  return !needsNoEnvLightingPath();
 }
 
 /**

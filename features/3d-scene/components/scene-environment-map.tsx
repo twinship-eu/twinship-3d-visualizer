@@ -28,8 +28,9 @@ import { createSky } from "./scene-sky";
  * The probe is generated once; the sky's cloud animation is far too slow to
  * justify re-baking per frame.
  *
- * On Android the bake is skipped entirely: the PMREM samples black / blown on
- * Mali devices and blacks out the engine ship. See `canAssignEnvironmentProbe`.
+ * On Android and iOS the bake is skipped entirely: the PMREM samples badly on
+ * both (black hull on Mali, flat blue hull on Safari) and the engine ship has
+ * no diffuse fallback. See `canAssignEnvironmentProbe`.
  */
 export function SceneEnvironmentMap() {
   const { scene, gl } = useThree();
