@@ -1,6 +1,14 @@
 "use client";
 
-import { ExternalLink, Info, Link2, Maximize2, Settings, X } from "lucide-react";
+import {
+  ExternalLink,
+  Info,
+  Link2,
+  Maximize2,
+  Minimize2,
+  Settings,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ShipTreeNode } from "../ship-visualizer-types";
 import { getObjectDetailsForNode } from "../selection-details";
@@ -13,12 +21,18 @@ const CONNECTED_HEADER_CLASS =
 
 type Props = {
   selectedNode: ShipTreeNode | null;
+  /** Whether the sheet is at its tall height. Below lg only. */
+  isExpanded?: boolean;
+  /** Toggles that height. Omit to hide the control. */
+  onToggleExpanded?: () => void;
   onClose: () => void;
   onSelectConnectedComponent?: (targetLabel: string) => void;
 };
 
 export function SelectionDetailsModal({
   selectedNode,
+  isExpanded = false,
+  onToggleExpanded,
   onClose,
   onSelectConnectedComponent,
 }: Props) {
@@ -38,12 +52,15 @@ export function SelectionDetailsModal({
   return (
     <div
       className={cn(
-        "z-40 flex flex-col bg-white shadow-lg",
-        // Below lg: a bottom sheet spanning the full width, capped so the ship
-        // stays visible above it while its own content scrolls inside.
-        "fixed inset-x-0 bottom-0 max-h-[45vh] rounded-t-2xl",
+        "z-30 flex flex-col bg-white shadow-lg",
+        // Below lg: a bottom sheet spanning the full width. Its height is
+        // fixed rather than capped, because the scene pads itself by exactly
+        // this much to keep the ship centred -- a height that varied with
+        // content would not line up.
+        "fixed inset-x-0 bottom-0 rounded-t-2xl transition-[height] duration-300 ease-out",
+        isExpanded ? "h-[80vh]" : "h-[45vh]",
         // At lg: the floating panel this has always been.
-        "lg:absolute lg:inset-x-auto lg:bottom-16 lg:right-4 lg:w-[380px] lg:max-h-[60vh] lg:rounded-lg"
+        "lg:absolute lg:inset-x-auto lg:bottom-16 lg:right-4 lg:h-auto lg:w-[380px] lg:max-h-[60vh] lg:rounded-lg"
       )}
       role="dialog"
       aria-labelledby="selection-details-title"
@@ -94,13 +111,21 @@ export function SelectionDetailsModal({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            aria-label="Expand"
-            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            <Maximize2 className="h-5 w-5" aria-hidden />
-          </button>
+          {onToggleExpanded && (
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              aria-label={isExpanded ? "Collapse details" : "Expand details"}
+              aria-expanded={isExpanded}
+              className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+            >
+              {isExpanded ? (
+                <Minimize2 className="h-5 w-5" aria-hidden />
+              ) : (
+                <Maximize2 className="h-5 w-5" aria-hidden />
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

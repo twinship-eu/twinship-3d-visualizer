@@ -32,6 +32,8 @@ export function ShipVisualizer() {
    * above the panel is statically docked and this is ignored.
    */
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  /** Whether the details sheet is at its tall height. Below lg only. */
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
   const [selectedStructureNode, setSelectedStructureNode] =
     useState<ShipTreeNode | null>(null);
   const [hoveredStructureNode, setHoveredStructureNode] =
@@ -61,6 +63,7 @@ export function ShipVisualizer() {
       }
       if (selectedStructureNode !== null) {
         setSelectedStructureNode(null);
+        setIsDetailsExpanded(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -152,7 +155,7 @@ export function ShipVisualizer() {
       */}
       {isSidebarOpen && (
         <div
-          className="absolute inset-0 z-30 bg-black/40 lg:hidden"
+          className="absolute inset-0 z-40 bg-black/40 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden
         />
@@ -166,7 +169,7 @@ export function ShipVisualizer() {
       <div
         className={cn(
           // Below lg: an overlay that slides in from the left over the scene.
-          "absolute inset-y-0 left-0 z-40 flex min-h-0 shrink-0 flex-col",
+          "absolute inset-y-0 left-0 z-50 flex min-h-0 shrink-0 flex-col",
           "transition-transform duration-300 ease-out",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full",
           // At lg: back to a static docked column, always visible.
@@ -187,7 +190,18 @@ export function ShipVisualizer() {
           onClose={() => setIsSidebarOpen(false)}
         />
       </div>
-      <div className="relative flex min-w-0 flex-1 flex-col">
+      <div
+        className={cn(
+          "relative flex min-w-0 flex-1 flex-col",
+          "transition-[padding] duration-300 ease-out",
+          // Below lg the sheet is an opaque panel across the bottom. Padding the
+          // scene by its exact height keeps the ship centred in the space that
+          // is left, instead of behind the sheet.
+          selectedStructureNode !== null &&
+            (isDetailsExpanded ? "pb-[80vh]" : "pb-[45vh]"),
+          "lg:pb-0"
+        )}
+      >
         <SceneErrorFallback
           fallback={
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg bg-gray-900 text-gray-400">
@@ -224,7 +238,12 @@ export function ShipVisualizer() {
         </SceneErrorFallback>
         <SelectionDetailsModal
           selectedNode={selectedStructureNode}
-          onClose={() => setSelectedStructureNode(null)}
+          isExpanded={isDetailsExpanded}
+          onToggleExpanded={() => setIsDetailsExpanded((open) => !open)}
+          onClose={() => {
+            setSelectedStructureNode(null);
+            setIsDetailsExpanded(false);
+          }}
           onSelectConnectedComponent={handleSelectConnectedComponent}
         />
       </div>

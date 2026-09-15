@@ -99,11 +99,10 @@ export function ZoomControlsOverlay() {
   return (
     <div
       /*
-        Below lg the controls sit 150px above the hint bar. That bar is 16px off
-        the bottom and about 36px tall, so its top edge is at 52px and the
-        controls start at 202px.
+        Below lg the controls sit just above the hint bar, which is 16px off the
+        bottom and about 36px tall. 76px leaves a 24px gap between them.
       */
-      className="pointer-events-none absolute left-3 bottom-[202px] z-20 flex flex-col items-center gap-1 lg:left-4 lg:bottom-24"
+      className="pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-4 lg:bottom-24"
       aria-label="Zoom controls"
     >
       <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-md bg-white/95 p-1 shadow-md">

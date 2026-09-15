@@ -64,8 +64,12 @@ export function StageControlHints() {
       */}
       <div
         className={cn(
-          "pointer-events-auto absolute inset-x-2 bottom-4 z-10 flex items-center gap-2",
-          "overflow-x-auto whitespace-nowrap rounded-md bg-white px-4 py-2 shadow-md",
+          "pointer-events-auto absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2",
+          // Shrinks to its content rather than spanning the viewport, so there
+          // is no empty white strip beside the last hint. Still scrolls when
+          // the hints are wider than the screen.
+          "w-fit max-w-[calc(100vw-1rem)] overflow-x-auto whitespace-nowrap",
+          "rounded-md bg-white px-4 py-2 shadow-md",
           "lg:hidden"
         )}
         aria-label="Stage touch controls"
