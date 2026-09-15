@@ -100,12 +100,12 @@ export const LIGHT_INTENSITY = {
   /** Direct sun, and the only light the shadows block. */
   sun: 4,
   /** Flat ambient fill used only when the environment probe is skipped. */
-  androidAmbient: 0.75,
+  androidAmbient: 2.5,
   /**
    * Hemisphere fill used only when the environment probe is skipped (Android).
    * Lifts sky-facing vs ground-facing diffuse after metalness is lowered.
    */
-  androidHemisphere: 2,
+  androidHemisphere: 5.05,
   /**
    * Second directional, opposite the sun, no shadows. Softens the dark side
    * of the hull when there is no environment probe to reflect.
