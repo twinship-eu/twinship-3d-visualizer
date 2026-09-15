@@ -21,6 +21,8 @@ const PRESETS: { label: string; preset: DiagnosticPreset }[] = [
   { label: "rough 0", preset: "rough0" },
   { label: "env 1.0", preset: "envUp" },
   { label: "env OFF", preset: "envOff" },
+  { label: "aniso 1", preset: "aniso1" },
+  { label: "no mips", preset: "noMips" },
   { label: "reset", preset: "reset" },
 ];
 

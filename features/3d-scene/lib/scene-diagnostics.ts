@@ -29,6 +29,8 @@ export type DiagnosticPreset =
   | "rough0"
   | "envUp"
   | "envOff"
+  | "aniso1"
+  | "noMips"
   | "reset";
 
 /**

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
-import { Mesh, Texture, Vector2, type Material } from "three";
+import { LinearFilter, Mesh, Texture, Vector2, type Material } from "three";
 import { asSceneRenderer, isWebGPUBackend } from "../lib/webgpu-renderer";
 import {
   DIAGNOSTIC_ACTIONS,
@@ -25,6 +25,15 @@ const DEPTH_TEXTURE_COMPARE = "depthTextureCompare";
 
 /** Materials to report. Enough to see a pattern without filling the screen. */
 const MAX_MATERIALS_REPORTED = 5;
+
+/** Texture slots worth re-filtering; the same set the loader applies anisotropy to. */
+const TEXTURE_SLOTS = [
+  "map",
+  "normalMap",
+  "roughnessMap",
+  "metalnessMap",
+  "aoMap",
+] as const;
 
 type InspectableMaterial = Material & {
   name?: string;
@@ -140,6 +149,31 @@ export function SceneDiagnosticsProbe() {
           const original = originals.get(material.uuid);
 
           if (preset === "metal0") material.metalness = 0;
+
+          /*
+            Anisotropy and mipmaps, tested per texture.
+
+            The loader sets anisotropy to the reported maximum -- 16 -- on every
+            ship texture, and on nothing else. The ship is also the only thing
+            that renders black, which makes this the most specific suspect in
+            our own code rather than in a driver. ARM's Mali and Immortalis
+            drivers are documented as mishandling high anisotropy and mipmap
+            allocation; dropping to 1, or turning mipmaps off entirely, says
+            whether either is what this device is failing on.
+          */
+          if (preset === "aniso1" || preset === "noMips") {
+            const slots = material as unknown as Record<string, Texture | null>;
+            for (const slot of TEXTURE_SLOTS) {
+              const texture = slots[slot];
+              if (!texture) continue;
+              if (preset === "aniso1") texture.anisotropy = 1;
+              if (preset === "noMips") {
+                texture.generateMipmaps = false;
+                texture.minFilter = LinearFilter;
+              }
+              texture.needsUpdate = true;
+            }
+          }
           if (preset === "rough0") material.roughness = 0;
           if (preset === "reset") {
             if (original?.m !== undefined) material.metalness = original.m;
