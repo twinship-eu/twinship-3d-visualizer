@@ -15,7 +15,11 @@ import {
 import { SceneLights } from "./components/scene-lights";
 import { SceneSky } from "./components/scene-sky";
 import { SceneEnvironmentMap } from "./components/scene-environment-map";
-import { SceneWater } from "./components/scene-water";
+// Water replaced by the raymarched seascape on this branch. Kept, not deleted.
+// import { SceneWater } from "./components/scene-water";
+import { SceneSeascape } from "./components/scene-seascape";
+import { SceneSeascapeSurface } from "./components/scene-seascape-surface";
+import { IS_SEASCAPE_SURFACE_ENABLED } from "./lib/seascape-config";
 import { canRenderShadows, createSceneRenderer } from "./lib/webgpu-renderer";
 import {
   installConsoleCapture,
@@ -98,7 +102,8 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           {isDiagnosticsOn && <SceneDiagnosticsProbe />}
           <SceneSky />
           <SceneEnvironmentMap />
-          <SceneWater />
+          {/* <SceneWater /> */}
+          {IS_SEASCAPE_SURFACE_ENABLED ? <SceneSeascapeSurface /> : <SceneSeascape />}
           <SceneLights />
           {children}
           <OrbitControls

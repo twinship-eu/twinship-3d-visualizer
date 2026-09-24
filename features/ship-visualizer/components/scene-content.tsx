@@ -11,11 +11,12 @@ import {
 } from "../lib/3d-model";
 import { isNodeInNonSelectableSection } from "../lib/map-tree-to-sections";
 import {
-  FLOATING_BOB_AMPLITUDE,
-  FLOATING_BOB_SPEED,
-  FLOATING_PITCH_AMPLITUDE,
-  FLOATING_ROLL_AMPLITUDE,
-  FLOATING_TILT_SPEED,
+  // Floating animation disabled on this branch; see the "animated" block below.
+  // FLOATING_BOB_AMPLITUDE,
+  // FLOATING_BOB_SPEED,
+  // FLOATING_PITCH_AMPLITUDE,
+  // FLOATING_ROLL_AMPLITUDE,
+  // FLOATING_TILT_SPEED,
   SHIP_IDLE_RESET_MS,
   SHIP_INTERACTION_Y_OFFSET,
   SHIP_TRANSITION_DURATION_MS,
@@ -103,7 +104,9 @@ export default function Ship({
     };
   }, [displayMode, hasInteraction]);
 
-  useFrame((state) => {
+  // `state` only fed the floating animation's clock, disabled below.
+  // useFrame((state) => {
+  useFrame(() => {
     const group = floatGroupRef.current;
     if (!group) return;
 
@@ -166,11 +169,16 @@ export default function Ship({
     }
 
     if (displayMode === "animated") {
-      const time = state.clock.getElapsedTime();
-      group.position.y =
-        SHIP_VERTICAL_OFFSET + FLOATING_BOB_AMPLITUDE * Math.sin(time * FLOATING_BOB_SPEED);
-      group.rotation.x = FLOATING_PITCH_AMPLITUDE * Math.sin(time * FLOATING_TILT_SPEED);
-      group.rotation.z = FLOATING_ROLL_AMPLITUDE * Math.cos(time * FLOATING_TILT_SPEED * 1.1);
+      // Floating (bob, pitch, roll) disabled on this branch: the ship rests
+      // still. Restore the three lines below to bring it back.
+      // const time = state.clock.getElapsedTime();
+      // group.position.y =
+      //   SHIP_VERTICAL_OFFSET + FLOATING_BOB_AMPLITUDE * Math.sin(time * FLOATING_BOB_SPEED);
+      // group.rotation.x = FLOATING_PITCH_AMPLITUDE * Math.sin(time * FLOATING_TILT_SPEED);
+      // group.rotation.z = FLOATING_ROLL_AMPLITUDE * Math.cos(time * FLOATING_TILT_SPEED * 1.1);
+      group.position.y = SHIP_VERTICAL_OFFSET;
+      group.rotation.x = 0;
+      group.rotation.z = 0;
     }
   });
 
