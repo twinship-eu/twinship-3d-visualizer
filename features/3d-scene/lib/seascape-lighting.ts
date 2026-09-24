@@ -23,6 +23,13 @@ const SEA_DEEP_COLOR = vec3(0.1, 0.19, 0.22);
 const SEA_LIGHT_COLOR = vec3(0.8, 0.9, 0.6);
 const SKY_INTENSITY = 1.0;
 
+/**
+ * How much of the sky the water reflects when seen edge-on — the most the
+ * Fresnel term reaches. The Shadertoy's value; the raymarched background keeps
+ * it, the surface can raise it.
+ */
+export const SHADERTOY_REFLECTIVITY = 0.65;
+
 /** Direction the light comes from: above, and slightly behind the camera. */
 const LIGHT_DIRECTION = normalize(vec3(0.0, 1.0, 0.8));
 
@@ -47,16 +54,17 @@ export const skyColor = Fn(
  * grazing angles, with crests lightened near the viewer.
  */
 export const seaColor = Fn(
-  ([point, normal, viewDirection, toPoint]: [
+  ([point, normal, viewDirection, toPoint, reflectivity]: [
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
+    Node<"float">,
   ]) => {
     // Fresnel: water facing the viewer shows its depth; water seen edge-on
     // reflects the sky
     const facingAway = sub(1.0, max(dot(normal, viewDirection.negate()), 0.0));
-    const fresnel = pow(facingAway, 3.0).mul(0.65);
+    const fresnel = pow(facingAway, 3.0).mul(reflectivity);
     const reflection = skyColor(reflect(viewDirection, normal));
     const color = mix(SEA_DEEP_COLOR, reflection, fresnel).toVar();
 
@@ -68,7 +76,14 @@ export const seaColor = Fn(
 
     return color;
   },
-  { point: "vec3", normal: "vec3", viewDirection: "vec3", toPoint: "vec3", return: "vec3" }
+  {
+    point: "vec3",
+    normal: "vec3",
+    viewDirection: "vec3",
+    toPoint: "vec3",
+    reflectivity: "float",
+    return: "vec3",
+  }
 );
 
 /**
@@ -109,16 +124,18 @@ export const specularLight = Fn(
  * @param normal        which way the surface faces there
  * @param viewDirection from the eye towards the point
  * @param toPoint       from the eye to the point, not normalised
+ * @param reflectivity  how much sky edge-on water reflects — see SHADERTOY_REFLECTIVITY
  */
 export const shadeSea = Fn(
-  ([point, normal, viewDirection, toPoint]: [
+  ([point, normal, viewDirection, toPoint, reflectivity]: [
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
+    Node<"float">,
   ]) => {
     // Water colour, plus a little diffuse light and the sun's highlight
-    const color = seaColor(point, normal, viewDirection, toPoint).toVar();
+    const color = seaColor(point, normal, viewDirection, toPoint, reflectivity).toVar();
     color.addAssign(SEA_LIGHT_COLOR.mul(diffuseLight(normal, LIGHT_DIRECTION, 80.0)).mul(0.12));
     color.addAssign(specularLight(normal, LIGHT_DIRECTION, viewDirection, 60.0));
 
@@ -132,5 +149,12 @@ export const shadeSea = Fn(
     const gamma = 0.75;
     return vec4(pow(color.x, gamma), pow(color.y, gamma), pow(color.z, gamma), 1.0);
   },
-  { point: "vec3", normal: "vec3", viewDirection: "vec3", toPoint: "vec3", return: "vec4" }
+  {
+    point: "vec3",
+    normal: "vec3",
+    viewDirection: "vec3",
+    toPoint: "vec3",
+    reflectivity: "float",
+    return: "vec4",
+  }
 );

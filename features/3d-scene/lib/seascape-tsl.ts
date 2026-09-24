@@ -37,7 +37,7 @@ import {
   vec3,
 } from "three/tsl";
 import type { Node } from "three/webgpu";
-import { shadeSea } from "./seascape-lighting";
+import { SHADERTOY_REFLECTIVITY, shadeSea } from "./seascape-lighting";
 import { seaElevation, seaSlopeDetailed, WAVES_SPEED } from "./seascape-waves";
 
 // Tracing (the GLSL NUM_STEPS and the 1000.0 in hftracing)
@@ -139,5 +139,5 @@ export const seascapeBackgroundColor = Fn(() => {
   const slope = seaSlopeDetailed(hit.xz, slopeStep, seaTime);
   const normal = normalize(vec3(slope.x.negate(), 1.0, slope.y.negate()));
 
-  return shadeSea(hit, normal, direction, toPoint);
+  return shadeSea(hit, normal, direction, toPoint, SHADERTOY_REFLECTIVITY);
 });

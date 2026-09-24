@@ -26,12 +26,15 @@ import {
   dot,
   float,
   Fn,
+  fwidth,
+  length,
   modelWorldMatrix,
   normalize,
   positionGeometry,
   positionWorld,
   screenSize,
   time,
+  uniform,
   varying,
   vec3,
   vec4,
@@ -46,6 +49,19 @@ import {
   WAVES_SPEED,
 } from "./seascape-waves";
 
+/**
+ * Default values of the surface's tunable uniforms. The single source for both
+ * the shader and the Inspector panel, so the sea looks the same with the
+ * Inspector on or off.
+ */
+export const SEASCAPE_SURFACE_DEFAULTS = {
+  waveHeight: 1.0,
+  /** Relative to the wave height; at 1 the ripples looked too weak. */
+  ripples: 1.3,
+  /** The Shadertoy used 0.65; raised for a more reflective sea. */
+  reflectivity: 0.8,
+} as const;
+
 type SurfaceOptions = {
   /** World units per unit of the shader's sea space. */
   scale: number;
@@ -55,6 +71,24 @@ type SurfaceOptions = {
 
 export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
   const seaTime = time.mul(WAVES_SPEED);
+
+  /**
+   * Live debugging knobs, driven by the Inspector's "Seascape" panel.
+   *
+   * Uniforms, so changing them does not rebuild the shader. Read only here, in
+   * the stage entry points, never inside a Fn with a layout — see the rule at
+   * the top of `seascape-waves.ts`.
+   */
+  const uniforms = {
+    /** Scales the whole relief — the grid's lift and both slopes. 0 is flat. */
+    waveHeight: uniform(SEASCAPE_SURFACE_DEFAULTS.waveHeight),
+    /** Scales only the fine ripples computed per pixel. 0 hides that layer. */
+    ripples: uniform(SEASCAPE_SURFACE_DEFAULTS.ripples),
+    /** 1 fades octaves too fine for the pixel; 0 turns that off to compare. */
+    antiAliasing: uniform(1.0),
+    /** How much sky edge-on water reflects. */
+    reflectivity: uniform(SEASCAPE_SURFACE_DEFAULTS.reflectivity),
+  };
 
   /**
    * World space -> the shader's sea space: scaled down, with the sea's mean
@@ -87,7 +121,8 @@ export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
    * in the world while the grid follows the camera around.
    */
   const positionNode = Fn(() => {
-    const lift = vertexElevation.sub(WAVES_AMPLITUDE).mul(scale);
+    // Scaled around the mean level, so waveHeight 0 leaves a flat sea in place
+    const lift = vertexElevation.sub(WAVES_AMPLITUDE).mul(uniforms.waveHeight).mul(scale);
 
     return positionGeometry.add(vec3(0.0, lift, 0.0));
   })();
@@ -98,7 +133,11 @@ export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
    */
   const largeWavesSlope = varying(
     Fn(() => {
-      const liftedVertex = vec3(vertexSea.x, vertexElevation, vertexSea.z);
+      const liftedVertex = vec3(
+        vertexSea.x,
+        vertexElevation.sub(WAVES_AMPLITUDE).mul(uniforms.waveHeight).add(WAVES_AMPLITUDE),
+        vertexSea.z
+      );
       const toVertex = liftedVertex.sub(toSeaSpace(cameraPosition));
 
       return seaSlopeLargeWaves(vertexSea.xz, slopeStepFor(toVertex), seaTime);
@@ -114,13 +153,22 @@ export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
     const toPoint = point.sub(toSeaSpace(cameraPosition));
     const viewDirection = normalize(toPoint);
 
+    // How much sea this pixel covers, in sea units: how fast the position
+    // changes from one pixel to the next. Octaves finer than a few pixels are
+    // faded out, which is what removes the moiré when zoomed out
+    // (antiAliasing 0 reports a vanishing pixel, so nothing is ever faded.)
+    const pixelSize = length(fwidth(point.xz)).mul(uniforms.antiAliasing);
+
     // Total slope = large waves (from the vertices) + fine ripples (per pixel)
-    const ripplesSlope = seaSlopeRipples(point.xz, slopeStepFor(toPoint), seaTime);
-    const slope = largeWavesSlope.add(ripplesSlope);
+    // Both scale with the relief; the ripples also have their own knob
+    const ripplesSlope = seaSlopeRipples(point.xz, slopeStepFor(toPoint), seaTime, pixelSize);
+    const slope = largeWavesSlope
+      .add(ripplesSlope.mul(uniforms.ripples))
+      .mul(uniforms.waveHeight);
     const normal = normalize(vec3(slope.x.negate(), 1.0, slope.y.negate()));
 
-    return shadeSea(point, normal, viewDirection, toPoint);
+    return shadeSea(point, normal, viewDirection, toPoint, uniforms.reflectivity);
   })();
 
-  return { positionNode, fragmentNode };
+  return { positionNode, fragmentNode, uniforms };
 }
