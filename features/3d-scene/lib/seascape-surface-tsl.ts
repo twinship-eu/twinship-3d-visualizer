@@ -39,7 +39,7 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import type { Node } from "three/webgpu";
+import { Color, type Node } from "three/webgpu";
 import { shadeSea } from "./seascape-lighting";
 import {
   seaElevation,
@@ -60,6 +60,16 @@ export const SEASCAPE_SURFACE_DEFAULTS = {
   ripples: 1.3,
   /** The Shadertoy used 0.65; raised for a more reflective sea. */
   reflectivity: 0.8,
+  /**
+   * The water's own colour, where it reflects no sky: a deep ocean blue, chosen
+   * by eye in the Inspector. The Shadertoy's was a grey-green #597981.
+   */
+  deepColor: "#003b6b",
+  /**
+   * The tint crests and sunlit faces pick up: an aqua green, chosen by eye in
+   * the Inspector. The Shadertoy's was a pale yellow-green #e7f3cc.
+   */
+  lightColor: "#42e6b5",
 } as const;
 
 type SurfaceOptions = {
@@ -88,6 +98,10 @@ export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
     antiAliasing: uniform(1.0),
     /** How much sky edge-on water reflects. */
     reflectivity: uniform(SEASCAPE_SURFACE_DEFAULTS.reflectivity),
+    /** The water's own colour, where it reflects no sky. */
+    deepColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.deepColor)),
+    /** The tint crests and sunlit faces pick up. */
+    lightColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.lightColor)),
   };
 
   /**
@@ -167,7 +181,15 @@ export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
       .mul(uniforms.waveHeight);
     const normal = normalize(vec3(slope.x.negate(), 1.0, slope.y.negate()));
 
-    return shadeSea(point, normal, viewDirection, toPoint, uniforms.reflectivity);
+    return shadeSea(
+      point,
+      normal,
+      viewDirection,
+      toPoint,
+      uniforms.reflectivity,
+      uniforms.deepColor,
+      uniforms.lightColor
+    );
   })();
 
   return { positionNode, fragmentNode, uniforms };

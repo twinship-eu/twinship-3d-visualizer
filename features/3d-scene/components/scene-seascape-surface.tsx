@@ -67,6 +67,10 @@ const SEASCAPE_TUNING = {
   antiAliasing: true,
   /** How much sky edge-on water reflects. */
   reflectivity: SEASCAPE_SURFACE_DEFAULTS.reflectivity,
+  /** The water's own colour. */
+  deepColor: SEASCAPE_SURFACE_DEFAULTS.deepColor as string,
+  /** The tint crests and sunlit faces pick up. */
+  lightColor: SEASCAPE_SURFACE_DEFAULTS.lightColor as string,
 };
 
 /** Lowest wave height the panel allows: below it the sea reads as a flat plane. */
@@ -100,6 +104,8 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "ripples", 0, 3, 0.01);
     panel.add(SEASCAPE_TUNING, "antiAliasing");
     panel.add(SEASCAPE_TUNING, "reflectivity", 0, 1, 0.01);
+    panel.addColor(SEASCAPE_TUNING, "deepColor");
+    panel.addColor(SEASCAPE_TUNING, "lightColor");
   }, [gl]);
 
   useFrame(({ camera }) => {
@@ -119,6 +125,8 @@ export function SceneSeascapeSurface() {
     sea.uniforms.ripples.value = SEASCAPE_TUNING.ripples;
     sea.uniforms.antiAliasing.value = SEASCAPE_TUNING.antiAliasing ? 1.0 : 0.0;
     sea.uniforms.reflectivity.value = SEASCAPE_TUNING.reflectivity;
+    sea.uniforms.deepColor.value.set(SEASCAPE_TUNING.deepColor);
+    sea.uniforms.lightColor.value.set(SEASCAPE_TUNING.lightColor);
   });
 
   return (

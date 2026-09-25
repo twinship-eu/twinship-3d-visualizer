@@ -1,3 +1,5 @@
+import { SCENE_FOG_COLOR } from "./3d-scene-config";
+
 /**
  * Which seascape the scene renders.
  *
@@ -42,3 +44,26 @@ export const SEASCAPE_SURFACE_GRID_SIZE = 1600;
  *   960 -> 1.8M triangles, ~4.6 ms, little further gain
  */
 export const SEASCAPE_SURFACE_GRID_SEGMENTS = 320;
+
+/**
+ * Half the grid: the nearest the sea's edge ever gets to the camera, since the
+ * grid is kept centred under it.
+ */
+const SEASCAPE_SURFACE_EDGE_DISTANCE = SEASCAPE_SURFACE_GRID_SIZE / 2;
+
+/**
+ * The haze and sky behind the surface sea — see `seascape-atmosphere-tsl.ts`.
+ * Starting values; the Inspector's "Atmosphere" panel tunes them live.
+ */
+export const SEASCAPE_ATMOSPHERE = {
+  /** The colour sea and sky both fade into. The scene's existing fog colour. */
+  horizonColor: SCENE_FOG_COLOR,
+  /** Where the haze starts. Past the ship at the widest zoom (400), barely. */
+  hazeStart: 300,
+  /** Where the haze is complete: short of the grid's edge, so the edge is never visible. */
+  hazeEnd: SEASCAPE_SURFACE_EDGE_DISTANCE - 50,
+  /** The sky is tinted by the haze up to this direction height (~9° above the horizon). */
+  skyHazeHeight: 0.15,
+  /** Largest haze end the panel allows — the grid's edge itself. */
+  maxHazeEnd: SEASCAPE_SURFACE_EDGE_DISTANCE,
+} as const;

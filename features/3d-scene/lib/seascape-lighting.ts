@@ -16,11 +16,12 @@ import { add, dot, Fn, max, mix, normalize, pow, reflect, smoothstep, sub, vec3,
 import type { Node } from "three/webgpu";
 import { WAVES_AMPLITUDE } from "./seascape-waves";
 
-// Colours (the GLSL SEA_BASE, SEA_WATER_COLOR, SKY_INTENSITY)
+// Colours (the GLSL SEA_BASE, SEA_WATER_COLOR, SKY_INTENSITY). The Shadertoy's
+// values; the raymarched background keeps them, the surface can retint them.
 /** The colour of deep water, facing away from the sky. */
-const SEA_DEEP_COLOR = vec3(0.1, 0.19, 0.22);
+export const SHADERTOY_DEEP_COLOR = vec3(0.1, 0.19, 0.22);
 /** The light green-yellow the wave crests and sunlit faces pick up. */
-const SEA_LIGHT_COLOR = vec3(0.8, 0.9, 0.6);
+export const SHADERTOY_LIGHT_COLOR = vec3(0.8, 0.9, 0.6);
 const SKY_INTENSITY = 1.0;
 
 /**
@@ -29,6 +30,17 @@ const SKY_INTENSITY = 1.0;
  * it, the surface can raise it.
  */
 export const SHADERTOY_REFLECTIVITY = 0.65;
+
+/** The Shadertoy's final gamma lift, applied to sea and sky alike. */
+const SEASCAPE_GAMMA = 0.75;
+
+/**
+ * The slight gamma lift the Shadertoy applies to every pixel, per channel.
+ * Shared so the sky behind the sea goes through exactly the same curve.
+ */
+export function gammaLift(color: Node<"vec3">) {
+  return vec3(pow(color.x, SEASCAPE_GAMMA), pow(color.y, SEASCAPE_GAMMA), pow(color.z, SEASCAPE_GAMMA));
+}
 
 /** Direction the light comes from: above, and slightly behind the camera. */
 const LIGHT_DIRECTION = normalize(vec3(0.0, 1.0, 0.8));
@@ -54,25 +66,27 @@ export const skyColor = Fn(
  * grazing angles, with crests lightened near the viewer.
  */
 export const seaColor = Fn(
-  ([point, normal, viewDirection, toPoint, reflectivity]: [
+  ([point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor]: [
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
     Node<"float">,
+    Node<"vec3">,
+    Node<"vec3">,
   ]) => {
     // Fresnel: water facing the viewer shows its depth; water seen edge-on
     // reflects the sky
     const facingAway = sub(1.0, max(dot(normal, viewDirection.negate()), 0.0));
     const fresnel = pow(facingAway, 3.0).mul(reflectivity);
     const reflection = skyColor(reflect(viewDirection, normal));
-    const color = mix(SEA_DEEP_COLOR, reflection, fresnel).toVar();
+    const color = mix(deepColor, reflection, fresnel).toVar();
 
     // Crests above the mean level catch light. Faded with distance so the far
     // sea does not glitter
     const distanceFade = max(sub(1.0, dot(toPoint, toPoint).mul(0.001)), 0.0);
     const aboveMeanLevel = point.y.sub(WAVES_AMPLITUDE);
-    color.addAssign(SEA_LIGHT_COLOR.mul(aboveMeanLevel).mul(0.18).mul(distanceFade));
+    color.addAssign(lightColor.mul(aboveMeanLevel).mul(0.18).mul(distanceFade));
 
     return color;
   },
@@ -82,6 +96,8 @@ export const seaColor = Fn(
     viewDirection: "vec3",
     toPoint: "vec3",
     reflectivity: "float",
+    deepColor: "vec3",
+    lightColor: "vec3",
     return: "vec3",
   }
 );
@@ -125,18 +141,22 @@ export const specularLight = Fn(
  * @param viewDirection from the eye towards the point
  * @param toPoint       from the eye to the point, not normalised
  * @param reflectivity  how much sky edge-on water reflects — see SHADERTOY_REFLECTIVITY
+ * @param deepColor     the water's own colour, where it reflects no sky
+ * @param lightColor    the tint crests and sunlit faces pick up
  */
 export const shadeSea = Fn(
-  ([point, normal, viewDirection, toPoint, reflectivity]: [
+  ([point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor]: [
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
     Node<"float">,
+    Node<"vec3">,
+    Node<"vec3">,
   ]) => {
     // Water colour, plus a little diffuse light and the sun's highlight
-    const color = seaColor(point, normal, viewDirection, toPoint, reflectivity).toVar();
-    color.addAssign(SEA_LIGHT_COLOR.mul(diffuseLight(normal, LIGHT_DIRECTION, 80.0)).mul(0.12));
+    const color = seaColor(point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor).toVar();
+    color.addAssign(lightColor.mul(diffuseLight(normal, LIGHT_DIRECTION, 80.0)).mul(0.12));
     color.addAssign(specularLight(normal, LIGHT_DIRECTION, viewDirection, 60.0));
 
     // Fade into the sky right at the horizon. The GLSL writes this as
@@ -145,9 +165,7 @@ export const shadeSea = Fn(
     const horizonFade = pow(smoothstep(-0.05, 0.0, viewDirection.y).oneMinus(), 0.3);
     color.assign(mix(skyColor(viewDirection), color, horizonFade));
 
-    // Slight gamma lift, per channel
-    const gamma = 0.75;
-    return vec4(pow(color.x, gamma), pow(color.y, gamma), pow(color.z, gamma), 1.0);
+    return vec4(gammaLift(color), 1.0);
   },
   {
     point: "vec3",
@@ -155,6 +173,8 @@ export const shadeSea = Fn(
     viewDirection: "vec3",
     toPoint: "vec3",
     reflectivity: "float",
+    deepColor: "vec3",
+    lightColor: "vec3",
     return: "vec4",
   }
 );

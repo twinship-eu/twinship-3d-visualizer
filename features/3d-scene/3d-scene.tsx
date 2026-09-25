@@ -19,6 +19,7 @@ import { SceneEnvironmentMap } from "./components/scene-environment-map";
 // import { SceneWater } from "./components/scene-water";
 import { SceneSeascape } from "./components/scene-seascape";
 import { SceneSeascapeSurface } from "./components/scene-seascape-surface";
+import { SceneSeascapeAtmosphere } from "./components/scene-seascape-atmosphere";
 import { IS_SEASCAPE_SURFACE_ENABLED } from "./lib/seascape-config";
 import { canRenderShadows, createSceneRenderer } from "./lib/webgpu-renderer";
 import {
@@ -100,7 +101,14 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           <RendererBackendProbe onResolved={setIsWebGPU} />
           {IS_SCENE_STATS_ENABLED && <SceneStatsProbe />}
           {isDiagnosticsOn && <SceneDiagnosticsProbe />}
-          <SceneSky />
+          {/*
+            With the surface sea, the sky comes from SceneSeascapeAtmosphere:
+            the same sky the water reflects, so sea and sky meet without a seam.
+            SkyMesh stays for the raymarched background. (The ship's lighting
+            probe bakes its own sky and does not depend on this one.)
+          */}
+          {!IS_SEASCAPE_SURFACE_ENABLED && <SceneSky />}
+          {IS_SEASCAPE_SURFACE_ENABLED && <SceneSeascapeAtmosphere />}
           <SceneEnvironmentMap />
           {/* <SceneWater /> */}
           {IS_SEASCAPE_SURFACE_ENABLED ? <SceneSeascapeSurface /> : <SceneSeascape />}
