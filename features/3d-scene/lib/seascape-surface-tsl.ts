@@ -1,25 +1,30 @@
 /**
  * Seascape — 4b. World-space surface
  *
- * The same sea as the raymarched background, but as real geometry: a flat
- * grid lifted by the wave height. Because it is geometry, it has depth — the
- * ship's hull goes under the surface — and it is seen through the scene's
- * real camera.
+ * The sea as real geometry: a flat grid lifted by the height of the waves.
+ * Because it is geometry, it has depth — the ship's hull goes under the
+ * surface — and it is seen through the scene's real camera.
  *
- * What changes compared with the raymarch:
- * - No tracing. The rasteriser already knows where each pixel meets the sea.
- * - The view ray goes from the scene camera to the pixel, not from an
- *   imaginary camera.
+ * The waves are the wind-driven ones (`seascape-wind-waves.ts`), in metres;
+ * the lighting is still the Shadertoy's, which works in its own "sea space",
+ * so points are converted to that just before shading.
  *
- * Performance: the normal needs the slope of all 5 octaves — 3 height samples
- * x 5 octaves x 2 wave trains = 30 wave evaluations per pixel if done naively.
- * The slope of a sum is the sum of the slopes, so it is split:
- * - the largest, smoothest octave (`seaSlopeLargeWaves`) is computed per
- *   vertex and interpolated between vertices;
- * - the other 4 octaves (`seaSlopeRipples`) are computed per pixel.
- * That is 24 wave evaluations per pixel instead of 30, about 26% less GPU time
- * with no visible difference. The measurements behind where the split sits are
- * at `LARGE_WAVE_OCTAVES`.
+ * - Vertex: the grid is lifted by every wave long enough for the grid to draw
+ *   (a few cells per wavelength); shorter ones would only alias.
+ * - Fragment: the normal comes from every wave, down to the ones a few pixels
+ *   long, plus the short chop — so the detail the grid cannot hold still
+ *   shapes the light.
+ *
+ * Performance: the normal needs the slope, and the slope three heights per
+ * wave. The slope of a sum is the sum of the slopes, so the longest waves'
+ * slope is computed per vertex and interpolated, the other waves per pixel —
+ * see `VERTEX_OCTAVES` — and the short chop comes from a normal map, two
+ * texture reads. Measured at 1080p, each against the Shadertoy surface in the
+ * same run:
+ *   6 octaves of waves, all per pixel        +55%
+ *   6 octaves, longest two per vertex         -4%
+ *   3 octaves of waves + normal map chop     -33%
+ *   ... with 3 trains in octaves 1-2, SSS     -21%   <- current
  */
 import {
   cameraPosition,
@@ -28,38 +33,116 @@ import {
   Fn,
   fwidth,
   length,
+  max,
+  mix,
   modelWorldMatrix,
   normalize,
   positionGeometry,
+  pow,
   positionWorld,
   screenSize,
+  smoothstep,
+  texture,
   time,
   uniform,
   varying,
   vec3,
   vec4,
 } from "three/tsl";
-import { Color, type Node } from "three/webgpu";
+import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/webgpu";
+import { crestFoamColor, crestFoamDensity, foamGrain } from "./seascape-foam-tsl";
 import { shadeSea } from "./seascape-lighting";
+import { WAVES_AMPLITUDE } from "./seascape-waves";
 import {
-  seaElevation,
-  seaSlopeLargeWaves,
-  seaSlopeRipples,
-  WAVES_AMPLITUDE,
-  WAVES_SPEED,
-} from "./seascape-waves";
+  packWindSeaState,
+  windSeaDetailSlope,
+  windSeaElevation,
+  windSeaSlope,
+  windSeaState,
+  windSeaWhitecaps,
+  whitecapLevels,
+  type Wind,
+  type WindSeaNodes,
+} from "./seascape-wind-waves";
 
 /**
- * Default values of the surface's tunable uniforms. The single source for both
- * the shader and the Inspector panel, so the sea looks the same with the
- * Inspector on or off.
+ * Nearest distance, in metres, the slope is measured over. Up close the step
+ * shrinks with the distance squared; below a centimetre, float precision in the
+ * wave phases turns the differences into noise.
  */
+const MIN_SLOPE_STEP = 0.01;
+
+/**
+ * The grid's filter size, in cells. Waves fade out of the geometry below 4
+ * filter sizes and are gone below 2, so with 2 cells a wave needs 8 cells to
+ * lift the grid fully and vanishes from it below 4; shorter waves stay in the
+ * lighting only. With 1, a pointed crest drawn with 4 vertices came out
+ * stepped and faceted.
+ */
+const GEOMETRY_FILTER_CELLS = 2;
+
+/**
+ * How much of the body's scattered light depends on facing the sun: the rest
+ * reaches every face, as light enters the water from all around.
+ */
+const SCATTER_SUN_WRAP_SHARE = 0.6;
+/**
+ * How much a face must turn towards the viewer (the cosine) to show none, and
+ * all, of the scattered light.
+ */
+const SCATTER_FACING_NONE = -0.05;
+const SCATTER_FACING_FULL = 0.45;
+
+// Subsurface scattering
+/**
+ * How tightly the glow follows the sun: the cosine between where the camera
+ * looks and where the sun is, both flattened onto the sea, to this power.
+ */
+const SUBSURFACE_SUN_POWER = 4.0;
+/** The glow is full on crests this far above the mean level, as a share of Hs. */
+const SUBSURFACE_CREST_OF_HS = 0.5;
+/** Smallest crest height the glow ramps over, in metres, so a calm sea never divides by 0. */
+const MIN_SUBSURFACE_CREST = 0.05;
+
+/**
+ * How far the short chop pushes the foam's strands, in sea units per unit of
+ * slope: a steep ripple moves them about a metre.
+ */
+const FOAM_DISTORTION = 0.25;
+
+/**
+ * The chop fades out of the sky's reflection as the view turns grazing, between
+ * these heights of the view direction (its y, looking down). (Only of the
+ * reflection: taken out of the glints too, it left the sea flat and smooth
+ * seen from sea level.) Near the horizon the reflected ray
+ * skims the sky's white horizon, so every ripple flipped the reflection between
+ * white and blue — a mottle of white clouds, worse the flatter the camera. Real
+ * water seen that flat reads smooth.
+ */
+const CHOP_GRAZING_GONE = 0.04;
+const CHOP_GRAZING_FULL = 0.3;
+
+/**
+ * How much of the short chop the sky's reflection sees, against the glints.
+ *
+ * The chop's ripples are metres across; each tilted the reflection from the
+ * zenith's deep blue to the horizon's pale one, and seen from a few metres up
+ * the sea filled with soft white "clouds" (they went with the chop or the
+ * reflection turned off, and stayed with foam, glints and glow turned off).
+ * On real water the ripples that break up a reflection are centimetres long
+ * and read as glitter. So the chop stays whole for the sun's glints, where it
+ * makes the sparkle, and the reflection follows the longer waves.
+ */
+const CHOP_IN_REFLECTION = 0.2;
+
 export const SEASCAPE_SURFACE_DEFAULTS = {
-  waveHeight: 1.0,
-  /** Relative to the wave height; at 1 the ripples looked too weak. */
-  ripples: 1.3,
-  /** The Shadertoy used 0.65; raised for a more reflective sea. */
-  reflectivity: 0.8,
+  /**
+   * Scales the Fresnel reflection of the sky. Checked in the app with the
+   * camera a few metres up: at 0.8 the wave faces turned to the pale horizon
+   * read as white patches; at 0.3 the sea went matte; 0.5 keeps both the sky
+   * and the water's colour.
+   */
+  reflectivity: 0.5,
   /**
    * The water's own colour, where it reflects no sky: a deep ocean blue, chosen
    * by eye in the Inspector. The Shadertoy's was a grey-green #597981.
@@ -70,31 +153,109 @@ export const SEASCAPE_SURFACE_DEFAULTS = {
    * the Inspector. The Shadertoy's was a pale yellow-green #e7f3cc.
    */
   lightColor: "#42e6b5",
+  /**
+   * How much whitecap foam, against what the wind makes: 1 is Monahan's law
+   * (see `whitecapThreshold`), 0 none, more for a rougher look.
+   */
+  foamAmount: 1.0,
+  /** Foam colour: white with a hint of the water's blue. */
+  foamColor: "#e6f0f4",
+  /**
+   * Light that shines through the thin tops of the waves when looking towards
+   * the sun: a vivid turquoise, as seen through backlit crests.
+   */
+  subsurfaceColor: "#00d2e0",
+  /** How strong that glow is; 0 turns it off. */
+  subsurfaceStrength: 0.5,
+  /**
+   * Sunlight scattered back out of the water's body: the turquoise of real
+   * water, brightest on faces turned to both the sun and the viewer.
+   */
+  scatterColor: "#0f8aa0",
+  /**
+   * How strong that is; 0 leaves the water its deep colour only. Compared in
+   * the app from the default camera: 0.7 washed the deep blue out to a light
+   * turquoise, 0.35 still did; 0.2 keeps the deep blue with a hint of the
+   * chop's texture.
+   */
+  scatterStrength: 0.2,
+  /**
+   * How tight the sun's glints are. The Shadertoy's 60 is one broad patch;
+   * against the scene's real sun, which the default camera faces, it merged
+   * into white blobs. Real sun glitter is a path of separate sparkles.
+   */
+  shininess: 600,
 } as const;
 
 type SurfaceOptions = {
-  /** World units per unit of the shader's sea space. */
+  /** World units per unit of the Shadertoy's sea space, which the lighting works in. */
   scale: number;
   /** World Y of the sea's mean level. */
   levelY: number;
+  /** World units between the grid's vertices, to start with: see `uniforms.cellSize`. */
+  cellSize: number;
+  /** The wind the sea starts with. */
+  wind: Wind;
+  /** The crest foam's mask: 1 for foam, 0 for water, in the red channel. */
+  foamTexture: Texture;
+  /** Tangent-space normal map for the short chop, tiling. */
+  detailNormalsTexture: Texture;
+  /** Towards the scene's sun, so the water is lit as the ship is. */
+  sunDirection: Vector3;
 };
 
-export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
-  const seaTime = time.mul(WAVES_SPEED);
+/**
+ * Writes a sea state into its uniforms: the waves the wind raises, and how
+ * many of them break (`foamAmount` scales that — see SEASCAPE_SURFACE_DEFAULTS).
+ */
+export function applyWindSeaState(
+  uniforms: { windSea: ReturnType<typeof createWindSeaUniforms>; whitecapLevels: { value: Vector4 } },
+  wind: Wind,
+  foamAmount: number
+) {
+  const state = windSeaState(wind);
+  const packed = packWindSeaState(state);
+  uniforms.windSea.travel.value.fromArray(packed.travel);
+  uniforms.windSea.amplitudes.value.fromArray(packed.amplitudes);
+  uniforms.windSea.detail.value.fromArray(packed.detail);
+  uniforms.whitecapLevels.value.fromArray(whitecapLevels(state, wind.speed, foamAmount));
+}
+
+function createWindSeaUniforms() {
+  return {
+    travel: uniform(new Vector4()),
+    amplitudes: uniform(new Vector4()),
+    detail: uniform(new Vector4()),
+  };
+}
+
+export function createSeascapeSurfaceNodes({
+  scale,
+  levelY,
+  cellSize,
+  wind,
+  foamTexture,
+  detailNormalsTexture,
+  sunDirection,
+}: SurfaceOptions) {
+  const detailNormals = texture(detailNormalsTexture);
 
   /**
-   * Live debugging knobs, driven by the Inspector's "Seascape" panel.
+   * Live knobs, driven by the Inspector's "Seascape" panel.
    *
    * Uniforms, so changing them does not rebuild the shader. Read only here, in
    * the stage entry points, never inside a Fn with a layout — see the rule at
    * the top of `seascape-waves.ts`.
    */
   const uniforms = {
-    /** Scales the whole relief — the grid's lift and both slopes. 0 is flat. */
-    waveHeight: uniform(SEASCAPE_SURFACE_DEFAULTS.waveHeight),
-    /** Scales only the fine ripples computed per pixel. 0 hides that layer. */
-    ripples: uniform(SEASCAPE_SURFACE_DEFAULTS.ripples),
-    /** 1 fades octaves too fine for the pixel; 0 turns that off to compare. */
+    /** The sea the wind raises; written by `applyWindSeaState`. */
+    windSea: createWindSeaUniforms(),
+    /**
+     * World units between the grid's vertices: which waves the grid can hold,
+     * and which go to the pixels. Must follow the grid when it is rebuilt.
+     */
+    cellSize: uniform(cellSize),
+    /** 1 fades waves too fine for the pixel; 0 turns that off to compare. */
     antiAliasing: uniform(1.0),
     /** How much sky edge-on water reflects. */
     reflectivity: uniform(SEASCAPE_SURFACE_DEFAULTS.reflectivity),
@@ -102,31 +263,37 @@ export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
     deepColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.deepColor)),
     /** The tint crests and sunlit faces pick up. */
     lightColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.lightColor)),
+    /** Where crests break — see `whitecapLevels`; written by `applyWindSeaState`. */
+    whitecapLevels: uniform(new Vector4()),
+    foamColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.foamColor)),
+    /** The foam mask. Set `.value` to another texture to swap it without a rebuild. */
+    foamMap: texture(foamTexture),
+    /** Towards the sun: the highlights, the diffuse light, the glow and the foam's shading. */
+    sunDirection: uniform(sunDirection.clone().normalize()),
+    /** Light shining through the crests towards the camera. */
+    subsurfaceColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.subsurfaceColor)),
+    subsurfaceStrength: uniform(SEASCAPE_SURFACE_DEFAULTS.subsurfaceStrength),
+    /** Sunlight scattered back out of the water's body. */
+    scatterColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.scatterColor)),
+    scatterStrength: uniform(SEASCAPE_SURFACE_DEFAULTS.scatterStrength),
+    /** How tight the sun's glints are. */
+    shininess: uniform(SEASCAPE_SURFACE_DEFAULTS.shininess),
   };
+  applyWindSeaState(uniforms, wind, SEASCAPE_SURFACE_DEFAULTS.foamAmount);
+
+  const sea: WindSeaNodes = { ...uniforms.windSea, cellSize: uniforms.cellSize };
 
   /**
-   * World space -> the shader's sea space: scaled down, with the sea's mean
-   * level at the height the wave maths expects (`WAVES_AMPLITUDE`).
-   */
-  const toSeaSpace = (world: Node<"vec3">) =>
-    vec3(
-      world.x.div(scale),
-      world.y.sub(levelY).div(scale).add(WAVES_AMPLITUDE),
-      world.z.div(scale)
-    );
-
-  /**
-   * Distance over which to measure the slope: grows with the square of the
-   * distance from the camera, so far water is averaged and stays calm. (The
-   * GLSL EPSILON_NRM.)
+   * Distance over which to measure the slope, in metres: grows with the square
+   * of the distance from the camera, so far water is averaged and stays calm
+   * (the GLSL EPSILON_NRM, converted to metres).
    */
   const slopeStepFor = (toPoint: Node<"vec3">) =>
-    dot(toPoint, toPoint).mul(float(0.1).div(screenSize.x));
+    max(dot(toPoint, toPoint).mul(0.1 / scale).div(screenSize.x), MIN_SLOPE_STEP);
 
-  // Where this grid vertex is, in sea space, before it is lifted
+  // Where this grid vertex is in the world, before and after it is lifted
   const vertexWorld = modelWorldMatrix.mul(vec4(positionGeometry, 1.0)).xyz;
-  const vertexSea = toSeaSpace(vertexWorld);
-  const vertexElevation = seaElevation(vertexSea.xz, seaTime);
+  const vertexLift = windSeaElevation(vertexWorld.xz, time, sea, uniforms.cellSize.mul(GEOMETRY_FILTER_CELLS));
 
   /**
    * Vertex: lift the grid to the sea's height.
@@ -134,62 +301,125 @@ export function createSeascapeSurfaceNodes({ scale, levelY }: SurfaceOptions) {
    * Uses the world position rather than the local one, so the waves stay put
    * in the world while the grid follows the camera around.
    */
-  const positionNode = Fn(() => {
-    // Scaled around the mean level, so waveHeight 0 leaves a flat sea in place
-    const lift = vertexElevation.sub(WAVES_AMPLITUDE).mul(uniforms.waveHeight).mul(scale);
-
-    return positionGeometry.add(vec3(0.0, lift, 0.0));
-  })();
+  const positionNode = Fn(() => positionGeometry.add(vec3(0.0, vertexLift, 0.0)))();
 
   /**
-   * Slope of the large octaves, computed per vertex and handed to the
-   * fragment shader, which receives it interpolated between the vertices.
+   * Slope and height of the longest waves, computed per vertex and handed to
+   * the fragment shader, which receives them interpolated between the vertices.
    */
-  const largeWavesSlope = varying(
+  const vertexWaves = varying(
     Fn(() => {
-      const liftedVertex = vec3(
-        vertexSea.x,
-        vertexElevation.sub(WAVES_AMPLITUDE).mul(uniforms.waveHeight).add(WAVES_AMPLITUDE),
-        vertexSea.z
-      );
-      const toVertex = liftedVertex.sub(toSeaSpace(cameraPosition));
+      const toVertex = vertexWorld.add(vec3(0.0, vertexLift, 0.0)).sub(cameraPosition);
 
-      return seaSlopeLargeWaves(vertexSea.xz, slopeStepFor(toVertex), seaTime);
+      return windSeaSlope("vertex", vertexWorld.xz, slopeStepFor(toVertex), time, sea, uniforms.cellSize);
     })(),
-    "vLargeWavesSlope"
+    "vWindSeaVertexWaves"
   );
 
   /**
-   * Fragment: the fine ripples' slope, the normal, and the shading.
+   * World space -> the Shadertoy's sea space, for the lighting and the foam:
+   * scaled down, with the mean level where its maths expects (`WAVES_AMPLITUDE`).
+   */
+  const toSeaSpace = (world: Node<"vec3">) =>
+    vec3(world.x.div(scale), world.y.sub(levelY).div(scale).add(WAVES_AMPLITUDE), world.z.div(scale));
+
+  /**
+   * Fragment: the normal from every wave the pixel can show, and the shading.
    */
   const fragmentNode = Fn(() => {
-    const point = toSeaSpace(positionWorld);
-    const toPoint = point.sub(toSeaSpace(cameraPosition));
-    const viewDirection = normalize(toPoint);
+    const toPoint = positionWorld.sub(cameraPosition);
 
-    // How much sea this pixel covers, in sea units: how fast the position
-    // changes from one pixel to the next. Octaves finer than a few pixels are
-    // faded out, which is what removes the moiré when zoomed out
+    // How much sea this pixel covers, in metres. Waves shorter than a few of
+    // these are faded out, which is what keeps distant water from moiré.
     // (antiAliasing 0 reports a vanishing pixel, so nothing is ever faded.)
-    const pixelSize = length(fwidth(point.xz)).mul(uniforms.antiAliasing);
+    // Evaluated here, as a variable, before any branch: derivatives like
+    // fwidth are only valid in uniform control flow.
+    const pixelSize = length(fwidth(positionWorld.xz)).mul(uniforms.antiAliasing).toVar();
 
-    // Total slope = large waves (from the vertices) + fine ripples (per pixel)
-    // Both scale with the relief; the ripples also have their own knob
-    const ripplesSlope = seaSlopeRipples(point.xz, slopeStepFor(toPoint), seaTime, pixelSize);
-    const slope = largeWavesSlope
-      .add(ripplesSlope.mul(uniforms.ripples))
-      .mul(uniforms.waveHeight);
+    // Total slope = the longest waves (from the vertices) + the other waves
+    // (per pixel) + the short chop (the normal map)
+    const pixelWaves = windSeaSlope("pixel", positionWorld.xz, slopeStepFor(toPoint), time, sea, pixelSize);
+    const viewDirection = normalize(toPoint);
+    const notGrazing = smoothstep(CHOP_GRAZING_GONE, CHOP_GRAZING_FULL, viewDirection.y.negate());
+    const detailSlope = windSeaDetailSlope(positionWorld.xz, length(toPoint), time, sea, detailNormals);
+    const slope = vertexWaves.xy.add(pixelWaves.xy).add(detailSlope);
     const normal = normalize(vec3(slope.x.negate(), 1.0, slope.y.negate()));
+    // The glints see all the chop, at any angle; the sky's reflection only a
+    // little of it, and none at grazing angles (see CHOP_IN_REFLECTION and
+    // CHOP_GRAZING_GONE)
+    const reflectionSlope = slope.sub(detailSlope.mul(float(1.0).sub(notGrazing.mul(CHOP_IN_REFLECTION))));
+    const reflectionNormal = normalize(vec3(reflectionSlope.x.negate(), 1.0, reflectionSlope.y.negate()));
 
-    return shadeSea(
+    // The sea's height here, per pixel, from the same two shares. Not the
+    // triangle's own height, which is interpolated straight between vertices:
+    // anything that follows the height — the crest tint, the glow — drew the
+    // triangles' edges as straight lines
+    const height = vertexWaves.z.add(pixelWaves.z);
+
+    const sun = vec3(uniforms.sunDirection);
+
+    // Subsurface scattering: looking towards the sun, light comes through the
+    // thin tops of the waves and lights them turquoise from inside. Strongest
+    // straight towards the sun and on the highest crests. (The view's own
+    // flat part, not normalised: it shrinks to nothing looking straight down,
+    // where its direction flips — normalised, that drew a wedge under the camera)
+    const towardsSun = max(dot(viewDirection.xz, normalize(sun.xz)), 0.0);
+    const crestHeight = max(sea.travel.w.mul(SUBSURFACE_CREST_OF_HS), MIN_SUBSURFACE_CREST);
+    const onCrest = smoothstep(0.0, crestHeight, height);
+    const crestGlow = vec3(uniforms.subsurfaceColor)
+      .mul(pow(towardsSun, SUBSURFACE_SUN_POWER))
+      .mul(onCrest)
+      .mul(uniforms.subsurfaceStrength);
+
+    // Light scattered back out of the water's body. It leaves through the
+    // surface towards the viewer, so faces turned to the viewer show more of
+    // it — that is what makes the chop visible as texture from any height,
+    // without the sky's reflection — and it is sunlight, so faces turned to the
+    // sun (wrapped: light also reaches in from the side) are brighter. What the
+    // surface reflects does not come out: scaled by 1 - Fresnel.
+    // (Eased rather than linear: seen from sea level hardly any face turns
+    // towards the camera, and a linear term left the near water flat.)
+    const towardsViewer = smoothstep(SCATTER_FACING_NONE, SCATTER_FACING_FULL, dot(normal, viewDirection.negate()));
+    const sunReach = max(dot(normal, sun), 0.0).mul(SCATTER_SUN_WRAP_SHARE).add(1.0 - SCATTER_SUN_WRAP_SHARE);
+    const scatter = vec3(uniforms.scatterColor).mul(towardsViewer.mul(sunReach)).mul(uniforms.scatterStrength);
+
+    const subsurface = crestGlow.add(scatter);
+
+    // The lighting's crest tint is the Shadertoy's, made for waves about
+    // ±WAVES_AMPLITUDE high; so it is given the height as a share of Hs, the
+    // same at any wind. Given metres, a storm's deep troughs took the green
+    // out of the water and left it purple
+    const tintHeight = height.div(max(sea.travel.w, MIN_SUBSURFACE_CREST)).clamp(-1.0, 1.0).mul(WAVES_AMPLITUDE * scale);
+    const point = toSeaSpace(vec3(positionWorld.x, tintHeight.add(levelY), positionWorld.z));
+    const water = shadeSea(
       point,
       normal,
       viewDirection,
-      toPoint,
+      toPoint.div(scale),
       uniforms.reflectivity,
       uniforms.deepColor,
-      uniforms.lightColor
+      uniforms.lightColor,
+      sun,
+      uniforms.shininess,
+      subsurface,
+      1.0,
+      reflectionNormal
     );
+
+    // White water on the highest crests, laid over the water's colour. The
+    // haze is applied afterwards by the scene's fog, so far foam fades too
+    const grain = foamGrain({
+      point,
+      travel: sea.travel.xy,
+      seaTime: time,
+      foamMap: uniforms.foamMap,
+      distortion: detailSlope.mul(FOAM_DISTORTION),
+    });
+    const whitecaps = windSeaWhitecaps(positionWorld.xz, time, sea.travel, height, uniforms.whitecapLevels, grain);
+    const foam = crestFoamDensity(whitecaps, grain);
+    const foamColor = crestFoamColor(vec3(uniforms.foamColor), normal, sun);
+
+    return vec4(mix(water.rgb, foamColor, foam), 1.0);
   })();
 
   return { positionNode, fragmentNode, uniforms };

@@ -74,7 +74,7 @@ export const LARGE_WAVE_OCTAVES = 1;
  * `1 - |sin|` gives rounded humps, `|cos|` sharper peaks; blending by the
  * rounded one keeps the tops rounded and the troughs pinched.
  */
-function crestProfile(coordinate: Node<"float">) {
+export function crestProfile(coordinate: Node<"float">) {
   const rounded = sub(1.0, abs(sin(coordinate)));
   const sharp = abs(cos(coordinate));
 

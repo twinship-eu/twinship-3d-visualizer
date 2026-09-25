@@ -31,6 +31,13 @@ const SKY_INTENSITY = 1.0;
  */
 export const SHADERTOY_REFLECTIVITY = 0.65;
 
+/**
+ * The Shadertoy's highlight: broad, one soft patch of sun. The specular is
+ * energy conserving, so a higher shininess gives smaller, brighter glints with
+ * the same light overall.
+ */
+export const SHADERTOY_SHININESS = 60.0;
+
 /** The Shadertoy's final gamma lift, applied to sea and sky alike. */
 const SEASCAPE_GAMMA = 0.75;
 
@@ -42,8 +49,11 @@ export function gammaLift(color: Node<"vec3">) {
   return vec3(pow(color.x, SEASCAPE_GAMMA), pow(color.y, SEASCAPE_GAMMA), pow(color.z, SEASCAPE_GAMMA));
 }
 
-/** Direction the light comes from: above, and slightly behind the camera. */
-const LIGHT_DIRECTION = normalize(vec3(0.0, 1.0, 0.8));
+/**
+ * The Shadertoy's light: above, and slightly behind its camera. The raymarched
+ * background keeps it; the surface uses the scene's sun instead.
+ */
+export const LIGHT_DIRECTION = normalize(vec3(0.0, 1.0, 0.8));
 
 /**
  * The sky in a given direction: white at the horizon, blue straight up.
@@ -61,12 +71,50 @@ export const skyColor = Fn(
   { direction: "vec3", return: "vec3" }
 );
 
+// A clear sky, for the surface sea: the Shadertoy's is nearly white for a wide
+// band above the horizon, and at an ordinary camera height most reflected rays
+// land in that band — every small tilt of the water flipped the reflection
+// between white and blue, and the sea filled with reflected "clouds".
+/** Straight up: a deep, clear blue. */
+const CLEAR_SKY_ZENITH = vec3(0.16, 0.38, 0.75);
+/** At the horizon: a pale, hazy blue. */
+const CLEAR_SKY_HORIZON = vec3(0.62, 0.76, 0.9);
+/** How close to the horizon the pale band stays: higher keeps it thinner. */
+const CLEAR_SKY_HORIZON_POWER = 4.0;
+
+/**
+ * Real water's reflectance looking straight down (Schlick's F0 for a
+ * refractive index of 1.33). The surface uses Schlick's Fresnel,
+ * F0 + (1 - F0)(1 - cos)^5: about 2% of the sky looking down, rising steeply
+ * only at grazing angles. The Shadertoy's (1 - cos)^3 reflects two to three
+ * times more at the angles a camera usually sees.
+ */
+const WATER_REFLECTANCE_AT_NORMAL = 0.02;
+
+/**
+ * The clear sky in a given direction: deep blue overhead, pale towards the
+ * horizon. Directions below the horizon get the horizon colour.
+ */
+export const clearSkyColor = Fn(
+  ([direction]: [Node<"vec3">]) => {
+    const towardsHorizon = pow(sub(1.0, max(direction.y, 0.0)), CLEAR_SKY_HORIZON_POWER);
+
+    return mix(CLEAR_SKY_ZENITH, CLEAR_SKY_HORIZON, towardsHorizon);
+  },
+  { direction: "vec3", return: "vec3" }
+);
+
 /**
  * The water's own colour: deep blue-green, reflecting more of the sky at
  * grazing angles, with crests lightened near the viewer.
+ *
+ * `clearSky` picks the sky model: 0 is the Shadertoy's (its sky and its
+ * Fresnel, for the raymarched background), 1 the surface's — the clear sky,
+ * Schlick's Fresnel, and reflected rays that dip below the horizon turned back
+ * up, as they would bounce off the next wave rather than see the sky below.
  */
 export const seaColor = Fn(
-  ([point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor]: [
+  ([point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor, clearSky]: [
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
@@ -74,12 +122,20 @@ export const seaColor = Fn(
     Node<"float">,
     Node<"vec3">,
     Node<"vec3">,
+    Node<"float">,
   ]) => {
     // Fresnel: water facing the viewer shows its depth; water seen edge-on
     // reflects the sky
     const facingAway = sub(1.0, max(dot(normal, viewDirection.negate()), 0.0));
-    const fresnel = pow(facingAway, 3.0).mul(reflectivity);
-    const reflection = skyColor(reflect(viewDirection, normal));
+    const shadertoyFresnel = pow(facingAway, 3.0);
+    const schlickFresnel = pow(facingAway, 5.0)
+      .mul(1.0 - WATER_REFLECTANCE_AT_NORMAL)
+      .add(WATER_REFLECTANCE_AT_NORMAL);
+    const fresnel = mix(shadertoyFresnel, schlickFresnel, clearSky).mul(reflectivity);
+
+    const reflected = reflect(viewDirection, normal);
+    const turnedUp = vec3(reflected.x, reflected.y.abs(), reflected.z);
+    const reflection = mix(skyColor(reflected), clearSkyColor(turnedUp), clearSky);
     const color = mix(deepColor, reflection, fresnel).toVar();
 
     // Crests above the mean level catch light. Faded with distance so the far
@@ -98,6 +154,7 @@ export const seaColor = Fn(
     reflectivity: "float",
     deepColor: "vec3",
     lightColor: "vec3",
+    clearSky: "float",
     return: "vec3",
   }
 );
@@ -143,9 +200,30 @@ export const specularLight = Fn(
  * @param reflectivity  how much sky edge-on water reflects — see SHADERTOY_REFLECTIVITY
  * @param deepColor     the water's own colour, where it reflects no sky
  * @param lightColor    the tint crests and sunlit faces pick up
+ * @param lightDirection towards the light — see LIGHT_DIRECTION
+ * @param shininess     how tight the sun's highlight is — see SHADERTOY_SHININESS
+ * @param subsurface    light shining through the water, added before the
+ *                      horizon fade and the gamma lift, like the rest
+ * @param clearSky      0 the Shadertoy's sky and Fresnel, 1 the clear sky — see seaColor
+ * @param reflectionNormal the normal the sky's reflection and the Fresnel see;
+ *                      the Shadertoy passes `normal` again. The surface passes
+ *                      one with little of the short chop — see its fragment shader
  */
 export const shadeSea = Fn(
-  ([point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor]: [
+  ([
+    point,
+    normal,
+    viewDirection,
+    toPoint,
+    reflectivity,
+    deepColor,
+    lightColor,
+    lightDirection,
+    shininess,
+    subsurface,
+    clearSky,
+    reflectionNormal,
+  ]: [
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
@@ -153,17 +231,33 @@ export const shadeSea = Fn(
     Node<"float">,
     Node<"vec3">,
     Node<"vec3">,
+    Node<"vec3">,
+    Node<"float">,
+    Node<"vec3">,
+    Node<"float">,
+    Node<"vec3">,
   ]) => {
     // Water colour, plus a little diffuse light and the sun's highlight
-    const color = seaColor(point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor).toVar();
-    color.addAssign(lightColor.mul(diffuseLight(normal, LIGHT_DIRECTION, 80.0)).mul(0.12));
-    color.addAssign(specularLight(normal, LIGHT_DIRECTION, viewDirection, 60.0));
+    const color = seaColor(
+      point,
+      reflectionNormal,
+      viewDirection,
+      toPoint,
+      reflectivity,
+      deepColor,
+      lightColor,
+      clearSky
+    ).toVar();
+    color.addAssign(lightColor.mul(diffuseLight(normal, lightDirection, 80.0)).mul(0.12));
+    color.addAssign(specularLight(normal, lightDirection, viewDirection, shininess));
+    color.addAssign(subsurface);
 
     // Fade into the sky right at the horizon. The GLSL writes this as
     // smoothstep(0.0, -0.05, y); WGSL rejects reversed edges when they are
     // constants, and 1 - smoothstep(-0.05, 0.0, y) is the same curve.
     const horizonFade = pow(smoothstep(-0.05, 0.0, viewDirection.y).oneMinus(), 0.3);
-    color.assign(mix(skyColor(viewDirection), color, horizonFade));
+    const horizonSky = mix(skyColor(viewDirection), clearSkyColor(viewDirection), clearSky);
+    color.assign(mix(horizonSky, color, horizonFade));
 
     return vec4(gammaLift(color), 1.0);
   },
@@ -175,6 +269,11 @@ export const shadeSea = Fn(
     reflectivity: "float",
     deepColor: "vec3",
     lightColor: "vec3",
+    lightDirection: "vec3",
+    shininess: "float",
+    subsurface: "vec3",
+    clearSky: "float",
+    reflectionNormal: "vec3",
     return: "vec4",
   }
 );

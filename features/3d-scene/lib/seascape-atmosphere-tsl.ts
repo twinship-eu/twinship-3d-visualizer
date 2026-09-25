@@ -31,7 +31,7 @@ import {
   vec4,
 } from "three/tsl";
 import { Color } from "three/webgpu";
-import { gammaLift, skyColor } from "./seascape-lighting";
+import { clearSkyColor, gammaLift } from "./seascape-lighting";
 
 type AtmosphereOptions = {
   /** Horizon colour, as a CSS colour string. */
@@ -60,14 +60,14 @@ export function createSeascapeAtmosphereNodes(options: AtmosphereOptions) {
   };
 
   /**
-   * The sky: the same gradient the water reflects, through the same gamma
+   * The sky: the same clear sky the water reflects, through the same gamma
    * lift, fading into the horizon colour near and below the horizon.
    *
    * three draws a background node on a sphere around the camera, so the
    * sphere's own normal is the direction being looked in.
    */
   const direction = normalize(normalWorldGeometry);
-  const sky = gammaLift(skyColor(direction));
+  const sky = gammaLift(clearSkyColor(direction));
   const skyHaze = smoothstep(0.0, max(uniforms.skyHazeHeight, MIN_EDGE_GAP), direction.y).oneMinus();
   const backgroundNode = vec4(mix(sky, uniforms.horizonColor, skyHaze), 1.0);
 

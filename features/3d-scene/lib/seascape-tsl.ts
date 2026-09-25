@@ -38,10 +38,12 @@ import {
 } from "three/tsl";
 import type { Node } from "three/webgpu";
 import {
+  LIGHT_DIRECTION,
   shadeSea,
   SHADERTOY_DEEP_COLOR,
   SHADERTOY_LIGHT_COLOR,
   SHADERTOY_REFLECTIVITY,
+  SHADERTOY_SHININESS,
 } from "./seascape-lighting";
 import { seaElevation, seaSlopeDetailed, WAVES_SPEED } from "./seascape-waves";
 
@@ -151,6 +153,11 @@ export const seascapeBackgroundColor = Fn(() => {
     toPoint,
     SHADERTOY_REFLECTIVITY,
     SHADERTOY_DEEP_COLOR,
-    SHADERTOY_LIGHT_COLOR
+    SHADERTOY_LIGHT_COLOR,
+    LIGHT_DIRECTION,
+    SHADERTOY_SHININESS,
+    vec3(0.0),
+    0.0,
+    normal
   );
 });

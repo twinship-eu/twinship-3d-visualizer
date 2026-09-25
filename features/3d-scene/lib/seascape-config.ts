@@ -45,6 +45,9 @@ export const SEASCAPE_SURFACE_GRID_SIZE = 1600;
  */
 export const SEASCAPE_SURFACE_GRID_SEGMENTS = 320;
 
+/** Grid densities the Inspector's Seascape panel offers, in segments per side. */
+export const SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS = [160, 320, 480, 640, 960, 1280] as const;
+
 /**
  * Half the grid: the nearest the sea's edge ever gets to the camera, since the
  * grid is kept centred under it.
@@ -67,3 +70,68 @@ export const SEASCAPE_ATMOSPHERE = {
   /** Largest haze end the panel allows — the grid's edge itself. */
   maxHazeEnd: SEASCAPE_SURFACE_EDGE_DISTANCE,
 } as const;
+
+/**
+ * Foam mask textures for the crest foam: single-channel, 1 for foam and 0 for
+ * water, tiling seamlessly. Made from two source images by cutting one tile,
+ * blending out the seam at the wrap and stretching the contrast to 0..1:
+ * - `lace`: thin strands with large holes (from the red channel, which the
+ *   teal water in the source lacks);
+ * - `bubbles`: denser, rounder foam cells.
+ * The Inspector's Seascape panel switches between them.
+ */
+export const SEASCAPE_FOAM_TEXTURES = {
+  lace: "/textures/foam-lace.png",
+  bubbles: "/textures/foam-bubbles.png",
+} as const;
+
+export type SeascapeFoamTextureName = keyof typeof SEASCAPE_FOAM_TEXTURES;
+
+export const SEASCAPE_DEFAULT_FOAM_TEXTURE: SeascapeFoamTextureName = "lace";
+
+/** Anisotropic filtering for the foam: keeps it sharp on water seen at a grazing angle. */
+export const SEASCAPE_FOAM_ANISOTROPY = 8;
+
+/**
+ * The wind the surface sea starts with — the only thing driving its waves (see
+ * `seascape-wind-waves.ts`). The Inspector's Seascape panel changes it live.
+ *
+ * 10 m/s over 100 km of open water: a fresh breeze, Beaufort 5, which raises
+ * Hs ≈ 2 m with a 6 s peak period and 57 m peak wavelength. From 225° (south-
+ * west, with 0 = +Z as for the sun), so the waves roll towards the default
+ * camera.
+ */
+export const SEASCAPE_WIND = {
+  speed: 10,
+  fromDegrees: 225,
+  fetch: 100_000,
+} as const;
+
+/** Limits of the Inspector's wind sliders. 35 m/s is a hurricane, Beaufort 12. */
+export const SEASCAPE_WIND_LIMITS = {
+  maxSpeed: 35,
+  minFetch: 1_000,
+  maxFetch: 1_000_000,
+} as const;
+
+/**
+ * The short chop's normal map, generated for the sea rather than borrowed:
+ * random ripples with no preferred direction, built from a spectrum so it
+ * tiles perfectly, stored losslessly. It replaced three's `waternormals.jpg`,
+ * whose ripples all lean one way — about 3x more slope at 45-75° than at
+ * 120-135° — and which drew stripes across the sea. The same slope (0.24 rms),
+ * so the wind's strengths carry over. Made with numpy: slope spectrum flat from
+ * 6 to 60 cycles per tile (median 16), every component the same strength with a
+ * random phase. Starting at 3 cycles, its largest ripples reflected the sky in
+ * big white patches.
+ */
+export const SEASCAPE_CHOP_NORMALS_URL = "/textures/sea-chop-normals.png";
+
+/**
+ * Anisotropic filtering for the chop's normal map: none. At 8, as for the
+ * foam, it drew thin bright streaks running away from the camera, and a line
+ * where they bunched up; filtering a normal map anisotropically is known to do
+ * that. Without it the chop is softer at grazing angles, where it is fading
+ * out anyway.
+ */
+export const SEASCAPE_DETAIL_NORMALS_ANISOTROPY = 1;
