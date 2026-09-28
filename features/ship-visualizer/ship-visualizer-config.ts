@@ -22,6 +22,10 @@ export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,330px)] lg:w-[330px]";
  * Built from the ~226 MB raw Blender export in two stages:
  *   npm run optimize:ship-model <raw> <tmp>      2048px WebP + Meshopt
  *   node scripts/simplify-engine-mesh.mjs <tmp> <out> 0.25
+ * and then, since, the engine to 87k (`... 0.5 Engine 0.02`), and the
+ * container and the crane by the method that keeps hard edges' shading
+ * (45.7k -> 22.8k and 12.7k -> 9.2k triangles, no difference seen):
+ *   node scripts/simplify-mesh-keeping-shading.mjs <in> <out> 0.5 Container,Crane 0.005
  *
  * The second stage exists because the `Engine` node ships at 494,596 triangles
  * — more than the rest of the vessel combined, and in an object only ~10 units
