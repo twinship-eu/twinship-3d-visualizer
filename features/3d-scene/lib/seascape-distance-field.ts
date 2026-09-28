@@ -11,7 +11,7 @@
  * a blur of the hull's footprint spread over metres came out in steps.
  */
 import { Fn, If, ivec2, screenCoordinate, textureLoad, vec2, vec4 } from "three/tsl";
-import { FloatType, NearestFilter, NodeMaterial, QuadMesh, RenderTarget, type Renderer } from "three/webgpu";
+import { HalfFloatType, NearestFilter, NodeMaterial, QuadMesh, RenderTarget, type Renderer } from "three/webgpu";
 
 /** Mask values above this count as inside. */
 const INSIDE = 0.5;
@@ -32,9 +32,14 @@ export function createDistanceField(resolution: number, maxDistance = resolution
   const steps = Math.log2(resolution);
   if (!Number.isInteger(steps)) throw new Error(`Distance field size must be a power of two, got ${resolution}`);
 
-  // (x, y) of the nearest inside texel found so far, z = 1 once one is found
+  // (x, y) of the nearest inside texel found so far, z = 1 once one is found.
+  // Half floats: they hold whole numbers exactly up to 2048, so a texel's
+  // coordinates lose nothing, and every WebGPU renders into them. (In 32-bit
+  // floats, on an iPhone — Safari's WebGPU, which Chrome on iOS uses too — the
+  // whole footprint read as touching the hull: one square of foam round the
+  // ship. Not seen on Chrome's own WebGPU)
   const targetOptions = {
-    type: FloatType,
+    type: HalfFloatType,
     minFilter: NearestFilter,
     magFilter: NearestFilter,
     depthBuffer: false,
@@ -97,6 +102,15 @@ export function createDistanceField(resolution: number, maxDistance = resolution
     return material;
   };
 
+  /**
+   * Fills `output` with FAR, once: should a pass ever fail on some GPU, the
+   * field reads "far from everything", not 0 — the texture's first contents,
+   * which read as touching the hull everywhere.
+   */
+  const farMaterial = new NodeMaterial();
+  farMaterial.fragmentNode = vec4(FAR, FAR, FAR, 1.0);
+  const farQuad = new QuadMesh(farMaterial);
+
   let passesFor: RenderTarget | null = null;
   let passes: { quad: QuadMesh; target: RenderTarget }[] = [];
 
@@ -118,6 +132,8 @@ export function createDistanceField(resolution: number, maxDistance = resolution
   /** Computes the distance field of `mask` into `output`. */
   function run(renderer: Renderer, mask: RenderTarget, output: RenderTarget) {
     if (passesFor !== mask) {
+      renderer.setRenderTarget(output);
+      farQuad.render(renderer);
       passes = buildPasses(mask, output);
       passesFor = mask;
     }
