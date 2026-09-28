@@ -15,6 +15,7 @@ import { color, exp, float, length, max, mix, normalize, positionView, pow, smoo
 import type { Node } from "three/webgpu";
 import { getSunDirection } from "./3d-scene-config";
 import { clearSkyColor, gammaLift } from "./seascape-lighting";
+import { overcast } from "./seascape-weather";
 
 /**
  * Under the water, looking down into the depth: a deep blue, not black —
@@ -95,7 +96,7 @@ export function underwaterFogFactor() {
 export function surfaceFromBelow(normal: Node<"vec3">, viewDirection: Node<"vec3">) {
   const upwards = viewDirection.dot(normal);
   const inWindow = smoothstep(SNELL_WINDOW_EDGE, SNELL_WINDOW_FULL, upwards);
-  const sky = gammaLift(clearSkyColor(viewDirection)).mul(SNELL_WINDOW_TRANSMISSION);
+  const sky = gammaLift(clearSkyColor(viewDirection, overcast())).mul(SNELL_WINDOW_TRANSMISSION);
   const reflected = underwaterColor(viewDirection.mul(vec3(1.0, -1.0, 1.0)));
 
   // The sun through the surface: its light, bent down by each wave's tilt

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { pass } from "three/tsl";
+import { pass, renderOutput } from "three/tsl";
 import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
+import { fxaa } from "three/examples/jsm/tsl/display/FXAANode.js";
 import { RenderPipeline, type Camera, type Scene } from "three/webgpu";
 import { IS_SCENE_INSPECTOR_ENABLED } from "../lib/3d-scene-config";
 import { asSceneRenderer, getSceneInspector } from "../lib/webgpu-renderer";
@@ -36,13 +37,21 @@ const BLOOM_TUNING = {
 function createPipeline(renderer: ReturnType<typeof asSceneRenderer>, scene: Scene, camera: Camera) {
   const scenePass = pass(scene, camera).getTextureNode("output");
   const bloomPass = bloom(scenePass, BLOOM.strength, BLOOM.radius, BLOOM.threshold);
-  const pipeline = new RenderPipeline(renderer, scenePass.add(bloomPass));
+  const pipeline = new RenderPipeline(renderer);
+  // Tone mapping and colour space done by hand, before FXAA, which needs the
+  // final, display-ready colours to find the edges it smooths
+  pipeline.outputColorTransform = false;
 
-  return { pipeline, scenePass, bloomPass, withBloom: BLOOM.isEnabled as boolean };
+  /** The chain: the scene, its bloom if on, the colour transform, then FXAA. */
+  const outputFor = (withBloom: boolean) => fxaa(renderOutput(withBloom ? scenePass.add(bloomPass) : scenePass));
+  pipeline.outputNode = outputFor(BLOOM.isEnabled);
+
+  return { pipeline, bloomPass, outputFor, withBloom: BLOOM.isEnabled as boolean };
 }
 
 /**
- * Renders the scene through three's TSL render pipeline, with a bloom pass:
+ * Renders the scene through three's TSL render pipeline, with a bloom pass and
+ * FXAA (the canvas is not multisampled: the passes render to their own targets):
  * takes over the frame's rendering from R3F.
  */
 export function SceneRenderPipeline() {
@@ -79,9 +88,7 @@ export function SceneRenderPipeline() {
     current.bloomPass.radius.value = BLOOM_TUNING.radius;
     current.bloomPass.threshold.value = BLOOM_TUNING.threshold;
     if (BLOOM_TUNING.bloom !== current.withBloom) {
-      current.pipeline.outputNode = BLOOM_TUNING.bloom
-        ? current.scenePass.add(current.bloomPass)
-        : current.scenePass;
+      current.pipeline.outputNode = current.outputFor(BLOOM_TUNING.bloom);
       current.pipeline.needsUpdate = true;
       current.withBloom = BLOOM_TUNING.bloom;
     }

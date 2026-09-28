@@ -32,6 +32,7 @@ import {
   dot,
   exp,
   float,
+  If,
   frontFacing,
   Fn,
   fwidth,
@@ -60,6 +61,8 @@ import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
 import { valueNoise } from "./seascape-noise";
 import { surfaceFromBelow } from "./seascape-underwater";
+import { rainRingsSlope } from "./seascape-rain-rings";
+import { overcast, weather } from "./seascape-weather";
 import {
   kelvinWakeFoam,
   kelvinWakeHeight,
@@ -104,6 +107,8 @@ const GEOMETRY_FILTER_CELLS = 2;
  * the hull churns the water all the time.
  */
 const MAX_HULL_FOAM = 0.8;
+/** How far from the camera the rain's rings on the water are drawn, in world units. */
+const RAIN_RINGS_REACH = 45;
 /** How bright foam is seen from under the water, against from above: lit through it. */
 const FOAM_FROM_BELOW = 0.7;
 /** How opaque the foam on the ship's waves gets, and its thinnest against that, where the grain is lightest. */
@@ -545,7 +550,16 @@ export function createSeascapeSurfaceNodes({
       sternChurnAt(positionWorld.xz.add(vec2(STERN_CHURN_SLOPE_STEP, 0.0))).sub(sternHere),
       sternChurnAt(positionWorld.xz.add(vec2(0.0, STERN_CHURN_SLOPE_STEP))).sub(sternHere)
     ).div(STERN_CHURN_SLOPE_STEP);
+    // Rain's rings on the water: only near the camera, only when it rains —
+    // skipped everywhere else, so dry weather pays for a branch
+    const rainRings = vec2(0.0).toVar();
+    // (1 - smoothstep rather than reversed edges, which WGSL rejects as constants)
+    const nearCamera = smoothstep(RAIN_RINGS_REACH * 0.5, RAIN_RINGS_REACH, length(toPoint)).oneMinus();
+    If(weather.rain.mul(nearCamera).greaterThan(0.001), () => {
+      rainRings.assign(rainRingsSlope(positionWorld.xz, time).mul(weather.rain).mul(nearCamera));
+    });
     const slope = vertexWaves.xy
+      .add(rainRings)
       .add(pixelWaves.xy)
       .add(detailSlope)
       .add(shipWavesSlope)
@@ -625,7 +639,9 @@ export function createSeascapeSurfaceNodes({
       glintShininess,
       subsurface,
       1.0,
-      reflectionNormal
+      reflectionNormal,
+      overcast(),
+      weather.sunlight
     );
 
     // White water on the highest crests, laid over the water's colour. The

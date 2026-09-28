@@ -49,6 +49,7 @@ import { CameraMotionProvider } from "./components/camera-motion-context";
 import { ShipVoyageProvider } from "./components/ship-voyage-context";
 import { SceneCameraFollow } from "./components/scene-camera-follow";
 import { SceneRenderPipeline } from "./components/scene-render-pipeline";
+import { SceneWeather } from "./components/scene-weather";
 
 /** The camera's far plane, in world units: beyond where the sea's haze is complete. */
 const CAMERA_FAR = 2000;
@@ -124,6 +125,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           {/* <SceneWater /> */}
           {IS_SEASCAPE_SURFACE_ENABLED ? <SceneSeascapeSurface /> : <SceneSeascape />}
           <SceneLights />
+          {IS_SEASCAPE_SURFACE_ENABLED && <SceneWeather />}
           {children}
           <OrbitControls
             makeDefault

@@ -158,6 +158,8 @@ export const seascapeBackgroundColor = Fn(() => {
     SHADERTOY_SHININESS,
     vec3(0.0),
     0.0,
-    normal
+    normal,
+    0.0,
+    1.0
   );
 });

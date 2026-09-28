@@ -32,6 +32,7 @@ import {
   getSceneInspector,
   TONE_MAPPING_EXPOSURE,
 } from "../lib/webgpu-renderer";
+import { weatherState } from "../lib/seascape-weather";
 
 const SUN_POS = getShadowLightPosition();
 
@@ -110,8 +111,10 @@ export function SceneLights() {
   // Scene and renderer come from the frame state rather than `useThree`, which
   // hands back values react-hooks will not let a component mutate.
   useFrame((state) => {
+    // The sun as much as the clouds let through (`seascape-weather.ts`)
+    const sun = IS_SCENE_INSPECTOR_ENABLED ? LIGHT_TUNING.sun : LIGHT_INTENSITY.sun;
+    if (sunRef.current) sunRef.current.intensity = sun * weatherState.sunlight;
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
-    if (sunRef.current) sunRef.current.intensity = LIGHT_TUNING.sun;
     if (ambientRef.current) {
       ambientRef.current.intensity = LIGHT_TUNING.ambient;
       ambientRef.current.color.set(LIGHT_TUNING.ambientColor);

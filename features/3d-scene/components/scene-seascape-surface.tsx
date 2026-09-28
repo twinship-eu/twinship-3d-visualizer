@@ -35,9 +35,11 @@ import { createContactFoam } from "../lib/seascape-contact-foam";
 import { useShipVoyage } from "./ship-voyage-context";
 import { createWake } from "../lib/seascape-wake";
 import { createSeaFrame, headOnTurn } from "../lib/seascape-sea-frame";
+import { apparentWind } from "../lib/seascape-weather";
 import { createKelvinHistory } from "../lib/seascape-kelvin-wake";
 import { createBuoys } from "../lib/seascape-buoys";
 import { createBubbles } from "../lib/seascape-bubbles";
+import { createPrecipitation } from "../lib/seascape-precipitation";
 import { shipMotion as shipMotionState } from "../lib/seascape-ship-motion";
 import { underwater } from "../lib/seascape-underwater";
 import { createShipMotionSolver } from "../lib/seascape-ship-motion";
@@ -229,6 +231,11 @@ function createSeaSurface(canUseCompute: boolean) {
     SEASCAPE_SURFACE_LEVEL_Y,
     fft ? (position) => fft.gridHeight(seaFrame.toSea(position), float(BUBBLE_SURFACE_FILTER)) : undefined
   );
+  // Rain and snow round the camera, never below the real surface
+  const precipitation = createPrecipitation(
+    SEASCAPE_SURFACE_LEVEL_Y,
+    fft ? (position) => fft.gridHeight(seaFrame.toSea(position), float(BUBBLE_SURFACE_FILTER)) : undefined
+  );
   const buoyProbes = ocean ? createWaveProbes(ocean.cascades, buoys.probePoints(0), seaFrame.toSea) : null;
   // The water right above (or below) the camera: whether it is under water
   const cameraProbe = ocean ? createWaveProbes(ocean.cascades, [{ x: 0, z: 0 }], seaFrame.toSea) : null;
@@ -270,6 +277,7 @@ function createSeaSurface(canUseCompute: boolean) {
     kelvinTrack,
     buoys,
     bubbles,
+    precipitation,
     buoyProbes,
     cameraProbe,
     shipMotion,
@@ -421,6 +429,13 @@ export function SceneSeascapeSurface() {
     // as the ship gathered speed, the whole sea was seen swinging round it
     const travel = sea.uniforms.windSea.travel.value;
     sea.seaFrame.turnTo(headOnTurn(travel.x, travel.y));
+
+    // The wind round the ship: the sea is turned so the wind blows from the
+    // bow, and sailing adds the ship's own way through the air to it
+    const windSpeed = IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.windSpeed : SEASCAPE_WIND.speed;
+    apparentWind.x = 0;
+    apparentWind.z = -(windSpeed + speed);
+    sea.precipitation.update(apparentWind, delta);
     sea.uniforms.shipSpeed.value = speed;
     shipMotionState.speed = speed;
     sea.bubbles.uniforms.speed.value = speed;
@@ -456,7 +471,12 @@ export function SceneSeascapeSurface() {
       const highestWater = sea.uniforms.windSea.travel.value.w * HIGHEST_CREST_OF_HS;
       // Without the buoys: the footprint's override material would draw them all
       // at their geometry's origin, inside the hull, not where their instances are
-      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh, sea.buoys.mesh, sea.bubbles.sprite], highestWater);
+      sea.contactFoam.update(
+        asSceneRenderer(gl),
+        scene,
+        [mesh, sea.buoys.mesh, sea.bubbles.sprite, sea.precipitation.sprite],
+        highestWater
+      );
       sea.framesSinceContactFoam = 0;
       sea.contactFoamDistance = contactFoamDistance;
     }
@@ -521,6 +541,7 @@ export function SceneSeascapeSurface() {
       />
       <primitive object={seaRef.current.buoys.mesh} />
       <primitive object={seaRef.current.bubbles.sprite} />
+      <primitive object={seaRef.current.precipitation.sprite} />
     </>
   );
 }
