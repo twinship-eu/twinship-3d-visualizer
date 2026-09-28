@@ -28,6 +28,7 @@
  */
 import {
   cameraPosition,
+  Discard,
   dot,
   exp,
   float,
@@ -55,7 +56,12 @@ import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/web
 import type { ContactFoam } from "./seascape-contact-foam";
 import type { Wake } from "./seascape-wake";
 import { valueNoise } from "./seascape-noise";
-import { kelvinWakeFoam, kelvinWakeHeight, kelvinWakeSlope } from "./seascape-kelvin-wake";
+import {
+  kelvinWakeFoam,
+  kelvinWakeHeight,
+  kelvinWakeSlope,
+  type KelvinHistory,
+} from "./seascape-kelvin-wake";
 import type { FftSurfaceNodes } from "./seascape-fft-surface";
 import { crestFoamColor, crestFoamDensity, foamGrain, hullFoamDensity } from "./seascape-foam-tsl";
 import { shadeSea } from "./seascape-lighting";
@@ -115,6 +121,26 @@ const CHURN_SIZE = 2.5;
 const CHURN_TUMBLE = 0.6;
 /** Its height at the stern, in world units: the propellers' wash bulges the surface. */
 const CHURN_HEIGHT = 0.35;
+
+// Residual foam
+/**
+ * Off: its patches read as flat decals on the water. The buoys show the ship
+ * moving instead (`seascape-buoys.ts`). Kept, to try again with a better look.
+ */
+const IS_RESIDUAL_FOAM_ENABLED = false;
+/** Size of its patches across the waves' travel, in world units, and how much longer they are along it. */
+const RESIDUAL_FOAM_SIZE = 14;
+const RESIDUAL_FOAM_STRETCH = 3;
+/** Noise values where a patch starts and is full: only the noise's highest parts, so they are sparse. */
+const RESIDUAL_FOAM_START = 0.3;
+const RESIDUAL_FOAM_FULL = 0.65;
+/** How fast it drifts downwind, in m/s: a few per cent of the wind, as foam does. */
+const RESIDUAL_FOAM_DRIFT = 0.3;
+/** Hs, in world units, below which the sea leaves none, and at which it leaves its most. */
+const RESIDUAL_FOAM_CALM_HS = 0.5;
+const RESIDUAL_FOAM_ROUGH_HS = 4;
+/** How opaque it gets against a whitecap: thin, old foam. */
+const RESIDUAL_FOAM_STRENGTH = 0.55;
 
 // The water thrown up behind the stern
 /** Height of its mounds right behind the stern, in world units. */
@@ -275,6 +301,8 @@ type SurfaceOptions = {
    * (see `seascape-kelvin-wake.ts`). Without it, the ship raises no waves.
    */
   bowZ?: number;
+  /** The ship's track, for its waves: see `createKelvinHistory`. Needed with `bowZ`. */
+  kelvinTrack?: KelvinHistory;
 };
 
 /**
@@ -315,7 +343,10 @@ export function createSeascapeSurfaceNodes({
   seaOffset,
   wake,
   bowZ,
+  kelvinTrack,
 }: SurfaceOptions) {
+  // The ship raises waves only with its track known
+  const shipWaves = bowZ !== undefined && kelvinTrack ? { bowZ, track: kelvinTrack } : null;
   /** A world point, where it is on the sea: the sea has flowed past the ship. */
   const onSea = (world: Node<"vec2">) => world.add(seaOffset);
 
@@ -399,7 +430,7 @@ export function createSeascapeSurfaceNodes({
 
   // The ship's own waves, which stay with it (in the ship's frame)
   const shipWavesAt = (world: Node<"vec2">) =>
-    bowZ === undefined ? float(0.0) : kelvinWakeHeight(world, uniforms.shipSpeed, bowZ);
+    shipWaves ? kelvinWakeHeight(world, shipWaves.track, shipWaves.bowZ) : float(0.0);
   const vertexLift = (
     fft
       ? fft.gridHeight(onSea(vertexWorld.xz), uniforms.cellSize)
@@ -467,9 +498,9 @@ export function createSeascapeSurfaceNodes({
     const detailSlope = fft ? vec2(0.0) : chop.slope;
     // The ship's own waves' slope: finite differences, a little over half a metre
     const shipWavesSlope =
-      bowZ === undefined
-        ? vec2(0.0)
-        : kelvinWakeSlope(positionWorld.xz, uniforms.shipSpeed, bowZ, SHIP_WAVES_SLOPE_STEP);
+      shipWaves
+        ? kelvinWakeSlope(positionWorld.xz, shipWaves.track, shipWaves.bowZ, SHIP_WAVES_SLOPE_STEP)
+        : vec2(0.0);
     // The churned water behind the ship: propeller wash, a tumbling surface
     // strongest at the stern and calming along the trail with the wake itself.
     // Noise carried with the sea, so the churn flows back with the water
@@ -617,14 +648,38 @@ export function createSeascapeSurfaceNodes({
       : float(0.0);
     // Foam on the crests of the ship's own waves: the white V
     const shipWavesFoam =
-      bowZ === undefined
+      !shipWaves
         ? float(0.0)
         : // Fresh foam: the amount itself, shaded by the grain into a veil
-          kelvinWakeFoam(positionWorld.xz, uniforms.shipSpeed, bowZ)
+          kelvinWakeFoam(positionWorld.xz, shipWaves.track, shipWaves.bowZ)
             .mul(mix(float(SHIP_WAVES_FOAM_THINNEST), float(1.0), grain.x))
             .mul(MAX_SHIP_WAVES_FOAM);
-    const foam = max(max(crestFoam, hullFoam), max(wakeFoam, shipWavesFoam));
+    // Residual foam: pale patches and streaks left by crests that broke a while
+    // ago. They lie still in the water, drifting only slowly downwind — so
+    // under way they pass the ship at its own speed, whichever way the waves
+    // run, and show it moving. More of them the rougher the sea
+    const residualAt = seaPosition.sub(sea.travel.xy.mul(time.mul(RESIDUAL_FOAM_DRIFT)));
+    const residualAlong = dot(residualAt, sea.travel.xy).div(RESIDUAL_FOAM_STRETCH);
+    const residualAcross = dot(residualAt, vec2(sea.travel.y.negate(), sea.travel.x));
+    const residualCell = vec2(residualAlong, residualAcross).div(RESIDUAL_FOAM_SIZE);
+    const residualNoise = valueNoise(residualCell)
+      .mul(2.0)
+      .add(valueNoise(residualCell.mul(2.3).add(vec2(7.1, 3.3))))
+      .div(3.0);
+    const residualCoverage = smoothstep(RESIDUAL_FOAM_START, RESIDUAL_FOAM_FULL, residualNoise).mul(
+      smoothstep(RESIDUAL_FOAM_CALM_HS, RESIDUAL_FOAM_ROUGH_HS, sea.travel.w)
+    );
+    const residualFoam = crestFoamDensity(residualCoverage, grain, float(1.0)).mul(RESIDUAL_FOAM_STRENGTH);
+
+    const foam = max(
+      max(crestFoam, hullFoam),
+      max(wakeFoam, IS_RESIDUAL_FOAM_ENABLED ? max(shipWavesFoam, residualFoam) : shipWavesFoam)
+    );
     const foamColor = crestFoamColor(vec3(uniforms.foamColor), normal, sun);
+
+    // No sea inside the hull: seen over the bulwarks or through an open deck,
+    // the water there filled the ship. Last, after every derivative and read
+    if (contactFoam) Discard(contactFoam.isInsideHull(positionWorld.xz));
 
     return vec4(mix(water.rgb, foamColor, foam), 1.0);
   })();

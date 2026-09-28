@@ -43,6 +43,9 @@ import {
 } from "three/webgpu";
 import { createDistanceField } from "./seascape-distance-field";
 
+/** How far inside the hull's footprint the sea is cut away, in world units. */
+const INSIDE_MARGIN = 0.5;
+
 /** What `sample` reports outside the footprint's area: far past the foam. */
 const OUTSIDE_AREA = 1.0e3;
 
@@ -195,7 +198,31 @@ export function createContactFoam({ areaSize, resolution, levelY, distance, wate
     return inside.select(texture(distanceTexture, footprintUV).r.mul(unitsPerTexel), OUTSIDE_AREA);
   }
 
-  return { update, sample, distanceAt, uniforms, footprint, hullDistance, camera };
+  const footprintTexture = texture(footprint.texture);
+
+  /**
+   * Whether a world point lies inside the hull at the waterline, by more than
+   * INSIDE_MARGIN: the footprint there and half a metre to every side. Shrunk,
+   * so the sea is never cut away right against the hull's side, where the
+   * footprint's texels straddle it and a gap would show.
+   */
+  function isInsideHull(position: Node<"vec2">) {
+    const at = (offset: Node<"vec2">) => {
+      const point = position.add(offset);
+      const footprintUV = vec2(point.x.div(areaSize).add(0.5), point.y.div(areaSize).add(0.5));
+
+      return texture(footprintTexture, footprintUV).r;
+    };
+    const inside = at(vec2(0.0, 0.0))
+      .min(at(vec2(INSIDE_MARGIN, 0.0)))
+      .min(at(vec2(-INSIDE_MARGIN, 0.0)))
+      .min(at(vec2(0.0, INSIDE_MARGIN)))
+      .min(at(vec2(0.0, -INSIDE_MARGIN)));
+
+    return inside.greaterThan(0.5);
+  }
+
+  return { update, sample, distanceAt, isInsideHull, uniforms, footprint, hullDistance, camera };
 }
 
 export type ContactFoam = ReturnType<typeof createContactFoam>;

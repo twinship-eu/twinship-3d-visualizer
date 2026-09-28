@@ -5,9 +5,10 @@ import {
   DEFAULT_CAMERA_TARGET,
 } from "@/features/ship-visualizer/ship-visualizer-config";
 import { useThree } from "@react-three/fiber";
-import { RotateCw, Ship, ZoomIn, ZoomOut } from "lucide-react";
+import { Anchor, Navigation, RotateCw, Ship, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCameraMotion } from "./camera-motion-context";
+import { useShipVoyage } from "./ship-voyage-context";
 import {
   createContext,
   useCallback,
@@ -96,6 +97,7 @@ export function ZoomControlsBridge() {
 export function ZoomControlsOverlay() {
   const actions = useZoomControls();
   const { isRidingShip, setIsRidingShip } = useCameraMotion();
+  const { isTraveling, setIsTraveling } = useShipVoyage();
 
   if (!actions) return null;
 
@@ -147,6 +149,23 @@ export function ZoomControlsOverlay() {
           )}
         >
           <Ship className="h-4 w-4" aria-hidden />
+        </button>
+        <button
+          type="button"
+          aria-label={isTraveling ? "Stop the ship" : "Set the ship under way"}
+          aria-pressed={isTraveling}
+          title={isTraveling ? "Stop the ship" : "Set the ship under way"}
+          onClick={() => setIsTraveling(!isTraveling)}
+          className={cn(
+            "flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8",
+            isTraveling && "bg-primary text-primary-foreground hover:bg-primary/90"
+          )}
+        >
+          {isTraveling ? (
+            <Navigation className="h-4 w-4" aria-hidden />
+          ) : (
+            <Anchor className="h-4 w-4" aria-hidden />
+          )}
         </button>
       </div>
     </div>

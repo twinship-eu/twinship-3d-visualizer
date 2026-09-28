@@ -32,7 +32,10 @@ import {
 } from "../lib/seascape-config";
 import { uniform } from "three/tsl";
 import { createContactFoam } from "../lib/seascape-contact-foam";
+import { useShipVoyage } from "./ship-voyage-context";
 import { createWake } from "../lib/seascape-wake";
+import { createKelvinHistory } from "../lib/seascape-kelvin-wake";
+import { createBuoys } from "../lib/seascape-buoys";
 import { createShipMotionSolver } from "../lib/seascape-ship-motion";
 import { createWaveProbes } from "../lib/seascape-wave-probes";
 import { createFftOcean } from "../lib/seascape-fft-ocean";
@@ -129,11 +132,17 @@ const CONTACT_FOAM_REDRAW_FRAMES = 1;
 const HIGHEST_CREST_OF_HS = 1.7;
 
 /**
- * The ship's speed through the water to start with, in knots. It stays at the
- * origin and the sea flows past it (see `seaOffset`).
+ * The ship's speed through the water when under way, in knots. It stays at the
+ * origin and the sea flows past it (see `seaOffset`). It starts still: the
+ * button beside the zoom controls sets it under way.
  */
 const SHIP_SPEED_KNOTS = 18;
 const MAX_SHIP_SPEED_KNOTS = 30;
+/**
+ * How long the ship takes to gather speed or slow down, in seconds (the time
+ * constant): a laden cargo ship does not start or stop at once.
+ */
+const SPEED_CHANGE_TIME = 6;
 /** Metres per second in a knot. */
 const METRES_PER_SECOND_PER_KNOT = 0.514444;
 
@@ -170,6 +179,10 @@ function createSeaSurface(canUseCompute: boolean) {
     waterHeight: fft ? (position) => fft.pixelWaves(position.add(seaOffset)).z : undefined,
   });
   const wake = createWake(contactFoam);
+  const kelvinTrack = createKelvinHistory();
+  // Buoys moored around the ship, riding the waves: probed like the ship
+  const buoys = createBuoys(SEASCAPE_SURFACE_LEVEL_Y);
+  const buoyProbes = ocean ? createWaveProbes(ocean.cascades, buoys.probePoints(0), seaOffset) : null;
 
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
@@ -184,6 +197,7 @@ function createSeaSurface(canUseCompute: boolean) {
     seaOffset,
     wake,
     bowZ: SEASCAPE_SHIP_HULL.halfLength,
+    kelvinTrack,
   });
   const material = new MeshBasicNodeMaterial();
   material.positionNode = nodes.positionNode;
@@ -201,8 +215,13 @@ function createSeaSurface(canUseCompute: boolean) {
     contactFoam,
     seaOffset,
     wake,
+    kelvinTrack,
+    buoys,
+    buoyProbes,
     shipMotion,
     waveProbes,
+    /** The ship's speed through the water right now, in m/s: eased towards its target. */
+    speed: 0,
     /** Frames since the hull foam's footprint was last drawn. */
     framesSinceContactFoam: Infinity,
     /** The distance it was drawn for. */
@@ -251,7 +270,7 @@ const SEASCAPE_TUNING = {
    * `SEASCAPE_SURFACE_GRID_SEGMENTS` for measurements.
    */
   gridSegments: SEASCAPE_SURFACE_GRID_SEGMENTS as number,
-  /** The ship's speed through the water, in knots: the sea flows past at it. */
+  /** The ship's speed through the water under way, in knots: the sea flows past at it. */
   shipSpeedKnots: SHIP_SPEED_KNOTS as number,
   /** How far the foam around the hull reaches, in world units. */
   contactFoamDistance: CONTACT_FOAM_DISTANCE as number,
@@ -274,6 +293,13 @@ export function SceneSeascapeSurface() {
   // Held in a ref, not a memo: the uniforms are written every frame, and the
   // React Compiler rightly refuses mutating a memoised value. A lazily filled
   // ref is the sanctioned escape hatch.
+  // Under way or still, from the button beside the zoom controls; read every frame
+  const { isTraveling } = useShipVoyage();
+  const isTravelingRef = useRef(isTraveling);
+  useEffect(() => {
+    isTravelingRef.current = isTraveling;
+  }, [isTraveling]);
+
   const seaRef = useRef<ReturnType<typeof createSeaSurface> | null>(null);
   seaRef.current ??= createSeaSurface(isWebGPUBackend(gl));
   const { geometry, material } = seaRef.current;
@@ -325,10 +351,20 @@ export function SceneSeascapeSurface() {
     sea.ocean?.update(asSceneRenderer(gl), clock.elapsedTime);
 
     // The ship sails on: the sea flows past it, bow (+z) to stern
+    // Under way it gathers speed, and stopped it slows down, over a few
+    // seconds: the wake and the ship's waves build up and die away with it
     const speedKnots = IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.shipSpeedKnots : SHIP_SPEED_KNOTS;
-    const speed = speedKnots * METRES_PER_SECOND_PER_KNOT;
+    const targetSpeed = isTravelingRef.current ? speedKnots * METRES_PER_SECOND_PER_KNOT : 0;
+    sea.speed += (targetSpeed - sea.speed) * (1 - Math.exp(-delta / SPEED_CHANGE_TIME));
+    const speed = sea.speed;
     sea.seaOffset.value.y += speed * delta;
     sea.uniforms.shipSpeed.value = speed;
+    sea.kelvinTrack.update(speed * delta, speed, delta);
+
+    // The buoys stay where they are moored in the sea, so they fall behind
+    const sailed = sea.seaOffset.value.y;
+    sea.buoyProbes?.setPoints(sea.buoys.probePoints(sailed));
+    sea.buoys.update(sailed, sea.buoyProbes ? sea.buoyProbes.update(asSceneRenderer(gl)) : null, delta);
 
     // The ship, carried by the sea under it
     if (sea.waveProbes) sea.shipMotion.update(sea.waveProbes.update(asSceneRenderer(gl)), delta, speed);
@@ -345,7 +381,9 @@ export function SceneSeascapeSurface() {
       sea.contactFoam.uniforms.distance.value = contactFoamDistance;
       // The highest the sea can rise: the crests of the tallest waves
       const highestWater = sea.uniforms.windSea.travel.value.w * HIGHEST_CREST_OF_HS;
-      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh], highestWater);
+      // Without the buoys: the footprint's override material would draw them all
+      // at their geometry's origin, inside the hull, not where their instances are
+      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh, sea.buoys.mesh], highestWater);
       sea.framesSinceContactFoam = 0;
       sea.contactFoamDistance = contactFoamDistance;
     }
@@ -401,11 +439,14 @@ export function SceneSeascapeSurface() {
   });
 
   return (
-    <mesh
-      ref={meshRef}
-      geometry={geometry}
-      material={material}
-      position={[0, SEASCAPE_SURFACE_LEVEL_Y, 0]}
-    />
+    <>
+      <mesh
+        ref={meshRef}
+        geometry={geometry}
+        material={material}
+        position={[0, SEASCAPE_SURFACE_LEVEL_Y, 0]}
+      />
+      <primitive object={seaRef.current.buoys.mesh} />
+    </>
   );
 }

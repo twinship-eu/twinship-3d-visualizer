@@ -16,8 +16,8 @@
  * in the right places, with the right wavelengths and envelopes — and foam on
  * the V's crests (`kelvinWakeFoam`).
  */
-import { abs, cos, exp, float, max, mix, pow, smoothstep, sqrt, vec2 } from "three/tsl";
-import type { Node } from "three/webgpu";
+import { abs, cos, exp, float, max, mix, pow, smoothstep, sqrt, texture, uniform, vec2 } from "three/tsl";
+import { DataTexture, FloatType, LinearFilter, RGBAFormat, type Node } from "three/webgpu";
 
 /** Standard gravity, m/s². */
 const GRAVITY = 9.81;
@@ -46,6 +46,23 @@ const TRANSVERSE_HEIGHT = 0.25;
 /** Speed, in m/s, at which the waves are full height; they grow with the speed up to it. */
 const FULL_WAVE_SPEED = 9;
 /**
+ * Speed, in m/s, below which the ship raises no waves worth drawing: its
+ * wavelength, 2πv²/g, is a few metres there, and drew a fine comb of foam
+ * over the whole V while the ship gathered speed.
+ */
+const MIN_WAVE_SPEED = 3;
+
+// The track's history
+/** Cells the history is kept in, and the track each covers, in world units: 1 km behind the bow. */
+const HISTORY_CELLS = 256;
+const HISTORY_CELL_LENGTH = 4;
+/**
+ * Seconds for the waves left on the track to die away to a third: behind a
+ * ship that has stopped they are gone in under a minute. (At 60, they seemed
+ * never to go.)
+ */
+const HISTORY_LIFETIME = 15;
+/**
  * The distance, in world units, over which the waves grow in behind the
  * origin, and the one over which they decay: transverse waves as 1/√distance,
  * divergent ones slower, as distance^(-1/3), as in the theory.
@@ -68,23 +85,87 @@ const FOAM_CUSP_NARROWING = 1.0;
  */
 const FOAM_BETWEEN_CRESTS = 0.45;
 
+/**
+ * What the ship did along its track: for every few metres behind the bow, the
+ * speed it had when it passed there, and how much of the waves it raised
+ * there are left. The waves are drawn from it, not from the speed now — so
+ * they only reach back as far as the ship has sailed, keep the wavelength
+ * they were raised with, and die away behind a ship that has stopped.
+ * (Drawn from the speed now, the whole V appeared at once as the ship set off,
+ * and stretched and shrank all together as it sped up and slowed down.)
+ */
+export function createKelvinHistory() {
+  const data = new Float32Array(HISTORY_CELLS * 4);
+  const history = new DataTexture(data, HISTORY_CELLS, 1, RGBAFormat, FloatType);
+  history.minFilter = LinearFilter;
+  history.magFilter = LinearFilter;
+  history.needsUpdate = true;
+  const historyTexture = texture(history);
+  let unshifted = 0;
+  /** How far the ship has sailed since the history last moved on a cell, in world units. */
+  const sailedSinceShift = uniform(0);
+
+  /** Moves the history on: the ship sailed `sailed` world units at `speed` m/s, `elapsed` seconds on. */
+  function update(sailed: number, speed: number, elapsed: number) {
+    // Shift by whole cells as the track passes under the bow
+    unshifted += sailed;
+    const cells = Math.min(Math.floor(unshifted / HISTORY_CELL_LENGTH), HISTORY_CELLS);
+    if (cells > 0) {
+      data.copyWithin(cells * 4, 0, (HISTORY_CELLS - cells) * 4);
+      for (let cell = 0; cell < cells; cell++) {
+        data[cell * 4] = speed;
+        data[cell * 4 + 1] = 1;
+      }
+      unshifted -= cells * HISTORY_CELL_LENGTH;
+    }
+    // The bow's own cell always holds the speed now, and fresh waves
+    data[0] = speed;
+    data[1] = 1;
+    sailedSinceShift.value = unshifted;
+    // Everything left behind dies away
+    const kept = Math.exp(-elapsed / HISTORY_LIFETIME);
+    for (let cell = 1; cell < HISTORY_CELLS; cell++) data[cell * 4 + 1] *= kept;
+    history.needsUpdate = true;
+  }
+
+  /** The speed the ship had (x) and the share of its waves left (y), `behind` world units behind the bow. */
+  function at(behind: Node<"float">) {
+    // The cells lie where they were when the history last moved on, and the
+    // ship has sailed on since: read them that much further back, so the
+    // waves slide with the water instead of stepping a cell at a time
+    const u = max(behind.sub(sailedSinceShift), 0.0)
+      .div(HISTORY_CELLS * HISTORY_CELL_LENGTH)
+      .add(0.5 / HISTORY_CELLS);
+    const sample = historyTexture.sample(vec2(u.min(1.0), 0.5));
+
+    return vec2(sample.x, u.lessThan(1.0).select(sample.y, 0.0));
+  }
+
+  return { update, at };
+}
+
+export type KelvinHistory = ReturnType<typeof createKelvinHistory>;
+
 /** Everything the height and the foam share, at a point in the ship's frame. */
-function wakeParts(position: Node<"vec2">, speed: Node<"float">, origin: number) {
+function wakeParts(position: Node<"vec2">, track: KelvinHistory, origin: number) {
+  const behindTrack = float(origin).sub(position.y);
+  const passed = track.at(behindTrack);
+  const speed = passed.x;
   const safeSpeed = max(speed, 0.5);
   // Transverse wavenumber: waves travelling at the ship's speed, k = g / v²
   const transverseWavenumber = float(GRAVITY).div(safeSpeed.mul(safeSpeed));
   const divergentWavenumber = transverseWavenumber.div(Math.cos(DIVERGENT_ANGLE) ** 2);
 
   // Distance behind the origin, and how far out towards the wedge's edge
-  const behind = float(origin).sub(position.y);
+  const behind = behindTrack;
   const across = abs(position.x);
   const behindSafe = max(behind, 1.0);
   const outwards = across.div(behindSafe);
 
   // Only behind the origin, grown in over the first metres
   const started = smoothstep(0.0, GROW_IN, behind);
-  // Bigger the faster the ship goes, up to full height
-  const strength = smoothstep(0.0, 1.0, speed.div(FULL_WAVE_SPEED));
+  // Bigger the faster the ship went, up to full height, and fading with age
+  const strength = smoothstep(MIN_WAVE_SPEED / FULL_WAVE_SPEED, 1.0, speed.div(FULL_WAVE_SPEED)).mul(passed.y);
 
   // Transverse waves: across the track, filling the wedge, fading at its edge
   // (1 - smoothstep rather than reversed edges, which WGSL rejects as constants)
@@ -110,11 +191,11 @@ function wakeParts(position: Node<"vec2">, speed: Node<"float">, origin: number)
  * The Kelvin wake's height at a point, in the ship's frame, in world units.
  *
  * @param position the point on the xz plane, the ship at the origin, bow at +z
- * @param speed    the ship's speed through the water, in m/s
+ * @param track    what the ship did along its track: see `createKelvinHistory`
  * @param origin   where along z the pattern starts: the bow
  */
-export function kelvinWakeHeight(position: Node<"vec2">, speed: Node<"float">, origin: number) {
-  const { transverse, divergent, started, strength } = wakeParts(position, speed, origin);
+export function kelvinWakeHeight(position: Node<"vec2">, track: KelvinHistory, origin: number) {
+  const { transverse, divergent, started, strength } = wakeParts(position, track, origin);
 
   return transverse.mul(TRANSVERSE_HEIGHT).add(divergent.mul(DIVERGENT_HEIGHT)).mul(started).mul(strength);
 }
@@ -124,8 +205,8 @@ export function kelvinWakeHeight(position: Node<"vec2">, speed: Node<"float">, o
  * of the divergent waves along the V's edges, white near the bow and thinning
  * out behind — the white V of a ship under way.
  */
-export function kelvinWakeFoam(position: Node<"vec2">, speed: Node<"float">, origin: number) {
-  const { behind, alongCusp, divergentWave, started, strength } = wakeParts(position, speed, origin);
+export function kelvinWakeFoam(position: Node<"vec2">, track: KelvinHistory, origin: number) {
+  const { behind, alongCusp, divergentWave, started, strength } = wakeParts(position, track, origin);
   const narrowed = alongCusp.div(FOAM_CUSP_NARROWING);
   // A Gaussian across the V's edge, eased to nothing by four band widths out,
   // so its tails end softly rather than lingering as a faint haze
@@ -140,10 +221,10 @@ export function kelvinWakeFoam(position: Node<"vec2">, speed: Node<"float">, ori
  * The Kelvin wake's slope at a point (x, z), by finite differences over `step`
  * world units — see `kelvinWakeHeight`.
  */
-export function kelvinWakeSlope(position: Node<"vec2">, speed: Node<"float">, origin: number, step: number) {
-  const here = kelvinWakeHeight(position, speed, origin);
-  const alongX = kelvinWakeHeight(position.add(vec2(step, 0.0)), speed, origin);
-  const alongZ = kelvinWakeHeight(position.add(vec2(0.0, step)), speed, origin);
+export function kelvinWakeSlope(position: Node<"vec2">, track: KelvinHistory, origin: number, step: number) {
+  const here = kelvinWakeHeight(position, track, origin);
+  const alongX = kelvinWakeHeight(position.add(vec2(step, 0.0)), track, origin);
+  const alongZ = kelvinWakeHeight(position.add(vec2(0.0, step)), track, origin);
 
   return vec2(alongX.sub(here), alongZ.sub(here)).div(step);
 }

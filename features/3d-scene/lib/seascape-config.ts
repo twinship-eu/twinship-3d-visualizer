@@ -39,23 +39,24 @@ export const SEASCAPE_SURFACE_SCALE = 4;
  */
 export const SEASCAPE_SURFACE_LEVEL_Y = -5;
 
-/** Side length of the displaced grid, in world units. */
-export const SEASCAPE_SURFACE_GRID_SIZE = 1600;
+/**
+ * Side length of the displaced grid, in world units. The haze has to hide its
+ * edge, so this is what sets how far the sea can be seen: at 1600 the haze
+ * closed in from 300, and the sea felt foggy.
+ */
+export const SEASCAPE_SURFACE_GRID_SIZE = 3200;
 
 /**
- * Grid segments per side: 5 world units between vertices.
- *
- * The geometry's finest octave has crests about 5.4 world units apart, so at
- * this density it gets barely one vertex per crest and the crest lines can look
- * faceted — straight segments with sharp kinks. Measured at 1080p:
- *   320 -> 205k triangles, ~3.0 ms, faceted crests   <- current
- *   640 -> 819k triangles, ~3.7 ms, smooth crests
- *   960 -> 1.8M triangles, ~4.6 ms, little further gain
+ * Grid segments per side: 5 world units between vertices, as before the grid
+ * was doubled. Measured at 1080p on the 1600 grid, where the vertex counts
+ * were the same as here at double the segments:
+ *   320 -> 205k triangles, ~3.0 ms
+ *   640 -> 819k triangles, ~3.7 ms   <- current (5 units a cell over 3200)
  */
-export const SEASCAPE_SURFACE_GRID_SEGMENTS = 320;
+export const SEASCAPE_SURFACE_GRID_SEGMENTS = 640;
 
 /** Grid densities the Inspector's Seascape panel offers, in segments per side. */
-export const SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS = [160, 320, 480, 640, 960, 1280] as const;
+export const SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS = [320, 640, 960, 1280, 1920] as const;
 
 /**
  * Half the grid: the nearest the sea's edge ever gets to the camera, since the
@@ -70,8 +71,8 @@ const SEASCAPE_SURFACE_EDGE_DISTANCE = SEASCAPE_SURFACE_GRID_SIZE / 2;
 export const SEASCAPE_ATMOSPHERE = {
   /** The colour sea and sky both fade into. The scene's existing fog colour. */
   horizonColor: SCENE_FOG_COLOR,
-  /** Where the haze starts. Past the ship at the widest zoom (400), barely. */
-  hazeStart: 300,
+  /** Where the haze starts: well past the ship at the widest zoom (400). */
+  hazeStart: 600,
   /** Where the haze is complete: short of the grid's edge, so the edge is never visible. */
   hazeEnd: SEASCAPE_SURFACE_EDGE_DISTANCE - 50,
   /** The sky is tinted by the haze up to this direction height (~9° above the horizon). */
@@ -109,6 +110,8 @@ export const SEASCAPE_FOAM_ANISOTROPY = 8;
  * (see `fullyDevelopedFetch`) — so the wind's speed alone sets how big it is.
  * 10 m/s is a fresh breeze, Beaufort 5 (Hs ≈ 3 m). From 225° (south-west,
  * with 0 = +Z as for the sun), so the waves roll towards the default camera.
+ * The waves then run the ship's way, so under way it is the residual foam,
+ * still in the water, that shows it moving (see the surface's shader).
  */
 export const SEASCAPE_WIND = {
   speed: 10,

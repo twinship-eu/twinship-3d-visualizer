@@ -46,7 +46,12 @@ import {
   ZoomControlsProvider,
 } from "./components/zoom-controls-overlay";
 import { CameraMotionProvider } from "./components/camera-motion-context";
+import { ShipVoyageProvider } from "./components/ship-voyage-context";
 import { SceneCameraFollow } from "./components/scene-camera-follow";
+import { SceneRenderPipeline } from "./components/scene-render-pipeline";
+
+/** The camera's far plane, in world units: beyond where the sea's haze is complete. */
+const CAMERA_FAR = 2000;
 
 
 type Props = {
@@ -90,6 +95,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
   return (
     <SceneInteractionProvider value={{ isOrbitControlsActive }}>
       <CameraMotionProvider>
+      <ShipVoyageProvider>
       <ZoomControlsProvider>
         <Canvas
           // False on Android, where three's own shadow path emits invalid
@@ -98,6 +104,8 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           camera={{
             position: new Vector3(...DEFAULT_CAMERA_POSITION),
             fov: 45,
+            // Past the sea's haze (1550): at R3F's default 1000 the far sea was cut off
+            far: CAMERA_FAR,
           }}
           gl={createSceneRenderer}
         >
@@ -128,6 +136,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
             onEnd={() => setIsOrbitControlsActive(false)}
           />
           <SceneCameraFollow />
+          <SceneRenderPipeline />
           <ZoomControlsBridge />
         </Canvas>
         <ZoomControlsOverlay />
@@ -135,6 +144,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
         {isDiagnosticsOn && <SceneDiagnosticsOverlay />}
       </ZoomControlsProvider>
+      </ShipVoyageProvider>
       </CameraMotionProvider>
     </SceneInteractionProvider>
   );
