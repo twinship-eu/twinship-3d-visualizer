@@ -64,6 +64,12 @@ const JONSWAP_SIGMA_ABOVE_PEAK = 0.09;
  * Past it the formulas would keep growing a sea that no longer grows.
  */
 const FULLY_DEVELOPED_FETCH = 2.2e4;
+/**
+ * The longest fetch, in metres: no storm keeps a wind that strong over more
+ * of the ocean. Fully developed, 35 m/s would need 2750 km and raise Hs 38 m,
+ * past the largest waves ever measured; at 1000 km it is 22 m.
+ */
+const MAX_STORM_FETCH = 1_000_000;
 /** Below this wind the sea is flat; it also keeps the formulas away from dividing by 0. */
 const MIN_WIND_SPEED = 0.5;
 
@@ -364,6 +370,18 @@ function bandEnergy(from: number, to: number, peakFrequency: number, alpha: numb
  * takes everything below — and gets the amplitude that gives its two waves
  * that energy.
  */
+/**
+ * The fetch at which a wind's sea is fully developed, in metres: the open
+ * ocean, where the sea has grown as far as that wind can take it
+ * (FULLY_DEVELOPED_FETCH · U² / g). About 224 km at 10 m/s and 900 km at 20,
+ * up to MAX_STORM_FETCH.
+ */
+export function fullyDevelopedFetch(windSpeed: number) {
+  const speed = Math.max(windSpeed, MIN_WIND_SPEED);
+
+  return Math.min((FULLY_DEVELOPED_FETCH * speed * speed) / GRAVITY, MAX_STORM_FETCH);
+}
+
 /**
  * JONSWAP's two parameters for a wind — see `windSeaState` for the laws —
  * and how much of the sea it raises (0 for no wind, 1 above MIN_WIND_SPEED).
@@ -747,6 +765,26 @@ const WHITECAP_EDGE_WIDTH = 0.5;
  * of the height: some crests break, their neighbours of the same height don't.
  */
 const BREAKING_VARIATION = 0.8;
+/**
+ * How much wider than `WHITECAP_EDGE_WIDTH` the whitecap amount ramps, from 0
+ * at the spread-out edge to 1 on the crest: wide enough that the foam has
+ * room to change from fresh to spread (see `crestFoamDensity`).
+ */
+const WHITECAP_FRESHNESS_SPREAD = 3.0;
+/**
+ * How far the foam trails onto the wave's back face, in standard deviations
+ * of the height, at a back-face slope of BACK_FACE_SLOPE and beyond.
+ */
+const BACK_FACE_REACH = 1.3;
+/**
+ * How far the foam reaches onto the face in front, as for BACK_FACE_REACH but
+ * signed the other way: negative, so the front gains foam too — a quarter of
+ * what the back gains. Measured on a single wave of steepness 0.1-0.2, that
+ * leaves 37-41% of the foam in front of the crest. (At +0.35 the front lost
+ * foam, 24-34% was left there, and the foam seemed to come only from behind.)
+ */
+const FRONT_FACE_REACH = -0.3;
+const BACK_FACE_SLOPE = 0.2;
 /** How much the foam's grain raises or lowers its edge, in standard deviations of the height. */
 const GRAIN_EDGE_VARIATION = 0.35;
 /**
@@ -818,6 +856,15 @@ export function whitecapLevels(state: WindSeaState, windSpeed: number, amount: n
 }
 
 /**
+ * Which face of a big wave a point is on: 1 on its back (upwind, the surface
+ * still rising towards the crest ahead), -1 on its front, 0 on the crest and
+ * in the troughs — from the big waves' slope, saturating at BACK_FACE_SLOPE.
+ */
+export function waveFace(slope: Node<"vec2">, travel: Node<"vec2">) {
+  return dot(slope, travel).div(BACK_FACE_SLOPE).clamp(-1.0, 1.0);
+}
+
+/**
  * How much whitecap foam lies at a point, from 0 to 1: where the sea — every
  * wave together — stands high enough above its mean level to break.
  *
@@ -832,11 +879,12 @@ export function whitecapLevels(state: WindSeaState, windSpeed: number, amount: n
  * @param grain  the foam's grain (0..1), which frays the edge
  */
 export const windSeaWhitecaps = Fn(
-  ([position, time, travel, height, levels, grain]: [
+  ([position, time, travel, height, slope, levels, grain]: [
     Node<"vec2">,
     Node<"float">,
     Node<"vec4">,
     Node<"float">,
+    Node<"vec2">,
     Node<"vec4">,
     Node<"float">,
   ]) => {
@@ -851,15 +899,26 @@ export const windSeaWhitecaps = Fn(
 
     const breaking = breakingNoiseAt(inGroups.mul(BREAKING_SCALE).add(BREAKING_NOISE_OFFSET)).mul(levels.z);
     const frayed = grain.sub(0.5).mul(2.0 * GRAIN_EDGE_VARIATION).mul(levels.w);
-    const crest = height.add(breaking).add(frayed);
+    // The crest leaves its foam behind it: on the wave's back face, where the
+    // surface still rises towards the crest ahead, the foam reaches further
+    // than on the face in front
+    const backFace = waveFace(slope, travelDirection);
+    const reach = backFace.greaterThan(0.0).select(BACK_FACE_REACH, FRONT_FACE_REACH);
+    const trailed = backFace.mul(reach).mul(levels.w);
+    const crest = height.add(breaking).add(frayed).add(trailed);
 
-    return smoothstep(levels.x.sub(levels.y), levels.x.add(levels.y), crest);
+    // A wide edge, centred where Monahan's coverage is measured: from spread
+    // foam at its outer side to fresh foam on the crest
+    const edge = levels.y.mul(WHITECAP_FRESHNESS_SPREAD);
+
+    return smoothstep(levels.x.sub(edge), levels.x.add(edge), crest);
   },
   {
     position: "vec2",
     time: "float",
     travel: "vec4",
     height: "float",
+    slope: "vec2",
     levels: "vec4",
     grain: "float",
     return: "float",

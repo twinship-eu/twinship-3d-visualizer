@@ -60,10 +60,21 @@ export function createFftSurfaceNodes(cascades: FftCascade[]) {
     return waves;
   }
 
+  /**
+   * The longest waves alone — the first cascade — per pixel: their slope (xy)
+   * and height (z), the shape of the big waves without the chop riding on them.
+   */
+  function largeWaves(position: Node<"vec2">) {
+    const [longest] = layers;
+    const sample = texture(longest.texture, position.div(longest.tileSize));
+
+    return vec3(sample.y, sample.z, sample.x);
+  }
+
   /** The slope alone, as a vec2: see `pixelWaves`. */
   function pixelSlope(waves: Node<"vec3">) {
     return vec2(waves.x, waves.y);
   }
 
-  return { gridHeight, pixelWaves, pixelSlope, syncTileSizes };
+  return { gridHeight, pixelWaves, pixelSlope, largeWaves, syncTileSizes };
 }

@@ -105,22 +105,19 @@ export const SEASCAPE_FOAM_ANISOTROPY = 8;
  * The wind the surface sea starts with — the only thing driving its waves (see
  * `seascape-wind-waves.ts`). The Inspector's Seascape panel changes it live.
  *
- * 10 m/s over 100 km of open water: a fresh breeze, Beaufort 5, which raises
- * Hs ≈ 2 m with a 6 s peak period and 57 m peak wavelength. From 225° (south-
- * west, with 0 = +Z as for the sun), so the waves roll towards the default
- * camera.
+ * The sea is always the one the wind raises over open ocean — fully developed
+ * (see `fullyDevelopedFetch`) — so the wind's speed alone sets how big it is.
+ * 15 m/s is a near gale, Beaufort 7 (Hs ≈ 7 m). From 225° (south-west, with
+ * 0 = +Z as for the sun), so the waves roll towards the default camera.
  */
 export const SEASCAPE_WIND = {
-  speed: 10,
+  speed: 15,
   fromDegrees: 225,
-  fetch: 100_000,
 } as const;
 
 /** Limits of the Inspector's wind sliders. 35 m/s is a hurricane, Beaufort 12. */
 export const SEASCAPE_WIND_LIMITS = {
   maxSpeed: 35,
-  minFetch: 1_000,
-  maxFetch: 1_000_000,
 } as const;
 
 /**

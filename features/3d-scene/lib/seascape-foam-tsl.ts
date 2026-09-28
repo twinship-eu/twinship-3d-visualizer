@@ -26,7 +26,7 @@ import type { Node, TextureNode } from "three/webgpu";
 import { VISIBLE_WHITECAP } from "./seascape-wind-waves";
 
 /** How much longer the grain is along the waves' travel than across it: wisps, not blobs. */
-const GRAIN_STRETCH = 4.0;
+const GRAIN_STRETCH = 1.6;
 /** Sea units covered by one repeat of the grain across the travel. */
 const GRAIN_TILE_SIZE = 2.0;
 /**
@@ -38,15 +38,26 @@ const COARSE_GRAIN_TURN = 0.9;
 
 /** How fast the grain drifts against the crests, relative to the waves' own speed. */
 const GRAIN_DRIFT = vec2(-0.03, 0.05);
+
 /**
- * The grain's range: the foam's density between its strands, and the texture
- * values over which it rises to full. Thin between the strands, so the water
- * shows through and the foam reads as streaks, not a white sheet — as seen in
- * storm footage and the reference.
+ * Whitecap amounts where the foam is spread out (behind the crest) and fresh
+ * (on it) — see `crestFoamDensity`.
  */
-const GRAIN_FLOOR = 0.15;
-const GRAIN_START = 0.2;
-const GRAIN_FULL = 0.85;
+const SPREAD_FOAM = 0.15;
+const FRESH_FOAM = 0.85;
+/**
+ * How far onto the back face (in `waveFace` units, 1 = fully on it) the foam
+ * turns from gathering to aging: crest and front stay fresh.
+ */
+const BEHIND_CREST_FACE = 0.4;
+/** How much longer the foam's edge fades in front of the crest than behind it. */
+const FRONT_FADE_LONGER = 1.5;
+/** Texel value above which spread foam stays: only its strands. */
+const SPREAD_OPENNESS = 0.6;
+/** The fresh veil's thinnest, where the grain is lightest, against its thickest. */
+const VEIL_THINNEST = 0.55;
+/** How soft the strands' edges are, in texel values. */
+const LACE_SOFTNESS = 0.12;
 
 /**
  * Whitecap amount at which the foam is at its thickest; it eases in below, and
@@ -56,10 +67,10 @@ const FULL_WHITECAP = VISIBLE_WHITECAP * 2;
 // (The whitecaps' own edge is already frayed by the grain — `windSeaWhitecaps`.)
 
 /**
- * How opaque the thickest foam gets: a little water always shows through.
- * (0.6 left the streaks too faint to read as foam at the default zoom.)
+ * How opaque the thickest foam gets: the water always shows through. At 0.75
+ * the crests read as solid white patches.
  */
-const MAX_FOAM_DENSITY = 0.75;
+const MAX_FOAM_DENSITY = 0.55;
 
 /** Foam in the shade of a wave keeps this much of its brightness. */
 const SHADED_FOAM_BRIGHTNESS = 0.55;
@@ -103,21 +114,42 @@ export function foamGrain({ point, travel, seaTime, foamMap, distortion }: FoamG
   const fineTexel = texture(foamMap, grainUV).r;
   const coarseTexel = texture(foamMap, coarseUV).r;
 
-  return fineTexel.add(coarseTexel).mul(0.5);
+  // x: the fine grain, y: the coarse, larger and turned
+  return vec2(fineTexel, coarseTexel);
 }
 
 /**
  * How much foam covers a point, from 0 to MAX_FOAM_DENSITY, given how much
- * whitecap foam lies there (`windSeaWhitecaps`) and the grain (`foamGrain`).
+ * whitecap foam lies there (`windSeaWhitecaps`: 1 on the breaking crest,
+ * falling away behind it) and the grain (`foamGrain`).
+ *
+ * The whitecap amount stands for how fresh the foam is. On the crest and in
+ * front of it, where it gathers, it is fresh — a dense, fine-grained veil,
+ * fading softly at its leading edge; behind it, it has been left by the crest
+ * and is spreading out — a coarser lace, whose holes open until only the
+ * thickest strands are left. `face` is `waveFace`: which side of the big wave. (Before, the grain shaded the foam the
+ * same way everywhere, and the foam read as a texture laid over the wave.)
  */
-export function crestFoamDensity(whitecaps: Node<"float">, grain: Node<"float">) {
-  // 1. The body: eased in
-  const body = smoothstep(0.0, FULL_WHITECAP, whitecaps);
+export function crestFoamDensity(whitecaps: Node<"float">, grain: Node<"vec2">, face: Node<"float">) {
+  // Foam in front of the crest is still gathering: as fresh as on the crest,
+  // whatever the whitecap amount. Only behind it does it age into lace
+  const behind = smoothstep(0.0, BEHIND_CREST_FACE, face);
+  const fresh = mix(float(1.0), smoothstep(SPREAD_FOAM, FRESH_FOAM, whitecaps), behind);
 
-  // 2. The grain shades the body, from thin foam to thick
-  const thickness = mix(float(GRAIN_FLOOR), float(1.0), smoothstep(GRAIN_START, GRAIN_FULL, grain));
+  // On the crest: a continuous milky veil, the fine grain only shading it —
+  // never cut into holes, which is not how fresh foam looks
+  const veil = mix(float(VEIL_THINNEST), float(1.0), grain.x);
 
-  return body.mul(thickness).mul(MAX_FOAM_DENSITY);
+  // Behind it: a coarser lace whose holes open as it spreads, until only the
+  // thickest strands are left
+  const lace = smoothstep(SPREAD_OPENNESS - LACE_SOFTNESS, SPREAD_OPENNESS + LACE_SOFTNESS, grain.y);
+
+  // The outermost edge fades out, so the foam never ends in a line — in
+  // front, over a longer way, as the gathering foam thins to nothing
+  const fadeLength = mix(float(FULL_WHITECAP * FRONT_FADE_LONGER), float(FULL_WHITECAP), behind);
+  const body = smoothstep(0.0, fadeLength, whitecaps);
+
+  return body.mul(mix(lace, veil, fresh)).mul(MAX_FOAM_DENSITY);
 }
 
 /**

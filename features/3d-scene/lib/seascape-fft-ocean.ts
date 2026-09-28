@@ -97,7 +97,7 @@ function createCascadeGpu(seconds: FloatUniform): CascadeGpu {
   const tileSize = makeFloatUniform(1);
   const fft = createGpuFft(FFT_SIZE);
 
-  // This moment's waves: h(k, t) = h0(k) e^{iωt} + conj(h0(-k)) e^{-iωt}, and
+  // This moment's waves: h(k, t) = h0(k) e^{-iωt} + conj(h0(-k)) e^{iωt}, and
   // its slopes i·kx·h, i·kz·h — packed as (h + i·slopeX, slopeZ), two real
   // fields per complex transform
   const evolve = Fn(() => {
@@ -113,9 +113,13 @@ function createCascadeGpu(seconds: FloatUniform): CascadeGpu {
     const initial = spectrumNode.element(instanceIndex);
     const phase = frequency.mul(seconds);
     const turn = vec2(cos(phase), sin(phase));
-    // h0 · e^{iφ} + conj0 · e^{-iφ}
-    const forward = vec2(initial.x.mul(turn.x).sub(initial.y.mul(turn.y)), initial.x.mul(turn.y).add(initial.y.mul(turn.x)));
-    const backward = vec2(initial.z.mul(turn.x).add(initial.w.mul(turn.y)), initial.w.mul(turn.x).sub(initial.z.mul(turn.y)));
+    // h0 · e^{-iφ} + conj0 · e^{+iφ}: with the sum over e^{ik·x}, the h0(k)
+    // term then runs along +k — downwind, where the spectrum puts its energy.
+    // (Tessendorf's paper writes e^{+iωt} there, which runs the waves the
+    // other way: here they travelled into the wind, with the foam on their
+    // leading faces.)
+    const forward = vec2(initial.x.mul(turn.x).add(initial.y.mul(turn.y)), initial.y.mul(turn.x).sub(initial.x.mul(turn.y)));
+    const backward = vec2(initial.z.mul(turn.x).sub(initial.w.mul(turn.y)), initial.z.mul(turn.y).add(initial.w.mul(turn.x)));
     const height = forward.add(backward);
 
     // i·k·h = (-k·h.y, k·h.x); h + i·(i·kx·h) = (1 - kx)·h

@@ -30,6 +30,7 @@ import {
 } from "../lib/seascape-config";
 import { createFftOcean } from "../lib/seascape-fft-ocean";
 import { createFftSurfaceNodes } from "../lib/seascape-fft-surface";
+import { fullyDevelopedFetch } from "../lib/seascape-wind-waves";
 import {
   applyWindSeaState,
   createSeascapeSurfaceNodes,
@@ -91,6 +92,14 @@ function getFoamTexture(name: SeascapeFoamTextureName): Texture {
   return loaded;
 }
 
+/** The wind, with the fetch it has over open ocean: the speed alone sets the sea. */
+function windAt(speed: number, fromDegrees: number) {
+  return { speed, fromDegrees, fetch: fullyDevelopedFetch(speed) };
+}
+
+/** The wind the sea starts with. */
+const INITIAL_WIND = windAt(SEASCAPE_WIND.speed, SEASCAPE_WIND.fromDegrees);
+
 /** Identifies a wind, to notice when it changes. */
 function windKey(wind: { speed: number; fromDegrees: number; fetch: number }) {
   return `${wind.speed}|${wind.fromDegrees}|${wind.fetch}`;
@@ -101,14 +110,14 @@ function createSeaSurface(canUseCompute: boolean) {
   const geometry = createSeaGeometry(SEASCAPE_SURFACE_GRID_SEGMENTS);
   // The FFT ocean needs compute shaders: WebGPU only. On three's WebGL
   // fallback the analytic waves are drawn instead
-  const ocean = IS_FFT_OCEAN_ENABLED && canUseCompute ? createFftOcean(SEASCAPE_WIND) : null;
+  const ocean = IS_FFT_OCEAN_ENABLED && canUseCompute ? createFftOcean(INITIAL_WIND) : null;
   const fft = ocean ? createFftSurfaceNodes(ocean.cascades) : undefined;
 
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
     levelY: SEASCAPE_SURFACE_LEVEL_Y,
     cellSize: cellSizeFor(SEASCAPE_SURFACE_GRID_SEGMENTS),
-    wind: SEASCAPE_WIND,
+    wind: INITIAL_WIND,
     foamTexture: getFoamTexture(SEASCAPE_DEFAULT_FOAM_TEXTURE),
     detailNormalsTexture: loadDetailNormalsTexture(),
     sunDirection: getSunDirection(),
@@ -128,7 +137,7 @@ function createSeaSurface(canUseCompute: boolean) {
     ocean,
     fft,
     /** The wind the FFT spectrum was last built for, to rebuild it only on a change. */
-    oceanWindKey: windKey(SEASCAPE_WIND),
+    oceanWindKey: windKey(INITIAL_WIND),
   };
 }
 
@@ -144,8 +153,6 @@ const SEASCAPE_TUNING = {
   windSpeed: SEASCAPE_WIND.speed as number,
   /** Compass bearing the wind blows from (0 = +Z, 90 = +X). */
   windFromDegrees: SEASCAPE_WIND.fromDegrees as number,
-  /** Open water the wind has blown over, in km. Longer fetch, bigger sea. */
-  fetchKm: (SEASCAPE_WIND.fetch / 1000) as number,
   /** Fade waves too fine for the pixel. Off to compare against no fix. */
   antiAliasing: true,
   /** How much sky edge-on water reflects. */
@@ -204,18 +211,11 @@ export function SceneSeascapeSurface() {
     const panel = inspector.createParameters("Seascape");
     panel.add(SEASCAPE_TUNING, "windSpeed", 0, SEASCAPE_WIND_LIMITS.maxSpeed, 0.1);
     panel.add(SEASCAPE_TUNING, "windFromDegrees", 0, 360, 1);
-    panel.add(
-      SEASCAPE_TUNING,
-      "fetchKm",
-      SEASCAPE_WIND_LIMITS.minFetch / 1000,
-      SEASCAPE_WIND_LIMITS.maxFetch / 1000,
-      1
-    );
     panel.add(SEASCAPE_TUNING, "antiAliasing");
     panel.add(SEASCAPE_TUNING, "reflectivity", 0, 1, 0.01);
     panel.addColor(SEASCAPE_TUNING, "deepColor");
     panel.addColor(SEASCAPE_TUNING, "lightColor");
-    panel.add(SEASCAPE_TUNING, "foamAmount", 0, 5, 0.01);
+    panel.add(SEASCAPE_TUNING, "foamAmount", 0, 1, 0.01);
     panel.addColor(SEASCAPE_TUNING, "foamColor");
     panel.add(
       SEASCAPE_TUNING,
@@ -252,11 +252,7 @@ export function SceneSeascapeSurface() {
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
 
     // A new wind means a new spectrum, rebuilt on the CPU: only on a change
-    const wind = {
-      speed: SEASCAPE_TUNING.windSpeed,
-      fromDegrees: SEASCAPE_TUNING.windFromDegrees,
-      fetch: SEASCAPE_TUNING.fetchKm * 1000,
-    };
+    const wind = windAt(SEASCAPE_TUNING.windSpeed, SEASCAPE_TUNING.windFromDegrees);
     const key = windKey(wind);
     if (sea.ocean && sea.fft && key !== sea.oceanWindKey) {
       sea.ocean.setWind(wind);
@@ -277,11 +273,7 @@ export function SceneSeascapeSurface() {
 
     applyWindSeaState(
       sea.uniforms,
-      {
-        speed: SEASCAPE_TUNING.windSpeed,
-        fromDegrees: SEASCAPE_TUNING.windFromDegrees,
-        fetch: SEASCAPE_TUNING.fetchKm * 1000,
-      },
+      windAt(SEASCAPE_TUNING.windSpeed, SEASCAPE_TUNING.windFromDegrees),
       SEASCAPE_TUNING.foamAmount
     );
     sea.uniforms.antiAliasing.value = SEASCAPE_TUNING.antiAliasing ? 1.0 : 0.0;

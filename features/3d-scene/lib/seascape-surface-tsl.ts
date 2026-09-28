@@ -61,6 +61,7 @@ import {
   windSeaElevation,
   windSeaSlope,
   windSeaState,
+  waveFace,
   windSeaWhitecaps,
   whitecapLevels,
   type Wind,
@@ -82,6 +83,13 @@ const MIN_SLOPE_STEP = 0.01;
  * stepped and faceted.
  */
 const GEOMETRY_FILTER_CELLS = 2;
+
+/**
+ * The share of Monahan's whitecap coverage that `foamAmount` 1 gives. The full
+ * law covered the crests in white; a quarter of it, with the translucent foam,
+ * reads right. The whole 0-1 range of the panel is below it, for fine control.
+ */
+const FOAM_AMOUNT_OF_MONAHAN = 0.25;
 
 /** How much of a pixel's slope spread widens the sun's highlight — see the fragment shader. */
 const GLINT_SPREAD_WEIGHT = 0.5;
@@ -149,10 +157,10 @@ export const SEASCAPE_SURFACE_DEFAULTS = {
    */
   lightColor: "#42e6b5",
   /**
-   * How much whitecap foam, against what the wind makes: 1 is Monahan's law
-   * (see `whitecapThreshold`), 0 none, more for a rougher look.
+   * How much whitecap foam, from 0 (none) to 1 (FOAM_AMOUNT_OF_MONAHAN of what
+   * Monahan's law gives — see `whitecapLevels`).
    */
-  foamAmount: 1.0,
+  foamAmount: 0.6,
   /** Foam colour: white with a hint of the water's blue. */
   foamColor: "#e6f0f4",
   /**
@@ -219,7 +227,7 @@ export function applyWindSeaState(
   uniforms.windSea.travel.value.fromArray(packed.travel);
   uniforms.windSea.amplitudes.value.fromArray(packed.amplitudes);
   uniforms.windSea.detail.value.fromArray(packed.detail);
-  uniforms.whitecapLevels.value.fromArray(whitecapLevels(state, wind.speed, foamAmount));
+  uniforms.whitecapLevels.value.fromArray(whitecapLevels(state, wind.speed, foamAmount * FOAM_AMOUNT_OF_MONAHAN));
 }
 
 function createWindSeaUniforms() {
@@ -434,10 +442,23 @@ export function createSeascapeSurfaceNodes({
       travel: sea.travel.xy,
       seaTime: time,
       foamMap: uniforms.foamMap,
-      distortion: detailSlope.mul(FOAM_DISTORTION),
+      // The FFT ocean has no separate chop: its whole slope pushes the grain
+      distortion: (fft ? slope : detailSlope).mul(FOAM_DISTORTION),
     });
-    const whitecaps = windSeaWhitecaps(positionWorld.xz, time, sea.travel, height, uniforms.whitecapLevels, grain);
-    const foam = crestFoamDensity(whitecaps, grain);
+    // Where the foam lies follows the big waves only: their height and which
+    // face of them this is. The chop's height and slope flip from ripple to
+    // ripple, and cut holes and hatching into the foam's edge
+    const bigWaves = fft ? fft.largeWaves(positionWorld.xz) : vertexWaves;
+    const whitecaps = windSeaWhitecaps(
+      positionWorld.xz,
+      time,
+      sea.travel,
+      bigWaves.z,
+      bigWaves.xy,
+      uniforms.whitecapLevels,
+      grain.x.add(grain.y).mul(0.5)
+    );
+    const foam = crestFoamDensity(whitecaps, grain, waveFace(bigWaves.xy, sea.travel.xy));
     const foamColor = crestFoamColor(vec3(uniforms.foamColor), normal, sun);
 
     return vec4(mix(water.rgb, foamColor, foam), 1.0);
