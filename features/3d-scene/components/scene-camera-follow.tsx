@@ -83,7 +83,9 @@ export function SceneCameraFollow() {
     const state = stateRef.current;
     const { camera, controls } = get();
     const target = (controls as OrbitControlsLike | null)?.target;
-    const shipY = shipMotion.shipY;
+    // The height the waves give the ship: not its lift for inspecting a part,
+    // which the camera fit has already framed
+    const shipY = shipMotion.waveY;
     if (!target) return;
     if (state.followedY === null) {
       state.followedY = shipY;

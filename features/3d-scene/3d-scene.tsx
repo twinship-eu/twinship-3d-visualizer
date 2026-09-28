@@ -131,7 +131,9 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
             dampingFactor={0.05}
             minDistance={5}
             maxDistance={400}
-            maxPolarAngle={Math.PI / 2}
+            // Nearly straight up from below: the camera may orbit under the
+            // water, and the view turns underwater there by itself
+            maxPolarAngle={Math.PI * 0.95}
             onStart={() => setIsOrbitControlsActive(true)}
             onEnd={() => setIsOrbitControlsActive(false)}
           />

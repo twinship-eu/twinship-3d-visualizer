@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
+  DoubleSide,
   MeshBasicNodeMaterial,
   NoColorSpace,
   PlaneGeometry,
@@ -10,7 +11,6 @@ import {
   TextureLoader,
   type Mesh,
   type Texture,
-  Vector2,
 } from "three/webgpu";
 import { getSunDirection, IS_SCENE_INSPECTOR_ENABLED } from "../lib/3d-scene-config";
 import {
@@ -30,12 +30,16 @@ import {
   SEASCAPE_WIND_LIMITS,
   type SeascapeFoamTextureName,
 } from "../lib/seascape-config";
-import { uniform } from "three/tsl";
+import { float } from "three/tsl";
 import { createContactFoam } from "../lib/seascape-contact-foam";
 import { useShipVoyage } from "./ship-voyage-context";
 import { createWake } from "../lib/seascape-wake";
+import { createSeaFrame, headOnTurn } from "../lib/seascape-sea-frame";
 import { createKelvinHistory } from "../lib/seascape-kelvin-wake";
 import { createBuoys } from "../lib/seascape-buoys";
+import { createBubbles } from "../lib/seascape-bubbles";
+import { shipMotion as shipMotionState } from "../lib/seascape-ship-motion";
+import { underwater } from "../lib/seascape-underwater";
 import { createShipMotionSolver } from "../lib/seascape-ship-motion";
 import { createWaveProbes } from "../lib/seascape-wave-probes";
 import { createFftOcean } from "../lib/seascape-fft-ocean";
@@ -50,7 +54,27 @@ import { asSceneRenderer, getSceneInspector, isWebGPUBackend } from "../lib/webg
 
 /** World units between adjacent grid vertices, for a grid of `segments` per side. */
 function cellSizeFor(segments: number): number {
-  return SEASCAPE_SURFACE_GRID_SIZE / segments;
+  return (SEASCAPE_SURFACE_GRID_SIZE / segments) * GRID_CENTRE_DENSITY;
+}
+
+/**
+ * The grid is dense under the camera and sparse towards its edge: a vertex's
+ * position along each axis, t in [-1, 1] across the grid, is moved to
+ * t · (k + (1 - k)·t²), with k GRID_CENTRE_DENSITY. Its cells are k times the
+ * even spacing at the centre (5 units over 3200 with 320 segments) and
+ * k + 3(1 - k) = 2 times it at the edge (20), out in the haze. As many cells
+ * as an even 1600 grid, twice as far: 205k triangles, not the 819k an even
+ * grid that size needed at 5 units.
+ */
+const GRID_CENTRE_DENSITY = 0.5;
+/** How much larger a cell is at t than at the centre, per t²: 3(1 - k)/k. */
+const GRID_CELL_GROWTH = (3 * (1 - GRID_CENTRE_DENSITY)) / GRID_CENTRE_DENSITY;
+
+function warpAcrossGrid(position: number): number {
+  const half = SEASCAPE_SURFACE_GRID_SIZE / 2;
+  const t = position / half;
+
+  return half * t * (GRID_CENTRE_DENSITY + (1 - GRID_CENTRE_DENSITY) * t * t);
 }
 
 /** Rounds to the nearest vertex, so moving the grid never shifts where vertices land. */
@@ -62,6 +86,15 @@ function snapToCell(value: number, cellSize: number): number {
 function createSeaGeometry(segments: number): PlaneGeometry {
   const geometry = new PlaneGeometry(SEASCAPE_SURFACE_GRID_SIZE, SEASCAPE_SURFACE_GRID_SIZE, segments, segments);
   geometry.rotateX(-Math.PI / 2);
+  // Dense at the centre, sparse at the edge (see GRID_CENTRE_DENSITY); the uv
+  // keeps the even spacing, for the shader to know each cell's size
+  const positions = geometry.getAttribute("position");
+  for (let vertex = 0; vertex < positions.count; vertex++) {
+    positions.setX(vertex, warpAcrossGrid(positions.getX(vertex)));
+    positions.setZ(vertex, warpAcrossGrid(positions.getZ(vertex)));
+  }
+  positions.needsUpdate = true;
+  geometry.computeBoundingSphere();
 
   return geometry;
 }
@@ -128,12 +161,21 @@ const MAX_CONTACT_FOAM_DISTANCE = 10;
  */
 const CONTACT_FOAM_REDRAW_FRAMES = 1;
 
+/**
+ * How far, in world units, the view blends from air to water as the camera
+ * crosses the surface, so it never flickers from one to the other.
+ */
+const WATERLINE_BLEND = 0.4;
+
+/** The filter the bubbles' surface is read with, in world units: fine, a metre. */
+const BUBBLE_SURFACE_FILTER = 1;
+
 /** The highest crest the sea can raise, as a multiple of Hs: every wave train's crest at once. */
 const HIGHEST_CREST_OF_HS = 1.7;
 
 /**
  * The ship's speed through the water when under way, in knots. It stays at the
- * origin and the sea flows past it (see `seaOffset`). It starts still: the
+ * origin and the sea flows past it (see `seaFrame`). It starts still: the
  * button beside the zoom controls sets it under way.
  */
 const SHIP_SPEED_KNOTS = 18;
@@ -168,33 +210,41 @@ function createSeaSurface(canUseCompute: boolean) {
   const fft = ocean ? createFftSurfaceNodes(ocean.cascades) : undefined;
   // The ship rides the FFT ocean; on the analytic fallback it rests still
   const shipMotion = createShipMotionSolver(SEASCAPE_SHIP_HULL);
-  const seaOffset = uniform(new Vector2());
-  const waveProbes = ocean ? createWaveProbes(ocean.cascades, shipMotion.points, seaOffset) : null;
+  const seaFrame = createSeaFrame();
+  const waveProbes = ocean ? createWaveProbes(ocean.cascades, shipMotion.points, seaFrame.toSea) : null;
   const contactFoam = createContactFoam({
     areaSize: CONTACT_FOAM_AREA,
     resolution: CONTACT_FOAM_RESOLUTION,
     levelY: SEASCAPE_SURFACE_LEVEL_Y,
     distance: CONTACT_FOAM_DISTANCE,
     // The FFT ocean's own height, so the hull is cut at the real waterline
-    waterHeight: fft ? (position) => fft.pixelWaves(position.add(seaOffset)).z : undefined,
+    waterHeight: fft ? (position) => fft.pixelWaves(seaFrame.toSea(position)).z : undefined,
   });
   const wake = createWake(contactFoam);
   const kelvinTrack = createKelvinHistory();
   // Buoys moored around the ship, riding the waves: probed like the ship
   const buoys = createBuoys(SEASCAPE_SURFACE_LEVEL_Y);
-  const buoyProbes = ocean ? createWaveProbes(ocean.cascades, buoys.probePoints(0), seaOffset) : null;
+  // Kept under the real surface: the FFT ocean's height, where the sea has flowed to
+  const bubbles = createBubbles(
+    SEASCAPE_SURFACE_LEVEL_Y,
+    fft ? (position) => fft.gridHeight(seaFrame.toSea(position), float(BUBBLE_SURFACE_FILTER)) : undefined
+  );
+  const buoyProbes = ocean ? createWaveProbes(ocean.cascades, buoys.probePoints(0), seaFrame.toSea) : null;
+  // The water right above (or below) the camera: whether it is under water
+  const cameraProbe = ocean ? createWaveProbes(ocean.cascades, [{ x: 0, z: 0 }], seaFrame.toSea) : null;
 
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
     levelY: SEASCAPE_SURFACE_LEVEL_Y,
     cellSize: cellSizeFor(SEASCAPE_SURFACE_GRID_SEGMENTS),
+    cellGrowth: GRID_CELL_GROWTH,
     wind: INITIAL_WIND,
     foamTexture: getFoamTexture(SEASCAPE_DEFAULT_FOAM_TEXTURE),
     detailNormalsTexture: loadDetailNormalsTexture(),
     sunDirection: getSunDirection(),
     fft,
     contactFoam,
-    seaOffset,
+    seaFrame,
     wake,
     bowZ: SEASCAPE_SHIP_HULL.halfLength,
     kelvinTrack,
@@ -204,6 +254,8 @@ function createSeaSurface(canUseCompute: boolean) {
   // fragmentNode rather than colorNode: the shader lights itself, and the
   // material's own logic would otherwise apply the scene's environment map.
   material.fragmentNode = nodes.fragmentNode;
+  // Both faces: from under the water the camera sees the surface's underside
+  material.side = DoubleSide;
 
   return {
     geometry,
@@ -213,13 +265,17 @@ function createSeaSurface(canUseCompute: boolean) {
     ocean,
     fft,
     contactFoam,
-    seaOffset,
+    seaFrame,
     wake,
     kelvinTrack,
     buoys,
+    bubbles,
     buoyProbes,
+    cameraProbe,
     shipMotion,
     waveProbes,
+    /** How far the ship has sailed, in world units: for the buoys, moored along its track. */
+    sailed: 0,
     /** The ship's speed through the water right now, in m/s: eased towards its target. */
     speed: 0,
     /** Frames since the hull foam's footprint was last drawn. */
@@ -357,12 +413,29 @@ export function SceneSeascapeSurface() {
     const targetSpeed = isTravelingRef.current ? speedKnots * METRES_PER_SECOND_PER_KNOT : 0;
     sea.speed += (targetSpeed - sea.speed) * (1 - Math.exp(-delta / SPEED_CHANGE_TIME));
     const speed = sea.speed;
-    sea.seaOffset.value.y += speed * delta;
+    sea.seaFrame.sail(speed * delta);
+    sea.sailed += speed * delta;
+
+    // The sea always lies with its waves coming at the bow — what makes the
+    // ship read as sailing when under way. Always, not only under way: turned
+    // as the ship gathered speed, the whole sea was seen swinging round it
+    const travel = sea.uniforms.windSea.travel.value;
+    sea.seaFrame.turnTo(headOnTurn(travel.x, travel.y));
     sea.uniforms.shipSpeed.value = speed;
+    shipMotionState.speed = speed;
+    sea.bubbles.uniforms.speed.value = speed;
+    sea.bubbles.uniforms.shipY.value = shipMotionState.shipY;
     sea.kelvinTrack.update(speed * delta, speed, delta);
 
+    // Under the water or above it: the water's height right over the camera
+    sea.cameraProbe?.setPoints([{ x: camera.position.x, z: camera.position.z }]);
+    const waterAbove = SEASCAPE_SURFACE_LEVEL_Y + (sea.cameraProbe ? sea.cameraProbe.update(asSceneRenderer(gl))[0] ?? 0 : 0);
+    const underBy = waterAbove - camera.position.y;
+    underwater.submerged.value = Math.min(Math.max(underBy / WATERLINE_BLEND + 0.5, 0), 1);
+    underwater.depth.value = Math.max(underBy, 0);
+
     // The buoys stay where they are moored in the sea, so they fall behind
-    const sailed = sea.seaOffset.value.y;
+    const sailed = sea.sailed;
     sea.buoyProbes?.setPoints(sea.buoys.probePoints(sailed));
     sea.buoys.update(sailed, sea.buoyProbes ? sea.buoyProbes.update(asSceneRenderer(gl)) : null, delta);
 
@@ -383,7 +456,7 @@ export function SceneSeascapeSurface() {
       const highestWater = sea.uniforms.windSea.travel.value.w * HIGHEST_CREST_OF_HS;
       // Without the buoys: the footprint's override material would draw them all
       // at their geometry's origin, inside the hull, not where their instances are
-      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh, sea.buoys.mesh], highestWater);
+      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh, sea.buoys.mesh, sea.bubbles.sprite], highestWater);
       sea.framesSinceContactFoam = 0;
       sea.contactFoamDistance = contactFoamDistance;
     }
@@ -447,6 +520,7 @@ export function SceneSeascapeSurface() {
         position={[0, SEASCAPE_SURFACE_LEVEL_Y, 0]}
       />
       <primitive object={seaRef.current.buoys.mesh} />
+      <primitive object={seaRef.current.bubbles.sprite} />
     </>
   );
 }

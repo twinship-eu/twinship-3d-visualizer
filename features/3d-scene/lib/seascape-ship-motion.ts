@@ -90,6 +90,14 @@ export const shipMotion = {
    * by the ship's component, read by what follows it (the camera).
    */
   shipY: 0,
+  /**
+   * The part of the ship's height the waves give it, in world units: what the
+   * camera follows. Not the lift for inspecting a part — following that, the
+   * camera kept drifting after the part it had framed.
+   */
+  waveY: 0,
+  /** The ship's speed through the water, in m/s — written by the sea, read by the propellers. */
+  speed: 0,
 };
 
 /** The probe grid over a hull's waterplane, centred on the origin. */

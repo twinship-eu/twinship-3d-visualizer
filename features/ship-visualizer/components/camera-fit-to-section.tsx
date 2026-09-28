@@ -6,6 +6,10 @@ import { Box3, Group, Mesh, Vector3 } from "three/webgpu";
 import { CAMERA_TRANSITION_DURATION_S, DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET } from "../ship-visualizer-config";
 import { easeOutCubic, getMatchingMeshUuids } from "../lib/3d-model";
 import { CAMERA_FIT_PADDING, MIN_CAMERA_DISTANCE } from "../lib/constants";
+import { SEASCAPE_SURFACE_LEVEL_Y } from "@/features/3d-scene/lib/seascape-config";
+
+/** How far above the part the camera looks down from, in radians (30°), for a part above the water. */
+const CAMERA_FIT_ELEVATION = Math.PI / 6;
 
 export default function CameraFitToSelection({
   root,
@@ -92,12 +96,16 @@ export default function CameraFitToSelection({
         const dist = Math.max(distance, MIN_CAMERA_DISTANCE);
         const shipBox = new Box3().setFromObject(root);
         const shipCenter = shipBox.getCenter(new Vector3());
-        const toCamera = partCenter.clone().sub(shipCenter);
-        if (toCamera.lengthSq() < 1e-6) {
-          toCamera.set(1, 1, 1).normalize();
-        } else {
-          toCamera.normalize();
-        }
+        // Out from the ship towards the part, across the water: then from a
+        // little above for a part above the water, or level with it, under the
+        // water, for a part wholly below it. (Straight out from the ship's
+        // centre, low parts like the engine sent the camera into the waves.)
+        const across = partCenter.clone().sub(shipCenter).setY(0);
+        if (across.lengthSq() < 1e-6) across.set(1, 0, 1);
+        across.normalize();
+        const isUnderWater = box.max.y < SEASCAPE_SURFACE_LEVEL_Y;
+        const elevation = isUnderWater ? 0 : CAMERA_FIT_ELEVATION;
+        const toCamera = across.multiplyScalar(Math.cos(elevation)).setY(Math.sin(elevation));
         startPosition.current.copy(camera.position);
         startTarget.current.copy(targetObj);
         endTarget.current.copy(partCenter);

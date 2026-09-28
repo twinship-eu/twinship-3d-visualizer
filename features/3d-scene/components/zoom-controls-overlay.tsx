@@ -167,6 +167,7 @@ export function ZoomControlsOverlay() {
             <Anchor className="h-4 w-4" aria-hidden />
           )}
         </button>
+
       </div>
     </div>
   );

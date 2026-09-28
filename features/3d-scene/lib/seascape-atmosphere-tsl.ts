@@ -18,6 +18,9 @@
  * Where the two meet, both are `horizonColor`, so there is no seam to find.
  */
 import {
+  vec3,
+  positionWorld,
+  cameraPosition,
   float,
   fog,
   length,
@@ -31,7 +34,9 @@ import {
   vec4,
 } from "three/tsl";
 import { Color } from "three/webgpu";
+import { withClouds } from "./seascape-clouds";
 import { clearSkyColor, gammaLift } from "./seascape-lighting";
+import { underwater, underwaterColor, underwaterFogFactor } from "./seascape-underwater";
 
 type AtmosphereOptions = {
   /** Horizon colour, as a CSS colour string. */
@@ -67,9 +72,11 @@ export function createSeascapeAtmosphereNodes(options: AtmosphereOptions) {
    * sphere's own normal is the direction being looked in.
    */
   const direction = normalize(normalWorldGeometry);
-  const sky = gammaLift(clearSkyColor(direction));
+  const sky = withClouds(gammaLift(clearSkyColor(direction)), direction);
   const skyHaze = smoothstep(0.0, max(uniforms.skyHazeHeight, MIN_EDGE_GAP), direction.y).oneMinus();
-  const backgroundNode = vec4(mix(sky, uniforms.horizonColor, skyHaze), 1.0);
+  // Under the water (`underwater.submerged`), the water's murk replaces the sky
+  const airBackground = mix(sky, uniforms.horizonColor, skyHaze);
+  const backgroundNode = vec4(mix(airBackground, underwaterColor(direction), underwater.submerged), 1.0);
 
   /**
    * The haze: by straight-line distance from the camera, not by depth. Depth
@@ -78,7 +85,14 @@ export function createSeascapeAtmosphereNodes(options: AtmosphereOptions) {
    */
   const distance = length(positionView);
   const hazeEnd = max(uniforms.hazeEnd, uniforms.hazeStart.add(float(MIN_EDGE_GAP)));
-  const fogNode = fog(uniforms.horizonColor, smoothstep(uniforms.hazeStart, hazeEnd, distance));
+  const airFog = smoothstep(uniforms.hazeStart, hazeEnd, distance);
+
+  // ...and closes in within tens of metres, lighter looking up, darker down
+  const lookingAt = normalize(positionWorld.sub(cameraPosition));
+  const fogNode = fog(
+    mix(vec3(uniforms.horizonColor), underwaterColor(lookingAt), underwater.submerged),
+    mix(airFog, underwaterFogFactor(), underwater.submerged)
+  );
 
   return { backgroundNode, fogNode, uniforms };
 }

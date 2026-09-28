@@ -32,6 +32,7 @@ import {
   dot,
   exp,
   float,
+  frontFacing,
   Fn,
   fwidth,
   length,
@@ -47,6 +48,7 @@ import {
   texture,
   time,
   uniform,
+  uv,
   varying,
   vec2,
   vec3,
@@ -54,8 +56,10 @@ import {
 } from "three/tsl";
 import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/webgpu";
 import type { ContactFoam } from "./seascape-contact-foam";
+import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
 import { valueNoise } from "./seascape-noise";
+import { surfaceFromBelow } from "./seascape-underwater";
 import {
   kelvinWakeFoam,
   kelvinWakeHeight,
@@ -100,6 +104,8 @@ const GEOMETRY_FILTER_CELLS = 2;
  * the hull churns the water all the time.
  */
 const MAX_HULL_FOAM = 0.8;
+/** How bright foam is seen from under the water, against from above: lit through it. */
+const FOAM_FROM_BELOW = 0.7;
 /** How opaque the foam on the ship's waves gets, and its thinnest against that, where the grain is lightest. */
 const MAX_SHIP_WAVES_FOAM = 0.85;
 const SHIP_WAVES_FOAM_THINNEST = 0.4;
@@ -256,7 +262,8 @@ export const SEASCAPE_SURFACE_DEFAULTS = {
    * turquoise, 0.35 still did; 0.2 keeps the deep blue with a hint of the
    * chop's texture.
    */
-  scatterStrength: 0.2,
+  // Off for now: with the midday sun the scattered light washed the water out
+  scatterStrength: 0,
   /**
    * How tight the sun's glints are. The Shadertoy's 60 is one broad patch;
    * against the scene's real sun, which the default camera faces, it merged
@@ -270,8 +277,14 @@ type SurfaceOptions = {
   scale: number;
   /** World Y of the sea's mean level. */
   levelY: number;
-  /** World units between the grid's vertices, to start with: see `uniforms.cellSize`. */
+  /** World units between the grid's vertices at its centre, to start with: see `uniforms.cellSize`. */
   cellSize: number;
+  /**
+   * How much larger a cell is than at the centre, per t² — t the vertex's
+   * even position across the grid, from -1 to 1, as its uv holds it. 0 for an
+   * even grid.
+   */
+  cellGrowth?: number;
   /** The wind the sea starts with. */
   wind: Wind;
   /** The crest foam's mask: 1 for foam, 0 for water, in the red channel. */
@@ -293,7 +306,7 @@ type SurfaceOptions = {
    * origin and the sea is drawn this far along, so it flows past the hull as
    * if the ship moved through it.
    */
-  seaOffset: Node<"vec2">;
+  seaFrame: SeaFrame;
   /** The trail the ship leaves, for its foam (see `seascape-wake.ts`). */
   wake?: Wake;
   /**
@@ -334,13 +347,14 @@ export function createSeascapeSurfaceNodes({
   scale,
   levelY,
   cellSize,
+  cellGrowth,
   wind,
   foamTexture,
   detailNormalsTexture,
   sunDirection,
   fft,
   contactFoam,
-  seaOffset,
+  seaFrame,
   wake,
   bowZ,
   kelvinTrack,
@@ -348,7 +362,9 @@ export function createSeascapeSurfaceNodes({
   // The ship raises waves only with its track known
   const shipWaves = bowZ !== undefined && kelvinTrack ? { bowZ, track: kelvinTrack } : null;
   /** A world point, where it is on the sea: the sea has flowed past the ship. */
-  const onSea = (world: Node<"vec2">) => world.add(seaOffset);
+  const onSea = seaFrame.toSea;
+  /** A slope read on the sea, turned back into the scene's frame. */
+  const fromSea = seaFrame.slopeToWorld;
 
   const detailNormals = texture(detailNormalsTexture);
 
@@ -431,10 +447,15 @@ export function createSeascapeSurfaceNodes({
   // The ship's own waves, which stay with it (in the ship's frame)
   const shipWavesAt = (world: Node<"vec2">) =>
     shipWaves ? kelvinWakeHeight(world, shipWaves.track, shipWaves.bowZ) : float(0.0);
+  // This vertex's own cell: larger towards the grid's edge (see `cellGrowth`)
+  const acrossGrid = uv().mul(2.0).sub(1.0);
+  const vertexCell = uniforms.cellSize.mul(
+    float(1.0).add(max(acrossGrid.x.mul(acrossGrid.x), acrossGrid.y.mul(acrossGrid.y)).mul(cellGrowth ?? 0))
+  );
   const vertexLift = (
     fft
-      ? fft.gridHeight(onSea(vertexWorld.xz), uniforms.cellSize)
-      : windSeaElevation(onSea(vertexWorld.xz), time, sea, uniforms.cellSize.mul(GEOMETRY_FILTER_CELLS))
+      ? fft.gridHeight(onSea(vertexWorld.xz), vertexCell)
+      : windSeaElevation(onSea(vertexWorld.xz), time, sea, vertexCell.mul(GEOMETRY_FILTER_CELLS))
   )
     .add(shipWavesAt(vertexWorld.xz))
     .add(sternChurnAt(vertexWorld.xz));
@@ -458,7 +479,9 @@ export function createSeascapeSurfaceNodes({
 
       const toVertex = vertexWorld.add(vec3(0.0, vertexLift, 0.0)).sub(cameraPosition);
 
-      return windSeaSlope("vertex", onSea(vertexWorld.xz), slopeStepFor(toVertex), time, sea, uniforms.cellSize);
+      const onSeaSlope = windSeaSlope("vertex", onSea(vertexWorld.xz), slopeStepFor(toVertex), time, sea, vertexCell);
+
+      return vec3(fromSea(onSeaSlope.xy), onSeaSlope.z);
     })(),
     "vWindSeaVertexWaves"
   );
@@ -483,19 +506,20 @@ export function createSeascapeSurfaceNodes({
     // fwidth are only valid in uniform control flow.
     const pixelSize = length(fwidth(positionWorld.xz)).mul(uniforms.antiAliasing).toVar();
 
-    // Where this pixel is on the sea, which flows past the ship (`seaOffset`)
+    // Where this pixel is on the sea, which flows past and turns about the ship (`seaFrame`)
     const seaPosition = onSea(positionWorld.xz).toVar();
 
     // Total slope = the longest waves (from the vertices) + the other waves
     // (per pixel) + the short chop (the normal map)
-    const pixelWaves = fft
+    const pixelWavesOnSea = fft
       ? fft.pixelWaves(seaPosition)
       : windSeaSlope("pixel", seaPosition, slopeStepFor(toPoint), time, sea, pixelSize);
+    const pixelWaves = vec3(fromSea(pixelWavesOnSea.xy), pixelWavesOnSea.z);
     const viewDirection = normalize(toPoint);
     const notGrazing = smoothstep(CHOP_GRAZING_GONE, CHOP_GRAZING_FULL, viewDirection.y.negate());
     const chop = windSeaDetailSlope(seaPosition, length(toPoint), time, sea, detailNormals);
     // The FFT ocean already holds the chop, down to centimetres
-    const detailSlope = fft ? vec2(0.0) : chop.slope;
+    const detailSlope = fft ? vec2(0.0) : fromSea(chop.slope);
     // The ship's own waves' slope: finite differences, a little over half a metre
     const shipWavesSlope =
       shipWaves
@@ -541,7 +565,9 @@ export function createSeascapeSurfaceNodes({
     // The glints see all the chop, at any angle; the sky's reflection mostly
     // the longer chop, and none at grazing angles (see `inReflection` and
     // CHOP_GRAZING_GONE)
-    const reflectionSlope = fft ? slope : slope.sub(detailSlope).add(chop.reflectionSlope.mul(notGrazing));
+    const reflectionSlope = fft
+      ? slope
+      : slope.sub(detailSlope).add(fromSea(chop.reflectionSlope).mul(notGrazing));
     const reflectionNormal = normalize(vec3(reflectionSlope.x.negate(), 1.0, reflectionSlope.y.negate()));
 
     // The sea's height here, per pixel, from the same two shares. Not the
@@ -635,7 +661,7 @@ export function createSeascapeSurfaceNodes({
     // Carried by the waves: pushed along their slopes, so the trail bends with
     // them, and thicker on their crests than in their troughs
     const wakeOnWaves = wake
-      ? wake.sample(positionWorld.xz.add(bigWaves.xy.mul(WAKE_WAVE_PUSH))).mul(
+      ? wake.sample(positionWorld.xz.add(fromSea(bigWaves.xy).mul(WAKE_WAVE_PUSH))).mul(
           mix(
             float(WAKE_IN_TROUGHS),
             float(WAKE_ON_CRESTS),
@@ -681,7 +707,13 @@ export function createSeascapeSurfaceNodes({
     // the water there filled the ship. Last, after every derivative and read
     if (contactFoam) Discard(contactFoam.isInsideHull(positionWorld.xz));
 
-    return vec4(mix(water.rgb, foamColor, foam), 1.0);
+    // Seen from above: the water and its foam. From below — the camera under
+    // the surface — the surface's underside
+    const above = mix(water.rgb, foamColor, foam);
+    // ...with its foam, seen from underneath: darker, lit through the water
+    const below = mix(surfaceFromBelow(normal, viewDirection), foamColor.mul(FOAM_FROM_BELOW), foam);
+
+    return vec4(frontFacing.select(above, below), 1.0);
   })();
 
   return { positionNode, fragmentNode, uniforms };

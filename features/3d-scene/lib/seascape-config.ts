@@ -1,4 +1,5 @@
-import { SCENE_FOG_COLOR } from "./3d-scene-config";
+/** The horizon at midday under a clear sky: pale, but blue. */
+const SEASCAPE_HORIZON_BLUE = "#a9c9e4";
 
 /**
  * Which seascape the scene renders.
@@ -47,16 +48,15 @@ export const SEASCAPE_SURFACE_LEVEL_Y = -5;
 export const SEASCAPE_SURFACE_GRID_SIZE = 3200;
 
 /**
- * Grid segments per side: 5 world units between vertices, as before the grid
- * was doubled. Measured at 1080p on the 1600 grid, where the vertex counts
- * were the same as here at double the segments:
- *   320 -> 205k triangles, ~3.0 ms
- *   640 -> 819k triangles, ~3.7 ms   <- current (5 units a cell over 3200)
+ * Grid segments per side. The grid is warped, dense under the camera: 320
+ * gives 5-unit cells at the centre and 20 at the edge (see the sea's
+ * component), with 205k triangles. (An even grid this size needed 640, and
+ * 819k, for 5-unit cells.)
  */
-export const SEASCAPE_SURFACE_GRID_SEGMENTS = 640;
+export const SEASCAPE_SURFACE_GRID_SEGMENTS = 320;
 
 /** Grid densities the Inspector's Seascape panel offers, in segments per side. */
-export const SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS = [320, 640, 960, 1280, 1920] as const;
+export const SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS = [160, 320, 480, 640] as const;
 
 /**
  * Half the grid: the nearest the sea's edge ever gets to the camera, since the
@@ -69,8 +69,11 @@ const SEASCAPE_SURFACE_EDGE_DISTANCE = SEASCAPE_SURFACE_GRID_SIZE / 2;
  * Starting values; the Inspector's "Atmosphere" panel tunes them live.
  */
 export const SEASCAPE_ATMOSPHERE = {
-  /** The colour sea and sky both fade into. The scene's existing fog colour. */
-  horizonColor: SCENE_FOG_COLOR,
+  /**
+   * The colour sea and sky both fade into: a pale midday blue. (The scene's
+   * old fog grey, #c8d4e0, washed the sea out looking away from the sun.)
+   */
+  horizonColor: SEASCAPE_HORIZON_BLUE,
   /** Where the haze starts: well past the ship at the widest zoom (400). */
   hazeStart: 600,
   /** Where the haze is complete: short of the grid's edge, so the edge is never visible. */
