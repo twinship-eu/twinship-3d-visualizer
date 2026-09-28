@@ -32,3 +32,13 @@ export function collectNodeIds(node: ShipTreeNode): string[] {
   }
   return ids;
 }
+
+/** The first node with this label, anywhere in the tree; null if there is none. */
+export function findNodeByLabel(nodes: ShipTreeNode[], label: string): ShipTreeNode | null {
+  for (const node of nodes) {
+    if (node.label === label) return node;
+    const found = findNodeByLabel(node.children ?? [], label);
+    if (found) return found;
+  }
+  return null;
+}

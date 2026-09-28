@@ -109,7 +109,7 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
       { name: "twinship rudder angle degree", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twRudderAngleDegree" },
     ],
     connectedComponents: [
-      { id: "Engine", label: "Engine", category: "Energy system" },
+      { id: "Engine", label: "Engine", category: "Energy system", relation: "drivenBy" },
     ],
   },
   Engine: {
@@ -217,9 +217,9 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
       },
     ],
     connectedComponents: [
-      { id: "Propellers", label: "Propellers", category: "Propeller system" },
+      { id: "Propellers", label: "Propellers", category: "Propeller system", relation: "drives" },
       { id: "WAPS", label: "WAPS", category: "Wind assisted propulsion system" },
-      { id: "Base Hull", label: "Base Hull", category: "Hull" },
+      { id: "Base Hull", label: "Base Hull", category: "Hull", relation: "locatedIn" },
     ],
   },
   WAPS: {

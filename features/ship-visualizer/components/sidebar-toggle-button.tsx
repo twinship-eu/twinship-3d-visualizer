@@ -29,8 +29,8 @@ export function SidebarToggleButton({ isOpen, onOpen }: Props) {
       aria-expanded={false}
       className={cn(
         "absolute left-3 top-3 z-50 flex h-11 w-11 items-center justify-center",
-        "rounded-full bg-white/95 text-gray-700 shadow-md backdrop-blur",
-        "hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "rounded-full border border-glass-line bg-glass text-ink backdrop-blur",
+        "hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         "lg:hidden"
       )}
     >

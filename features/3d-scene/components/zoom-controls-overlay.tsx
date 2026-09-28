@@ -107,15 +107,15 @@ export function ZoomControlsOverlay() {
         Below lg the controls sit just above the hint bar, which is 16px off the
         bottom and about 36px tall. 76px leaves a 24px gap between them.
       */
-      className="pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-4 lg:bottom-24"
+      className="pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-auto lg:right-4 lg:bottom-4"
       aria-label="Zoom controls"
     >
-      <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-md bg-white/95 p-1 shadow-md">
+      <div className="pointer-events-auto flex flex-col items-center gap-0.5 rounded-lg border border-glass-line bg-glass p-[3px] text-ink backdrop-blur">
         <button
           type="button"
           aria-label="Zoom in"
           onClick={actions.zoomIn}
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
+          className="flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9"
         >
           <ZoomIn className="h-4 w-4" aria-hidden />
         </button>
@@ -123,20 +123,20 @@ export function ZoomControlsOverlay() {
           type="button"
           aria-label="Zoom out"
           onClick={actions.zoomOut}
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
+          className="flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9"
         >
           <ZoomOut className="h-4 w-4" aria-hidden />
         </button>
-        <div className="h-px w-6 bg-gray-200" aria-hidden />
+        <div className="h-px w-6 bg-line" aria-hidden />
         <button
           type="button"
           aria-label="Reset zoom"
           onClick={actions.resetZoom}
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
+          className="flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9"
         >
           <RotateCw className="h-4 w-4" aria-hidden />
         </button>
-        <div className="h-px w-6 bg-gray-200" aria-hidden />
+        <div className="h-px w-6 bg-line" aria-hidden />
         <button
           type="button"
           aria-label="Ride with the ship"
@@ -144,8 +144,8 @@ export function ZoomControlsOverlay() {
           title={isRidingShip ? "Stop riding with the ship" : "Ride with the ship"}
           onClick={() => setIsRidingShip(!isRidingShip)}
           className={cn(
-            "flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8",
-            isRidingShip && "bg-primary text-primary-foreground hover:bg-primary/90"
+            "flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9",
+            isRidingShip && "bg-accent text-white hover:bg-accent"
           )}
         >
           <Ship className="h-4 w-4" aria-hidden />
@@ -157,8 +157,8 @@ export function ZoomControlsOverlay() {
           title={isTraveling ? "Stop the ship" : "Set the ship under way"}
           onClick={() => setIsTraveling(!isTraveling)}
           className={cn(
-            "flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8",
-            isTraveling && "bg-primary text-primary-foreground hover:bg-primary/90"
+            "flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9",
+            isTraveling && "bg-accent text-white hover:bg-accent"
           )}
         >
           {isTraveling ? (

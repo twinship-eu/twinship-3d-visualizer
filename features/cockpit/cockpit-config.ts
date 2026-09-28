@@ -1,0 +1,34 @@
+/**
+ * The TwinShip Bridge cockpit: the app's shell around the 3D view — its top
+ * bar, the two viewer modes, the themes. Layout from the design's 1440 × 900
+ * screens.
+ */
+
+/** The two things the viewer shows: the static ontology, or the ship's live data. */
+export const VIEWER_MODES = ["ontology", "live"] as const;
+export type ViewerMode = (typeof VIEWER_MODES)[number];
+/** The mode the app opens in. */
+export const DEFAULT_VIEWER_MODE: ViewerMode = "ontology";
+/** The URL parameter the mode is kept in, so a link opens the same view. */
+export const VIEWER_MODE_PARAM = "view";
+
+/** Themes: dark by default, as on a bridge at night. */
+export const THEMES = ["dark", "light"] as const;
+export type Theme = (typeof THEMES)[number];
+export const DEFAULT_THEME: Theme = "dark";
+/** Where the viewer's chosen theme is remembered, per browser. */
+export const THEME_STORAGE_KEY = "twinship-theme";
+
+/** Who and what the top bar names. */
+export const COCKPIT_BRAND = {
+  title: "TWINSHIP BRIDGE",
+  subtitle: "Knud E. Hansen · TwinShip VESSEL",
+  ontologyCaption: "Static 3D model · component structure and specifications",
+} as const;
+
+/**
+ * Sets the theme on <html> before the first paint, from what the viewer chose
+ * last: run inline in <head>, so a light page never flashes dark first.
+ * Kept a plain string: it runs before any bundle has loaded.
+ */
+export const THEME_BOOT_SCRIPT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});document.documentElement.dataset.theme=t==="light"?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}`;

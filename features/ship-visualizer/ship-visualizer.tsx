@@ -9,7 +9,7 @@ import {
   isNodeInNonSelectableSection,
   mapModelTreeToSections,
 } from "./lib/map-tree-to-sections";
-import { collectNodeIds } from "./lib/filter-tree";
+import { collectNodeIds, findNodeByLabel } from "./lib/filter-tree";
 import {
   SIDEBAR_WIDTH_CLASS,
   DEFAULT_SHIP_MODEL_PATH,
@@ -21,12 +21,19 @@ import { OntologyExplorer } from "../ontology-explorrer/ontology-explorer";
 import { SelectionDetailsModal } from "./components/selection-details-modal";
 import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
 import { useModelLoadProgress } from "./hooks/use-model-load-progress";
+import { OntologyRelationsStrip } from "./components/ontology-relations-strip";
+import { CockpitTopBar } from "@/features/cockpit/components/cockpit-top-bar";
+import { LiveWarningCard } from "@/features/cockpit/components/live-warning-card";
+import { useViewerMode } from "@/features/cockpit/hooks/use-viewer-mode";
+import type { Alarm } from "@/features/live-data/live-data-types";
 
 const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
 
 export function ShipVisualizer() {
-  const [selectedModelPath, setSelectedModelPath] =
-    useState(DEFAULT_SHIP_MODEL_PATH);
+  const { mode, setMode } = useViewerMode();
+  const [selectedModelPath, setSelectedModelPath] = useState(
+    DEFAULT_SHIP_MODEL_PATH
+  );
   /**
    * Only meaningful below `lg`, where the sidebar is an overlay. At `lg` and
    * above the panel is statically docked and this is ignored.
@@ -39,9 +46,9 @@ export function ShipVisualizer() {
   const [hoveredStructureNode, setHoveredStructureNode] =
     useState<ShipTreeNode | null>(null);
   const [modelTree, setModelTree] = useState<ShipTreeNode[] | null>(null);
-  const [visibleNodeIds, setVisibleNodeIds] = useState<
-    Record<string, boolean>
-  >({});
+  const [visibleNodeIds, setVisibleNodeIds] = useState<Record<string, boolean>>(
+    {}
+  );
   const isModelReady = modelTree !== null;
   const [assemblyTargets, setAssemblyTargets] = useState<Float32Array | null>(
     null
@@ -86,9 +93,7 @@ export function ShipVisualizer() {
       return;
     }
     if (isNodeInNonSelectableSection(node)) return;
-    setSelectedStructureNode((prev) =>
-      prev?.id === node.id ? null : node
-    );
+    setSelectedStructureNode((prev) => (prev?.id === node.id ? null : node));
   }, []);
 
   const handleHover = useCallback((node: ShipTreeNode | null) => {
@@ -125,20 +130,7 @@ export function ShipVisualizer() {
 
   const handleSelectConnectedComponent = useCallback(
     (targetLabel: string) => {
-      const searchTree = (nodes: ShipTreeNode[]): ShipTreeNode | null => {
-        for (const node of nodes) {
-          if (node.label === targetLabel) {
-            return node;
-          }
-          if (node.children) {
-            const found = searchTree(node.children);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
-
-      const targetNode = searchTree(tree);
+      const targetNode = findNodeByLabel(tree, targetLabel);
       if (!targetNode) return;
       if (isNodeInNonSelectableSection(targetNode)) return;
       setSelectedStructureNode(targetNode);
@@ -146,55 +138,80 @@ export function ShipVisualizer() {
     [tree]
   );
 
+  /** A warning's component, opened in Live data. */
+  const handleOpenAlarm = useCallback(
+    (alarm: Alarm) => {
+      void setMode("live");
+      const componentNode = findNodeByLabel(tree, alarm.componentLabel);
+      if (componentNode && !isNodeInNonSelectableSection(componentNode)) {
+        setSelectedStructureNode(componentNode);
+      }
+    },
+    [tree, setMode]
+  );
+
+  const isOntologyMode = mode === "ontology";
+
   return (
-    <div className="relative flex h-full w-full min-h-0 gap-0">
-      {/*
+    <div className="flex h-full min-h-0 w-full flex-col">
+      <CockpitTopBar
+        mode={mode}
+        onModeChange={(next) => void setMode(next)}
+        onOpenAlarm={handleOpenAlarm}
+      />
+      <div className="relative flex min-h-0 w-full flex-1 gap-0">
+        {/*
         Dims the scene while the overlay sidebar is open, and closes it on tap.
         `lg:hidden` because above the breakpoint the sidebar never covers
         anything and there is nothing to dismiss.
       */}
-      {isSidebarOpen && (
-        <div
-          className="absolute inset-0 z-40 bg-black/40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-          aria-hidden
-        />
-      )}
-
-      <SidebarToggleButton
-        isOpen={isSidebarOpen}
-        onOpen={() => setIsSidebarOpen(true)}
-      />
-
-      <div
-        className={cn(
-          // Below lg: an overlay that slides in from the left over the scene.
-          "absolute inset-y-0 left-0 z-50 flex min-h-0 shrink-0 flex-col",
-          "transition-transform duration-300 ease-out",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full",
-          // At lg: back to a static docked column, always visible.
-          "lg:relative lg:z-auto lg:translate-x-0 lg:transition-none",
-          SIDEBAR_WIDTH_CLASS
+        {isSidebarOpen && (
+          <div
+            className="absolute inset-0 z-40 bg-black/40 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-hidden
+          />
         )}
-      >
-        <OntologyExplorer
-          tree={tree}
-          visibleNodeIds={visibleNodeIds}
-          onToggleSectionVisible={setSectionVisible}
-          onSelect={(node) => {
-            handleSelectNode(node);
-            setIsSidebarOpen(false);
-          }}
-          selectedNodeId={selectedStructureNode?.id ?? null}
-          isLoading={modelTree === null}
-          onClose={() => setIsSidebarOpen(false)}
+
+        <SidebarToggleButton
+          isOpen={isSidebarOpen}
+          onOpen={() => setIsSidebarOpen(true)}
         />
-      </div>
-      <div
-        className={cn(
-          "relative flex min-w-0 flex-1 flex-col",
-          "transition-[padding] duration-300 ease-out",
-          /*
+
+        <div
+          className={cn(
+            // Below lg: an overlay that slides in from the left over the scene.
+            "absolute inset-y-0 left-0 z-50 flex min-h-0 shrink-0 flex-col",
+            "transition-transform duration-300 ease-out",
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full",
+            // At lg: back to a static docked column, always visible.
+            "lg:relative lg:z-auto lg:translate-x-0 lg:transition-none",
+            SIDEBAR_WIDTH_CLASS
+          )}
+        >
+          <OntologyExplorer
+            tree={tree}
+            visibleNodeIds={visibleNodeIds}
+            onToggleSectionVisible={setSectionVisible}
+            onSelect={(node) => {
+              handleSelectNode(node);
+              setIsSidebarOpen(false);
+            }}
+            selectedNodeId={selectedStructureNode?.id ?? null}
+            isLoading={modelTree === null}
+            onClose={() => setIsSidebarOpen(false)}
+            footer={
+              isOntologyMode ? (
+                <LiveWarningCard onOpen={handleOpenAlarm} />
+              ) : undefined
+            }
+          />
+        </div>
+        <div
+          className={cn(
+            "relative flex min-w-0 flex-1 flex-col",
+            "transition-[padding] duration-300 ease-out",
+            /*
             Below lg the sheet is an opaque panel across the bottom. Padding the
             scene by its height keeps the ship centred in the space that is
             left, instead of behind the sheet.
@@ -204,57 +221,72 @@ export function ShipVisualizer() {
             the rounded corners. Matching the height exactly left nothing behind
             them and the sheet read as square.
           */
-          selectedStructureNode !== null &&
-            (isDetailsExpanded
-              ? "pb-[calc(80vh-20px)]"
-              : "pb-[calc(45vh-20px)]"),
-          "lg:pb-0"
-        )}
-      >
-        <SceneErrorFallback
-          fallback={
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg bg-gray-900 text-gray-400">
-              <p>Scene failed to load.</p>
-              <p className="text-sm">
-                Add a ship model at{" "}
-                <code className="rounded bg-gray-800 px-1">public/ship/</code>
-              </p>
-            </div>
-          }
+            selectedStructureNode !== null &&
+              (isDetailsExpanded
+                ? "pb-[calc(80vh-20px)]"
+                : "pb-[calc(45vh-20px)]"),
+            "lg:pb-0"
+          )}
         >
-          <Scene isDetailsOpen={selectedStructureNode !== null}>
-            <Ship
-              modelPath={renderedModelPath}
-              selectedStructureNode={selectedStructureNode}
-              hoveredStructureNode={hoveredStructureNode}
-              hiddenNodeIds={hiddenNodeIds}
-              onModelTreeLoaded={handleModelTreeLoaded}
-              tree={tree}
-              onHover={handleHover}
-              onSelectByClick={handleSelectByClick}
-              onAssemblyPointsSampled={setAssemblyTargets}
-              isInteractive={loading.isInteractive}
-            />
-            {loading.isRingVisible && (
-              <SceneErrorFallback fallback={null}>
-                <LoadingRing
-                  phase={loading.phase}
-                  assemblyTargets={assemblyTargets}
+          <div className="relative min-h-0 w-full flex-1">
+            <SceneErrorFallback
+              fallback={
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-canvas text-muted">
+                  <p>Scene failed to load.</p>
+                  <p className="text-sm">
+                    Add a ship model at{" "}
+                    <code className="rounded bg-card px-1">public/ship/</code>
+                  </p>
+                </div>
+              }
+            >
+              <Scene isDetailsOpen={selectedStructureNode !== null}>
+                <Ship
+                  modelPath={renderedModelPath}
+                  selectedStructureNode={selectedStructureNode}
+                  hoveredStructureNode={hoveredStructureNode}
+                  hiddenNodeIds={hiddenNodeIds}
+                  onModelTreeLoaded={handleModelTreeLoaded}
+                  tree={tree}
+                  onHover={handleHover}
+                  onSelectByClick={handleSelectByClick}
+                  onAssemblyPointsSampled={setAssemblyTargets}
+                  isInteractive={loading.isInteractive}
                 />
-              </SceneErrorFallback>
-            )}
-          </Scene>
-        </SceneErrorFallback>
-        <SelectionDetailsModal
-          selectedNode={selectedStructureNode}
-          isExpanded={isDetailsExpanded}
-          onToggleExpanded={() => setIsDetailsExpanded((open) => !open)}
-          onClose={() => {
-            setSelectedStructureNode(null);
-            setIsDetailsExpanded(false);
-          }}
-          onSelectConnectedComponent={handleSelectConnectedComponent}
-        />
+                {loading.isRingVisible && (
+                  <SceneErrorFallback fallback={null}>
+                    <LoadingRing
+                      phase={loading.phase}
+                      assemblyTargets={assemblyTargets}
+                    />
+                  </SceneErrorFallback>
+                )}
+              </Scene>
+            </SceneErrorFallback>
+            <SelectionDetailsModal
+              // A new card for each component: it opens scrolled to its top
+              key={selectedStructureNode?.id}
+              selectedNode={selectedStructureNode}
+              isExpanded={isDetailsExpanded}
+              onToggleExpanded={() => setIsDetailsExpanded((open) => !open)}
+              onClose={() => {
+                setSelectedStructureNode(null);
+                setIsDetailsExpanded(false);
+              }}
+              onSelectConnectedComponent={handleSelectConnectedComponent}
+              onShowLiveData={
+                isOntologyMode ? () => void setMode("live") : undefined
+              }
+            />
+          </div>
+          {isOntologyMode && selectedStructureNode !== null && (
+            <OntologyRelationsStrip
+              selectedNode={selectedStructureNode}
+              onSelectRelated={handleSelectConnectedComponent}
+              onShowSensors={() => void setMode("live")}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 export const SHIP_VISUALIZER_LAYOUT = {
-  MAX_LEFT_PANEL_WIDTH_PX: 330,
+  MAX_LEFT_PANEL_WIDTH_PX: 264,
 } as const;
 
 /**
@@ -14,7 +14,7 @@ export const SHIP_VISUALIZER_LAYOUT = {
  * Below `lg` the panel is an overlay capped at 85% of the viewport, so a narrow
  * phone always keeps a strip of scene visible beside it.
  */
-export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,330px)] lg:w-[330px]";
+export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,300px)] lg:w-[264px]";
 
 /**
  * The engine model, and the vessel the visualizer opens with.
@@ -162,6 +162,23 @@ export const SHIP_TREE_SECTIONS = [
   { id: "energy", label: "Energy system" },
   { id: "windAssisted", label: "Wind assisted propulsion system" },
 ] as const;
+
+/**
+ * Each system's colour, as the cockpit design gives it: its dot in the tree,
+ * on its component card and in its relations. Static class names, so
+ * Tailwind finds them (see SIDEBAR_WIDTH_CLASS).
+ */
+export const SECTION_DOT_CLASSES: Record<string, string> = {
+  "ship-model": "bg-system-energy",
+  hull: "bg-system-hull",
+  superstructure: "bg-system-superstructure",
+  deck: "bg-system-deck",
+  propeller: "bg-system-propeller",
+  energy: "bg-system-energy",
+  windAssisted: "bg-system-hull",
+};
+/** For a section with no colour of its own. */
+export const DEFAULT_SECTION_DOT_CLASS = "bg-muted";
 
 /** Section IDs whose elements cannot be selected. */
 export const NON_SELECTABLE_SECTION_IDS: readonly string[] = [];
