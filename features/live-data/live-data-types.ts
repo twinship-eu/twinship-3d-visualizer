@@ -47,6 +47,56 @@ export type Alarm = {
   isAcknowledged: boolean;
 };
 
+/** The readings of each of the ship's systems. */
+export type ShipSystems = {
+  propulsion: {
+    /** Propeller shaft speed, rpm. */
+    shaftRpm: number;
+    /** Shaft power, MW. */
+    powerMw: number;
+    /** Controllable pitch, % of full. */
+    pitchPct: number;
+  };
+  energy: {
+    /** Fuel burnt, tonnes per hour. */
+    fuelTph: number;
+    /** Main engine load, % of rated. */
+    engineLoadPct: number;
+    engineRpm: number;
+    exhaustTempC: number;
+    coolantTempC: number;
+    /** Battery bank charge, %. */
+    batteryPct: number;
+  };
+  windAssist: {
+    /** Thrust from the rotor sails, kN. */
+    thrustKn: number;
+    /** Fuel saved against sailing without them, %. */
+    fuelSavingPct: number;
+    /** Each rotor's speed, rpm. */
+    rotorRpm: [number, number];
+  };
+  hull: {
+    /** Roll and pitch, degrees: starboard down and bow up positive. */
+    rollDeg: number;
+    pitchDeg: number;
+    /** Mean draught, m. */
+    meanDraftM: number;
+  };
+  deck: {
+    /** Reefer container temperature, °C. */
+    reeferTempC: number;
+    /** The crane's state, as it reports it: "Stowed", "Working"… */
+    craneState: string;
+    craneHydraulicBar: number;
+  };
+  bridge: {
+    vhfChannel: number;
+    radar: string;
+    ais: string;
+  };
+};
+
 /** Where the snapshot comes from: the simulation, or the ship's own stream. */
 export type LiveDataOrigin = "simulated" | "stream";
 
@@ -60,6 +110,7 @@ export type LiveSnapshot = {
   /** The level of autonomy the ship sails at, e.g. "L3". */
   autonomyLevel: string;
   navigation: NavigationState;
+  systems: ShipSystems;
   /** Active alarms first, then the logged events, newest first within each. */
   alarms: Alarm[];
   /** Sensors fitted per component, by the component's label. */

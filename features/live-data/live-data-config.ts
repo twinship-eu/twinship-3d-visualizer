@@ -17,6 +17,32 @@ export const SIMULATION_BASELINE = {
   trueWindFromDeg: { value: 40, spread: 3 },
 } as const;
 
+/** The systems' simulated readings: value and spread, as for the navigation. */
+export const SIMULATION_SYSTEMS_BASELINE = {
+  shaftRpm: { value: 119, spread: 2 },
+  shaftPowerMw: { value: 4.12, spread: 0.05 },
+  pitchPct: { value: 73, spread: 0.6 },
+  fuelTph: { value: 1.42, spread: 0.03 },
+  engineLoadPct: { value: 67, spread: 1.5 },
+  engineRpm: { value: 615, spread: 4 },
+  exhaustTempC: { value: 397, spread: 3 },
+  coolantTempC: { value: 78, spread: 0.6 },
+  batteryPct: { value: 81, spread: 0.2 },
+  windThrustKn: { value: 37, spread: 1.2 },
+  fuelSavingPct: { value: 14, spread: 0.4 },
+  rotorRpm: { value: 210, spread: 3 },
+  rollDeg: { value: -0.8, spread: 1.2 },
+  pitchDeg: { value: 0.3, spread: 0.3 },
+  meanDraftM: { value: 7.42, spread: 0.02 },
+  reeferTempC: { value: 4.1, spread: 0.1 },
+  craneHydraulicBar: { value: 179, spread: 0.8 },
+} as const;
+export const SIMULATED_CRANE_STATE = "Stowed";
+export const SIMULATED_BRIDGE = { vhfChannel: 16, radar: "Active", ais: "TX" } as const;
+
+/** Snapshots kept for the trends: a minute at 1 Hz. */
+export const LIVE_HISTORY_LENGTH = 60;
+
 /** Where the simulated voyage starts: the North Sea, off Denmark. */
 export const SIMULATION_START_POSITION = { latitude: 56.12, longitude: 7.45 } as const;
 

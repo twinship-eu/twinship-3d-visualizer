@@ -19,6 +19,8 @@ type Props = {
   onOpacityChange: (nodeId: string, value: number) => void;
   onSelect?: (node: ShipTreeNode) => void;
   selectedNodeId?: string | null;
+  /** What the row shows beside its label: e.g. its live reading. */
+  renderReading?: (node: ShipTreeNode) => React.ReactNode;
 };
 
 /**
@@ -36,6 +38,7 @@ export default function TreeNode({
   onOpacityChange,
   onSelect,
   selectedNodeId,
+  renderReading,
 }: Props) {
   const hasChildren = node.children && node.children.length > 0;
   const isSection = depth === 0;
@@ -62,6 +65,7 @@ export default function TreeNode({
           aria-hidden
         />
         <span className="min-w-0 flex-1 truncate">{node.label}</span>
+        {renderReading?.(node)}
         {hasChildren && !isShipModelSection && (
           <button
             type="button"
@@ -93,6 +97,7 @@ export default function TreeNode({
               onOpacityChange={onOpacityChange}
               onSelect={onSelect}
               selectedNodeId={selectedNodeId}
+              renderReading={renderReading}
             />
           ))}
         </div>

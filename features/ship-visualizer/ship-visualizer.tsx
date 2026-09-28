@@ -25,12 +25,25 @@ import { OntologyRelationsStrip } from "./components/ontology-relations-strip";
 import { CockpitTopBar } from "@/features/cockpit/components/cockpit-top-bar";
 import { LiveWarningCard } from "@/features/cockpit/components/live-warning-card";
 import { useViewerMode } from "@/features/cockpit/hooks/use-viewer-mode";
+import { useLiveView } from "@/features/cockpit/hooks/use-live-view";
+import { AlarmsEventsList } from "@/features/cockpit/components/alarms-events-list";
+import { LiveNodeReading } from "@/features/cockpit/components/live-node-reading";
+import { LiveViewControls } from "@/features/cockpit/components/live-view-controls";
+import { SystemCardsStrip } from "@/features/cockpit/components/system-cards-strip";
+import { CalloutAnchorProjector } from "@/features/cockpit/callouts/callout-anchor-projector";
+import { SystemCallouts } from "@/features/cockpit/callouts/system-callouts";
 import type { Alarm } from "@/features/live-data/live-data-types";
 
 const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
 
+/** A tree row's live reading, in Live data. */
+const renderLiveReading = (node: ShipTreeNode) => (
+  <LiveNodeReading label={node.label} />
+);
+
 export function ShipVisualizer() {
   const { mode, setMode } = useViewerMode();
+  const liveView = useLiveView();
   const [selectedModelPath, setSelectedModelPath] = useState(
     DEFAULT_SHIP_MODEL_PATH
   );
@@ -151,6 +164,13 @@ export function ShipVisualizer() {
   );
 
   const isOntologyMode = mode === "ontology";
+  const isSystemsView = !isOntologyMode && liveView.view === "systems";
+  // The callouts give way to a selected component's own details
+  const isShowingCallouts =
+    isSystemsView &&
+    liveView.isShowingCallouts &&
+    selectedStructureNode === null &&
+    isModelReady;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
@@ -203,8 +223,11 @@ export function ShipVisualizer() {
             footer={
               isOntologyMode ? (
                 <LiveWarningCard onOpen={handleOpenAlarm} />
-              ) : undefined
+              ) : (
+                <AlarmsEventsList onOpen={handleOpenAlarm} />
+              )
             }
+            renderReading={isOntologyMode ? undefined : renderLiveReading}
           />
         </div>
         <div
@@ -253,6 +276,7 @@ export function ShipVisualizer() {
                   onAssemblyPointsSampled={setAssemblyTargets}
                   isInteractive={loading.isInteractive}
                 />
+                {isShowingCallouts && <CalloutAnchorProjector />}
                 {loading.isRingVisible && (
                   <SceneErrorFallback fallback={null}>
                     <LoadingRing
@@ -263,6 +287,21 @@ export function ShipVisualizer() {
                 )}
               </Scene>
             </SceneErrorFallback>
+            {isShowingCallouts && (
+              <SystemCallouts
+                onOpenComponent={handleSelectConnectedComponent}
+              />
+            )}
+            {!isOntologyMode && (
+              <LiveViewControls
+                view={liveView.view}
+                onViewChange={(view) => void liveView.setView(view)}
+                isShowingCallouts={liveView.isShowingCallouts}
+                onShowCalloutsChange={(isShowing) =>
+                  void liveView.setIsShowingCallouts(isShowing)
+                }
+              />
+            )}
             <SelectionDetailsModal
               // A new card for each component: it opens scrolled to its top
               key={selectedStructureNode?.id}
@@ -286,6 +325,7 @@ export function ShipVisualizer() {
               onShowSensors={() => void setMode("live")}
             />
           )}
+          {!isOntologyMode && <SystemCardsStrip />}
         </div>
       </div>
     </div>

@@ -36,6 +36,7 @@
   --color-muted: var(--cp-muted);
   --color-glass: var(--cp-glass);
   --color-glass-line: var(--cp-glass-line);
+  --color-leader: var(--cp-leader);
   --color-seg: var(--cp-seg);
   --color-seg-on: var(--cp-seg-on);
   --color-seg-on-ink: var(--cp-seg-on-text);
@@ -125,6 +126,7 @@
   --cp-muted: #8fa0b8;
   --cp-glass: rgba(8, 14, 26, 0.8);
   --cp-glass-line: rgba(255, 255, 255, 0.12);
+  --cp-leader: rgba(230, 237, 247, 0.75);
   --cp-seg: rgba(255, 255, 255, 0.04);
   --cp-seg-on: rgba(255, 255, 255, 0.14);
   --cp-seg-on-text: #ffffff;
@@ -163,6 +165,7 @@
   --cp-muted: #5b6b82;
   --cp-glass: rgba(255, 255, 255, 0.92);
   --cp-glass-line: rgba(15, 23, 42, 0.1);
+  --cp-leader: rgba(255, 255, 255, 0.95);
   --cp-seg: #f1f5f9;
   --cp-seg-on: #ffffff;
   --cp-seg-on-text: #0f172a;

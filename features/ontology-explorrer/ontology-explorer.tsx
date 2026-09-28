@@ -24,6 +24,8 @@ type Props = {
   onClose?: () => void;
   /** Shown at the panel's foot, under the tree: e.g. a live warning. */
   footer?: React.ReactNode;
+  /** What each row shows beside its label: e.g. its live reading. */
+  renderReading?: (node: ShipTreeNode) => React.ReactNode;
 };
 
 export function OntologyExplorer({
@@ -35,6 +37,7 @@ export function OntologyExplorer({
   isLoading = false,
   onClose,
   footer,
+  renderReading,
 }: Props) {
   const [search, setSearch] = useState("");
   const [opacityByNodeId, setOpacityByNodeId] = useState<Record<string, number>>(
@@ -125,11 +128,12 @@ export function OntologyExplorer({
               onOpacityChange={setOpacity}
               onSelect={onSelect}
               selectedNodeId={selectedNodeId}
+              renderReading={renderReading}
             />
           ))
         )}
       </div>
-      {footer && <div className="shrink-0">{footer}</div>}
+      {footer && <div className="flex min-h-0 shrink-0 flex-col">{footer}</div>}
     </div>
   );
 }

@@ -3,14 +3,17 @@ import {
   METRES_PER_NAUTICAL_MILE,
   SECONDS_PER_HOUR,
   SIMULATED_AUTONOMY_LEVEL,
+  SIMULATED_BRIDGE,
+  SIMULATED_CRANE_STATE,
   SIMULATED_SENSOR_COUNTS,
+  SIMULATION_SYSTEMS_BASELINE,
   SIMULATION_BASELINE,
   SIMULATION_PULL,
   SIMULATION_RATE_HZ,
   SIMULATION_START_POSITION,
 } from "../live-data-config";
 import { createMockAlarms } from "../live-data-mock";
-import type { GeoPosition, LiveDataSource, LiveSnapshot } from "../live-data-types";
+import type { GeoPosition, LiveDataSource, LiveSnapshot, ShipSystems } from "../live-data-types";
 
 type Drifting = { value: number; spread: number };
 
@@ -25,6 +28,11 @@ type SimulatedState = {
   windFrom: number;
   position: GeoPosition;
 };
+
+type SystemsReading = keyof typeof SIMULATION_SYSTEMS_BASELINE;
+
+/** A little apart, so the two rotors do not read the same. */
+const ROTOR_OFFSET_RPM = 5;
 
 /** One step of a bounded random walk: a nudge, pulled back towards the baseline. */
 function drift(current: number, { value, spread }: Drifting) {
@@ -68,7 +76,47 @@ export function createSimulatedSource(): LiveDataSource {
       windFrom: base.trueWindFromDeg.value,
       position: { ...SIMULATION_START_POSITION },
     };
+    const readings = Object.fromEntries(
+      Object.entries(SIMULATION_SYSTEMS_BASELINE).map(([name, { value }]) => [name, value])
+    ) as Record<SystemsReading, number>;
+    const rotors: [number, number] = [
+      SIMULATION_SYSTEMS_BASELINE.rotorRpm.value + ROTOR_OFFSET_RPM,
+      SIMULATION_SYSTEMS_BASELINE.rotorRpm.value - ROTOR_OFFSET_RPM,
+    ];
     const intervalSeconds = 1 / SIMULATION_RATE_HZ;
+
+    function systemsNow(): ShipSystems {
+      for (const name of Object.keys(readings) as SystemsReading[]) {
+        readings[name] = drift(readings[name], SIMULATION_SYSTEMS_BASELINE[name]);
+      }
+      const rotorBaseline = SIMULATION_SYSTEMS_BASELINE.rotorRpm;
+      rotors[0] = drift(rotors[0], { value: rotorBaseline.value + ROTOR_OFFSET_RPM, spread: rotorBaseline.spread });
+      rotors[1] = drift(rotors[1], { value: rotorBaseline.value - ROTOR_OFFSET_RPM, spread: rotorBaseline.spread });
+
+      return {
+        propulsion: { shaftRpm: readings.shaftRpm, powerMw: readings.shaftPowerMw, pitchPct: readings.pitchPct },
+        energy: {
+          fuelTph: readings.fuelTph,
+          engineLoadPct: readings.engineLoadPct,
+          engineRpm: readings.engineRpm,
+          exhaustTempC: readings.exhaustTempC,
+          coolantTempC: readings.coolantTempC,
+          batteryPct: readings.batteryPct,
+        },
+        windAssist: {
+          thrustKn: readings.windThrustKn,
+          fuelSavingPct: readings.fuelSavingPct,
+          rotorRpm: [rotors[0], rotors[1]],
+        },
+        hull: { rollDeg: readings.rollDeg, pitchDeg: readings.pitchDeg, meanDraftM: readings.meanDraftM },
+        deck: {
+          reeferTempC: readings.reeferTempC,
+          craneState: SIMULATED_CRANE_STATE,
+          craneHydraulicBar: readings.craneHydraulicBar,
+        },
+        bridge: { ...SIMULATED_BRIDGE },
+      };
+    }
 
     function tick() {
       state.heading = drift(state.heading, base.headingDeg);
@@ -95,6 +143,7 @@ export function createSimulatedSource(): LiveDataSource {
           trueWind: { speedKn: state.windSpeed, fromDeg: wrapDegrees(state.windFrom) },
           position: state.position,
         },
+        systems: systemsNow(),
         alarms,
         sensorCounts: SIMULATED_SENSOR_COUNTS,
       });

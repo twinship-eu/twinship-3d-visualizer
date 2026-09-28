@@ -32,3 +32,11 @@ export const COCKPIT_BRAND = {
  * Kept a plain string: it runs before any bundle has loaded.
  */
 export const THEME_BOOT_SCRIPT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});document.documentElement.dataset.theme=t==="light"?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}`;
+
+/** Inside Live data: the ship's systems, or its voyage. */
+export const LIVE_VIEWS = ["systems", "voyage"] as const;
+export type LiveView = (typeof LIVE_VIEWS)[number];
+export const DEFAULT_LIVE_VIEW: LiveView = "systems";
+export const LIVE_VIEW_PARAM = "live";
+/** Whether the Systems view shows its callouts over the scene (`?callouts=false` for a clean view). */
+export const CALLOUTS_PARAM = "callouts";
