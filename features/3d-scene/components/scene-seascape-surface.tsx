@@ -13,6 +13,7 @@ import {
 } from "three/webgpu";
 import { getSunDirection, IS_SCENE_INSPECTOR_ENABLED } from "../lib/3d-scene-config";
 import {
+  IS_FFT_OCEAN_ENABLED,
   SEASCAPE_CHOP_NORMALS_URL,
   SEASCAPE_DEFAULT_FOAM_TEXTURE,
   SEASCAPE_DETAIL_NORMALS_ANISOTROPY,
@@ -27,12 +28,14 @@ import {
   SEASCAPE_WIND_LIMITS,
   type SeascapeFoamTextureName,
 } from "../lib/seascape-config";
+import { createFftOcean } from "../lib/seascape-fft-ocean";
+import { createFftSurfaceNodes } from "../lib/seascape-fft-surface";
 import {
   applyWindSeaState,
   createSeascapeSurfaceNodes,
   SEASCAPE_SURFACE_DEFAULTS,
 } from "../lib/seascape-surface-tsl";
-import { asSceneRenderer, getSceneInspector } from "../lib/webgpu-renderer";
+import { asSceneRenderer, getSceneInspector, isWebGPUBackend } from "../lib/webgpu-renderer";
 
 /** World units between adjacent grid vertices, for a grid of `segments` per side. */
 function cellSizeFor(segments: number): number {
@@ -88,9 +91,18 @@ function getFoamTexture(name: SeascapeFoamTextureName): Texture {
   return loaded;
 }
 
+/** Identifies a wind, to notice when it changes. */
+function windKey(wind: { speed: number; fromDegrees: number; fetch: number }) {
+  return `${wind.speed}|${wind.fromDegrees}|${wind.fetch}`;
+}
+
 /** Builds the grid, its material and the shader's tuning uniforms, once. */
-function createSeaSurface() {
+function createSeaSurface(canUseCompute: boolean) {
   const geometry = createSeaGeometry(SEASCAPE_SURFACE_GRID_SEGMENTS);
+  // The FFT ocean needs compute shaders: WebGPU only. On three's WebGL
+  // fallback the analytic waves are drawn instead
+  const ocean = IS_FFT_OCEAN_ENABLED && canUseCompute ? createFftOcean(SEASCAPE_WIND) : null;
+  const fft = ocean ? createFftSurfaceNodes(ocean.cascades) : undefined;
 
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
@@ -100,6 +112,7 @@ function createSeaSurface() {
     foamTexture: getFoamTexture(SEASCAPE_DEFAULT_FOAM_TEXTURE),
     detailNormalsTexture: loadDetailNormalsTexture(),
     sunDirection: getSunDirection(),
+    fft,
   });
   const material = new MeshBasicNodeMaterial();
   material.positionNode = nodes.positionNode;
@@ -107,7 +120,16 @@ function createSeaSurface() {
   // material's own logic would otherwise apply the scene's environment map.
   material.fragmentNode = nodes.fragmentNode;
 
-  return { geometry, segments: SEASCAPE_SURFACE_GRID_SEGMENTS as number, material, uniforms: nodes.uniforms };
+  return {
+    geometry,
+    segments: SEASCAPE_SURFACE_GRID_SEGMENTS as number,
+    material,
+    uniforms: nodes.uniforms,
+    ocean,
+    fft,
+    /** The wind the FFT spectrum was last built for, to rebuild it only on a change. */
+    oceanWindKey: windKey(SEASCAPE_WIND),
+  };
 }
 
 /**
@@ -171,7 +193,7 @@ export function SceneSeascapeSurface() {
   // React Compiler rightly refuses mutating a memoised value. A lazily filled
   // ref is the sanctioned escape hatch.
   const seaRef = useRef<ReturnType<typeof createSeaSurface> | null>(null);
-  seaRef.current ??= createSeaSurface();
+  seaRef.current ??= createSeaSurface(isWebGPUBackend(gl));
   const { geometry, material } = seaRef.current;
 
   useEffect(() => {
@@ -209,7 +231,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "wireframe");
   }, [gl]);
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
@@ -222,9 +244,25 @@ export function SceneSeascapeSurface() {
     mesh.position.x = snapToCell(camera.position.x, cellSize);
     mesh.position.z = snapToCell(camera.position.z, cellSize);
 
+    // The FFT ocean's waves, brought to this moment: a few compute passes
+    sea.ocean?.update(asSceneRenderer(gl), clock.elapsedTime);
+
     // Applied per frame rather than through change handlers, as SceneLights
     // does: a few assignments, and it cannot drift out of sync with the panel.
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
+
+    // A new wind means a new spectrum, rebuilt on the CPU: only on a change
+    const wind = {
+      speed: SEASCAPE_TUNING.windSpeed,
+      fromDegrees: SEASCAPE_TUNING.windFromDegrees,
+      fetch: SEASCAPE_TUNING.fetchKm * 1000,
+    };
+    const key = windKey(wind);
+    if (sea.ocean && sea.fft && key !== sea.oceanWindKey) {
+      sea.ocean.setWind(wind);
+      sea.fft.syncTileSizes();
+      sea.oceanWindKey = key;
+    }
 
     // A new density means a new grid, and the shader must know its cell size
     // (the select hands back the option as it was given, a number)

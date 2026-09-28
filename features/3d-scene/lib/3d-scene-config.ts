@@ -1,4 +1,4 @@
-import { MathUtils, Vector3 } from "three";
+import { MathUtils, Vector3 } from "three/webgpu";
 
 const DEFAULT_SCENE_SCALE = 1;
 

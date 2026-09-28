@@ -7,7 +7,7 @@ import {
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   PlaneGeometry,
-} from "three";
+} from "three/webgpu";
 import { AdditiveBlending, SpriteNodeMaterial } from "three/webgpu";
 import {
   abs,

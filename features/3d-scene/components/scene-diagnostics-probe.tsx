@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
-import { LinearFilter, Mesh, Texture, Vector2, type Material } from "three";
+import { LinearFilter, Mesh, Texture, Vector2, type Material } from "three/webgpu";
 import { asSceneRenderer, isWebGPUBackend } from "../lib/webgpu-renderer";
 import {
   DIAGNOSTIC_ACTIONS,

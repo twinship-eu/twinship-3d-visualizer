@@ -12,7 +12,7 @@
  *   specular   -> specularLight
  *   the end of main() -> shadeSea
  */
-import { add, dot, Fn, max, mix, normalize, pow, reflect, smoothstep, sub, vec3, vec4 } from "three/tsl";
+import { add, dot, float, Fn, max, mix, normalize, pow, reflect, smoothstep, sub, vec3, vec4 } from "three/tsl";
 import type { Node } from "three/webgpu";
 import { WAVES_AMPLITUDE } from "./seascape-waves";
 
@@ -255,9 +255,14 @@ export const shadeSea = Fn(
     // Fade into the sky right at the horizon. The GLSL writes this as
     // smoothstep(0.0, -0.05, y); WGSL rejects reversed edges when they are
     // constants, and 1 - smoothstep(-0.05, 0.0, y) is the same curve.
+    //
+    // Only for the raymarched background (clearSky 0), where a ray pointing up
+    // meant sky. On the surface, a crest higher than the camera is seen along a
+    // ray pointing up too — and was painted over with the sky: grey wave tops,
+    // more of them the bigger the waves and the lower the camera. The surface's
+    // distance is hazed by the scene's fog instead.
     const horizonFade = pow(smoothstep(-0.05, 0.0, viewDirection.y).oneMinus(), 0.3);
-    const horizonSky = mix(skyColor(viewDirection), clearSkyColor(viewDirection), clearSky);
-    color.assign(mix(horizonSky, color, horizonFade));
+    color.assign(mix(skyColor(viewDirection), color, mix(horizonFade, float(1.0), clearSky)));
 
     return vec4(gammaLift(color), 1.0);
   },

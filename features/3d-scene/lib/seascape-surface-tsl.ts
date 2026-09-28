@@ -46,10 +46,12 @@ import {
   time,
   uniform,
   varying,
+  vec2,
   vec3,
   vec4,
 } from "three/tsl";
 import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/webgpu";
+import type { FftSurfaceNodes } from "./seascape-fft-surface";
 import { crestFoamColor, crestFoamDensity, foamGrain } from "./seascape-foam-tsl";
 import { shadeSea } from "./seascape-lighting";
 import { WAVES_AMPLITUDE } from "./seascape-waves";
@@ -80,6 +82,9 @@ const MIN_SLOPE_STEP = 0.01;
  * stepped and faceted.
  */
 const GEOMETRY_FILTER_CELLS = 2;
+
+/** How much of a pixel's slope spread widens the sun's highlight — see the fragment shader. */
+const GLINT_SPREAD_WEIGHT = 0.5;
 
 /**
  * How much of the body's scattered light depends on facing the sun: the rest
@@ -122,18 +127,8 @@ const FOAM_DISTORTION = 0.25;
 const CHOP_GRAZING_GONE = 0.04;
 const CHOP_GRAZING_FULL = 0.3;
 
-/**
- * How much of the short chop the sky's reflection sees, against the glints.
- *
- * The chop's ripples are metres across; each tilted the reflection from the
- * zenith's deep blue to the horizon's pale one, and seen from a few metres up
- * the sea filled with soft white "clouds" (they went with the chop or the
- * reflection turned off, and stayed with foam, glints and glow turned off).
- * On real water the ripples that break up a reflection are centimetres long
- * and read as glitter. So the chop stays whole for the sun's glints, where it
- * makes the sparkle, and the reflection follows the longer waves.
- */
-const CHOP_IN_REFLECTION = 0.2;
+// How much of the chop the sky's reflection sees is set per layer — see
+// `inReflection` in seascape-wind-waves.ts.
 
 export const SEASCAPE_SURFACE_DEFAULTS = {
   /**
@@ -202,6 +197,12 @@ type SurfaceOptions = {
   detailNormalsTexture: Texture;
   /** Towards the scene's sun, so the water is lit as the ship is. */
   sunDirection: Vector3;
+  /**
+   * The FFT ocean's cascades, to draw the waves from (see
+   * `seascape-fft-surface.ts`). Without them, the analytic waves and the chop
+   * normal map are drawn instead.
+   */
+  fft?: FftSurfaceNodes;
 };
 
 /**
@@ -237,6 +238,7 @@ export function createSeascapeSurfaceNodes({
   foamTexture,
   detailNormalsTexture,
   sunDirection,
+  fft,
 }: SurfaceOptions) {
   const detailNormals = texture(detailNormalsTexture);
 
@@ -293,7 +295,9 @@ export function createSeascapeSurfaceNodes({
 
   // Where this grid vertex is in the world, before and after it is lifted
   const vertexWorld = modelWorldMatrix.mul(vec4(positionGeometry, 1.0)).xyz;
-  const vertexLift = windSeaElevation(vertexWorld.xz, time, sea, uniforms.cellSize.mul(GEOMETRY_FILTER_CELLS));
+  const vertexLift = fft
+    ? fft.gridHeight(vertexWorld.xz, uniforms.cellSize)
+    : windSeaElevation(vertexWorld.xz, time, sea, uniforms.cellSize.mul(GEOMETRY_FILTER_CELLS));
 
   /**
    * Vertex: lift the grid to the sea's height.
@@ -309,6 +313,9 @@ export function createSeascapeSurfaceNodes({
    */
   const vertexWaves = varying(
     Fn(() => {
+      // The FFT ocean's slopes all come per pixel
+      if (fft) return vec3(0.0);
+
       const toVertex = vertexWorld.add(vec3(0.0, vertexLift, 0.0)).sub(cameraPosition);
 
       return windSeaSlope("vertex", vertexWorld.xz, slopeStepFor(toVertex), time, sea, uniforms.cellSize);
@@ -338,16 +345,30 @@ export function createSeascapeSurfaceNodes({
 
     // Total slope = the longest waves (from the vertices) + the other waves
     // (per pixel) + the short chop (the normal map)
-    const pixelWaves = windSeaSlope("pixel", positionWorld.xz, slopeStepFor(toPoint), time, sea, pixelSize);
+    const pixelWaves = fft
+      ? fft.pixelWaves(positionWorld.xz)
+      : windSeaSlope("pixel", positionWorld.xz, slopeStepFor(toPoint), time, sea, pixelSize);
     const viewDirection = normalize(toPoint);
     const notGrazing = smoothstep(CHOP_GRAZING_GONE, CHOP_GRAZING_FULL, viewDirection.y.negate());
-    const detailSlope = windSeaDetailSlope(positionWorld.xz, length(toPoint), time, sea, detailNormals);
+    const chop = windSeaDetailSlope(positionWorld.xz, length(toPoint), time, sea, detailNormals);
+    // The FFT ocean already holds the chop, down to centimetres
+    const detailSlope = fft ? vec2(0.0) : chop.slope;
     const slope = vertexWaves.xy.add(pixelWaves.xy).add(detailSlope);
     const normal = normalize(vec3(slope.x.negate(), 1.0, slope.y.negate()));
-    // The glints see all the chop, at any angle; the sky's reflection only a
-    // little of it, and none at grazing angles (see CHOP_IN_REFLECTION and
+
+    // Specular anti-aliasing (Toksvig): the slope's spread across this pixel
+    // widens the highlight. Blinn-Phong's shininess s is a roughness of
+    // α² = 2 / (s + 2); the spread adds to it. Without it, the chop's glints
+    // came out as single white pixels scattered over the whole sea, a noise
+    // that flickered as it moved — real glitter is finer than a pixel and
+    // reads as a soft sheen.
+    const slopeSpread = fwidth(slope.x).mul(fwidth(slope.x)).add(fwidth(slope.y).mul(fwidth(slope.y)));
+    const glintRoughness = float(2.0).div(uniforms.shininess.add(2.0)).add(slopeSpread.mul(GLINT_SPREAD_WEIGHT));
+    const glintShininess = float(2.0).div(glintRoughness).sub(2.0).max(1.0);
+    // The glints see all the chop, at any angle; the sky's reflection mostly
+    // the longer chop, and none at grazing angles (see `inReflection` and
     // CHOP_GRAZING_GONE)
-    const reflectionSlope = slope.sub(detailSlope.mul(float(1.0).sub(notGrazing.mul(CHOP_IN_REFLECTION))));
+    const reflectionSlope = fft ? slope : slope.sub(detailSlope).add(chop.reflectionSlope.mul(notGrazing));
     const reflectionNormal = normalize(vec3(reflectionSlope.x.negate(), 1.0, reflectionSlope.y.negate()));
 
     // The sea's height here, per pixel, from the same two shares. Not the
@@ -400,7 +421,7 @@ export function createSeascapeSurfaceNodes({
       uniforms.deepColor,
       uniforms.lightColor,
       sun,
-      uniforms.shininess,
+      glintShininess,
       subsurface,
       1.0,
       reflectionNormal

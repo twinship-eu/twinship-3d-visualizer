@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo } from "react";
 import { WaterMesh } from "three/examples/jsm/objects/WaterMesh.js";
-import { Color, PlaneGeometry, RepeatWrapping } from "three";
+import { Color, PlaneGeometry, RepeatWrapping } from "three/webgpu";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 import { useTexture } from "@react-three/drei";
 import {

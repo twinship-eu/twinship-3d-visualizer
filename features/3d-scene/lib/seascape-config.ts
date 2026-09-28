@@ -13,6 +13,15 @@ import { SCENE_FOG_COLOR } from "./3d-scene-config";
 export const IS_SEASCAPE_SURFACE_ENABLED = true;
 
 /**
+ * Which waves the surface sea draws:
+ * - `true`: the FFT ocean — thousands of waves from the wind's spectrum,
+ *   summed on the GPU every frame (`seascape-fft-ocean.ts`);
+ * - `false`: three analytic wave octaves plus a chop normal map
+ *   (`seascape-wind-waves.ts`), the version before it.
+ */
+export const IS_FFT_OCEAN_ENABLED = true;
+
+/**
  * World units per unit of the shader's own sea space.
  *
  * The original shader's waves peak at about 1.5 of its units, seen from a

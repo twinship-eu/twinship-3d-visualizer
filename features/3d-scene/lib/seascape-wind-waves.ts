@@ -43,7 +43,7 @@
  * as parameters, including the time and the sea state. A uniform read only
  * from inside a Fn that has a layout is not declared by three r183.
  */
-import { dot, float, Fn, If, max, min, mix, pow, smoothstep, sqrt, sub, texture, vec2, vec3 } from "three/tsl";
+import { dot, float, Fn, If, max, mix, pow, smoothstep, sqrt, sub, texture, vec2, vec3 } from "three/tsl";
 import type { Node, TextureNode } from "three/webgpu";
 import { valueNoise } from "./seascape-noise";
 import { crestProfile } from "./seascape-waves";
@@ -167,26 +167,46 @@ const DETAIL_MAP_RMS_SLOPE = 0.24;
  */
 const DETAIL_FEATURES_PER_TILE = 16;
 /**
- * The two layers, and which octaves' slope each stands for:
- * - `featureOfPeak`: its ripples' size, relative to the peak wavelength, which
- *   sets both its tile size and — as for any wave that size — its speed;
- * - `maxFeature`: the largest those ripples get, in metres. Short chop is
- *   metres long at any wind; scaled with a storm's peak wavelength it grew to
- *   tens of metres, and the sun's glints became white blobs;
- * - `turn`: its angle against the wind, in radians, different for each so the
- *   two never line up.
- */
-/**
  * Distance, in the layer's own tiles, over which it fades out: whole up to 3
  * tiles from the camera, gone by 10. Further away hundreds of identical tiles
  * line up into a visible grid, and the chop is too fine to see anyway.
  */
 const DETAIL_FADE_START_TILES = 3.0;
 const DETAIL_FADE_END_TILES = 10.0;
+/**
+ * The layers of chop, continuing the spectrum below the shortest drawn wave:
+ * - `featureOfShortestWave`: its ripples' size against the shortest wave the
+ *   surface draws (the peak wavelength / 2.3²), which sets its tile size and,
+ *   as for any wave that size, its speed. Anchored there, the layers always
+ *   start where the waves stop. (Anchored to fixed sizes of 8 m and 2 m, a
+ *   storm had nothing between its 73 m waves and 8 m ripples, and its surface
+ *   read as calm swell);
+ * - `minFeature`: the smallest those ripples get, in metres, for low winds;
+ * - `slopeShare`: its share of the chop's slope variance;
+ * - `inReflection`: how much of it the sky's reflection sees. The long chop
+ *   breaks up the sky's reflection into dark and light patches, as on real
+ *   water; the shortest, a few metres across, drew soft white "clouds", so the
+ *   reflection sees little of it and it stays in the sun's glints;
+ * - `turn`: its angle against the wind, in radians, different for each so the
+ *   layers never line up.
+ */
 const DETAIL_LAYERS = [
-  { octaves: [3, 4], featureOfPeak: 1 / 18, maxFeature: 8.0, turn: 0.35 },
-  { octaves: [5], featureOfPeak: 1 / 64, maxFeature: 2.0, turn: -0.6 },
+  { featureOfShortestWave: 0.4, minFeature: 1.5, slopeShare: 0.45, inReflection: 1.0, turn: 0.35 },
+  { featureOfShortestWave: 0.15, minFeature: 0.6, slopeShare: 0.35, inReflection: 0.4, turn: -0.6 },
+  { featureOfShortestWave: 0.055, minFeature: 0.25, slopeShare: 0.2, inReflection: 0.1, turn: 1.2 },
 ] as const;
+
+/**
+ * The sea's total mean square slope, from Cox & Munk's sun-glitter
+ * measurements (1954, clean surface): 0.003 + 0.00512 · U, with U the wind in
+ * m/s. The drawn waves carry part of it; the chop gets the rest, so the
+ * surface roughens with the wind — 0.054 at 10 m/s, 0.105 at 20.
+ */
+const SLOPE_VARIANCE_CALM = 0.003;
+const SLOPE_VARIANCE_PER_WIND = 0.00512;
+
+/** The shortest drawn wave's length against the peak wavelength. */
+const SHORTEST_WAVE_OF_PEAK = Math.pow(OCTAVE_WAVELENGTH_RATIO, -(WAVE_OCTAVES - 1));
 
 /**
  * How much of the Shadertoy's crest tip is rounded off, in its profile's
@@ -313,7 +333,7 @@ export type WindSeaState = {
  * in m²·s. A Pierson–Moskowitz ω⁻⁵ curve for a developing sea (scaled by
  * `alpha`), sharpened around its peak `peakFrequency` by γ.
  */
-function jonswapSpectrum(frequency: number, peakFrequency: number, alpha: number) {
+export function jonswapSpectrum(frequency: number, peakFrequency: number, alpha: number) {
   const sigma = frequency <= peakFrequency ? JONSWAP_SIGMA_BELOW_PEAK : JONSWAP_SIGMA_ABOVE_PEAK;
   const offPeak = (frequency - peakFrequency) / (sigma * peakFrequency);
   const peakEnhancement = Math.pow(JONSWAP_GAMMA, Math.exp(-0.5 * offPeak * offPeak));
@@ -344,11 +364,23 @@ function bandEnergy(from: number, to: number, peakFrequency: number, alpha: numb
  * takes everything below — and gets the amplitude that gives its two waves
  * that energy.
  */
-export function windSeaState({ speed, fromDegrees, fetch }: Wind): WindSeaState {
+/**
+ * JONSWAP's two parameters for a wind — see `windSeaState` for the laws —
+ * and how much of the sea it raises (0 for no wind, 1 above MIN_WIND_SPEED).
+ */
+export function jonswapParameters({ speed, fetch }: Pick<Wind, "speed" | "fetch">) {
   const windSpeed = Math.max(speed, MIN_WIND_SPEED);
   const dimensionlessFetch = Math.min((GRAVITY * fetch) / (windSpeed * windSpeed), FULLY_DEVELOPED_FETCH);
-  const peakFrequency = 22 * (GRAVITY / windSpeed) * Math.pow(dimensionlessFetch, -0.33);
-  const alpha = 0.076 * Math.pow(dimensionlessFetch, -0.22);
+
+  return {
+    peakFrequency: 22 * (GRAVITY / windSpeed) * Math.pow(dimensionlessFetch, -0.33),
+    alpha: 0.076 * Math.pow(dimensionlessFetch, -0.22),
+    calm: Math.min(Math.max(speed, 0) / MIN_WIND_SPEED, 1),
+  };
+}
+
+export function windSeaState({ speed, fromDegrees, fetch }: Wind): WindSeaState {
+  const { peakFrequency, alpha } = jonswapParameters({ speed, fetch });
 
   // Band edges halfway (geometrically) between neighbouring octaves' frequencies
   const bandRatio = Math.sqrt(Math.sqrt(OCTAVE_WAVELENGTH_RATIO));
@@ -386,10 +418,13 @@ export function windSeaState({ speed, fromDegrees, fetch }: Wind): WindSeaState 
     octaveAmplitudes: bands.slice(0, WAVE_OCTAVES).map((band) => band.amplitude * calm),
     waveHeightDeviation:
       Math.sqrt(bands.slice(0, WAVE_OCTAVES).reduce((sum, band) => sum + band.energy, 0)) * calm,
-    detailStrengths: DETAIL_LAYERS.map(({ octaves }) => {
-      const slopeSquared = octaves.reduce((sum, octave) => sum + bands[octave].slopeSquared, 0);
+    detailStrengths: DETAIL_LAYERS.map(({ slopeShare }) => {
+      // What Cox & Munk's slope asks for, less what the drawn waves carry
+      const totalSlope = SLOPE_VARIANCE_CALM + SLOPE_VARIANCE_PER_WIND * Math.max(speed, 0);
+      const wavesSlope = bands.slice(0, WAVE_OCTAVES).reduce((sum, band) => sum + band.slopeSquared, 0);
+      const chopSlope = Math.max(totalSlope - wavesSlope, SLOPE_VARIANCE_CALM);
 
-      return (Math.sqrt(slopeSquared) / DETAIL_MAP_RMS_SLOPE) * calm;
+      return (Math.sqrt(chopSlope * slopeShare) / DETAIL_MAP_RMS_SLOPE) * calm;
     }),
   };
 }
@@ -652,11 +687,12 @@ export function windSeaDetailSlope(
   sea: WindSeaNodes,
   normalMap: TextureNode
 ) {
-  const peakWavelength = sea.travel.z;
+  const shortestWave = sea.travel.z.mul(SHORTEST_WAVE_OF_PEAK);
   let slope: Node<"vec2"> = vec2(0.0, 0.0);
+  let reflectionSlope: Node<"vec2"> = vec2(0.0, 0.0);
 
   DETAIL_LAYERS.forEach((layer, layerIndex) => {
-    const featureSize = min(peakWavelength.mul(layer.featureOfPeak), layer.maxFeature);
+    const featureSize = max(shortestWave.mul(layer.featureOfShortestWave), layer.minFeature);
     const tileSize = featureSize.mul(DETAIL_FEATURES_PER_TILE);
     const phaseSpeed = sqrt(featureSize).mul(PHASE_SPEED_PER_ROOT_WAVELENGTH);
 
@@ -675,10 +711,12 @@ export function windSeaDetailSlope(
       distance
     ).oneMinus();
 
-    slope = slope.add(worldSlope.mul(sea.detail[COMPONENTS[layerIndex]]).mul(nearby));
+    const layerContribution = worldSlope.mul(sea.detail[COMPONENTS[layerIndex]]).mul(nearby);
+    slope = slope.add(layerContribution);
+    reflectionSlope = reflectionSlope.add(layerContribution.mul(layer.inReflection));
   });
 
-  return slope;
+  return { slope, reflectionSlope };
 }
 
 // Whitecaps

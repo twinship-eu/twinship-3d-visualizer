@@ -2,7 +2,7 @@
 
 import { Canvas } from "@react-three/fiber";
 import { cn } from "@/lib/utils";
-import { Vector3 } from "three";
+import { Vector3 } from "three/webgpu";
 import {
   DEFAULT_CAMERA_POSITION,
 } from "../ship-visualizer/ship-visualizer-config";

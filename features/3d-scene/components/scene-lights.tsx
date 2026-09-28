@@ -7,7 +7,7 @@ import {
   type AmbientLight,
   type DirectionalLight,
   type HemisphereLight,
-} from "three";
+} from "three/webgpu";
 import {
   ANDROID_AMBIENT_COLOR,
   ANDROID_FILL_COLOR,

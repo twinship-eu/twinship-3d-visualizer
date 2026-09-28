@@ -5,7 +5,7 @@ import {
   SCENE_FOG_COLOR,
 } from "../lib/3d-scene-config";
 import { useEffect } from "react";
-import { Color, Fog } from "three";
+import { Color, Fog } from "three/webgpu";
 
 type Props = {
   scale?: number;
