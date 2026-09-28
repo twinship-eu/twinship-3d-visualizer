@@ -33,6 +33,7 @@ import {
   TONE_MAPPING_EXPOSURE,
 } from "../lib/webgpu-renderer";
 import { weatherState } from "../lib/seascape-weather";
+import { getPerformanceProfile } from "../lib/performance-profile";
 
 const SUN_POS = getShadowLightPosition();
 
@@ -60,6 +61,9 @@ const LIGHT_TUNING = {
   fillColor: ANDROID_FILL_COLOR,
   exposure: TONE_MAPPING_EXPOSURE,
 };
+
+/** The sun's shadow map: SHADOW_MAP_SIZE, or the profile's smaller one on a phone. */
+const shadowMapSize = Math.min(SHADOW_MAP_SIZE, getPerformanceProfile().shadowMapSize);
 
 export function SceneLights() {
   const gl = useThree((state) => state.gl);
@@ -143,8 +147,8 @@ export function SceneLights() {
         position={[SUN_POS.x, SUN_POS.y, SUN_POS.z]}
         intensity={LIGHT_INTENSITY.sun}
         castShadow
-        shadow-mapSize-width={SHADOW_MAP_SIZE}
-        shadow-mapSize-height={SHADOW_MAP_SIZE}
+        shadow-mapSize-width={shadowMapSize}
+        shadow-mapSize-height={shadowMapSize}
         shadow-camera-near={SHADOW_CAMERA_NEAR}
         shadow-camera-far={SHADOW_CAMERA_FAR}
         shadow-camera-left={-SHADOW_CAMERA_EXTENT}

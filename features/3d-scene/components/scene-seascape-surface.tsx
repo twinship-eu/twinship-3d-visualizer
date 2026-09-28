@@ -22,7 +22,6 @@ import {
   SEASCAPE_FOAM_TEXTURES,
   SEASCAPE_SHIP_HULL,
   SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS,
-  SEASCAPE_SURFACE_GRID_SEGMENTS,
   SEASCAPE_SURFACE_GRID_SIZE,
   SEASCAPE_SURFACE_LEVEL_Y,
   SEASCAPE_SURFACE_SCALE,
@@ -35,7 +34,8 @@ import { createContactFoam } from "../lib/seascape-contact-foam";
 import { useShipVoyage } from "./ship-voyage-context";
 import { createWake } from "../lib/seascape-wake";
 import { createSeaFrame, headOnTurn } from "../lib/seascape-sea-frame";
-import { apparentWind } from "../lib/seascape-weather";
+import { apparentWind, weatherState } from "../lib/seascape-weather";
+import { getPerformanceProfile } from "../lib/performance-profile";
 import { createKelvinHistory } from "../lib/seascape-kelvin-wake";
 import { createBuoys } from "../lib/seascape-buoys";
 import { createBubbles } from "../lib/seascape-bubbles";
@@ -142,12 +142,18 @@ function getFoamTexture(name: SeascapeFoamTextureName): Texture {
  * the ship (100 long) with room around it, for its bow and stern waves.
  */
 const CONTACT_FOAM_AREA = 260;
+/** Nodes of the ship's model that make its hull, below the waterline and above. */
+const SHIP_HULL_NODE_NAMES = ["Base"] as const;
+
+/** How much this device draws: see `performance-profile.ts`. */
+const PROFILE = getPerformanceProfile();
+
 /**
- * Texels along each side: about 25 cm each. The distance field is smooth, so
- * the foam barely differs from 2048², at a quarter of the cost — which lets it
- * be redrawn every frame.
+ * Texels along each side: about 25 cm each on desktop, 50 on a phone. The
+ * distance field is smooth, so the foam barely differs from 2048², at a
+ * quarter of the cost or less.
  */
-const CONTACT_FOAM_RESOLUTION = 1024;
+const CONTACT_FOAM_RESOLUTION = PROFILE.contactFoamResolution;
 /**
  * How far the foam reaches from the hull, in world units, to start with. A few
  * tens of centimetres are what churns right against a hull, but seen from the
@@ -157,11 +163,19 @@ const CONTACT_FOAM_RESOLUTION = 1024;
 const CONTACT_FOAM_DISTANCE = 1.0;
 const MAX_CONTACT_FOAM_DISTANCE = 10;
 /**
- * How often the footprint is redrawn, in frames: every one, as the ship and
- * the water it stands in move all the time. (Every 30, the foam trailed the
- * ship's motion by up to half a second.)
+ * How often the footprint is redrawn, in frames: every other on desktop, every
+ * fourth on a phone — the ship and its waterline move slowly, and the
+ * footprint redraws the whole ship. (Every 30, the foam trailed the ship's
+ * motion by up to half a second.)
  */
-const CONTACT_FOAM_REDRAW_FRAMES = 1;
+const CONTACT_FOAM_REDRAW_FRAMES = PROFILE.contactFoamRedrawFrames;
+/**
+ * Seconds after the ship stops that its wake still has something to draw:
+ * a few of its lifetimes. Past that, its passes are skipped.
+ */
+const WAKE_SETTLE_SECONDS = 150;
+/** Speed through the water, in m/s, below which the ship counts as still: no propeller wash. */
+const STILL_SPEED = 0.3;
 
 /**
  * How far, in world units, the view blends from air to water as the camera
@@ -205,7 +219,7 @@ function windKey(wind: { speed: number; fromDegrees: number; fetch: number }) {
 
 /** Builds the grid, its material and the shader's tuning uniforms, once. */
 function createSeaSurface(canUseCompute: boolean) {
-  const geometry = createSeaGeometry(SEASCAPE_SURFACE_GRID_SEGMENTS);
+  const geometry = createSeaGeometry(PROFILE.gridSegments);
   // The FFT ocean needs compute shaders: WebGPU only. On three's WebGL
   // fallback the analytic waves are drawn instead
   const ocean = IS_FFT_OCEAN_ENABLED && canUseCompute ? createFftOcean(INITIAL_WIND) : null;
@@ -217,6 +231,8 @@ function createSeaSurface(canUseCompute: boolean) {
   const contactFoam = createContactFoam({
     areaSize: CONTACT_FOAM_AREA,
     resolution: CONTACT_FOAM_RESOLUTION,
+    // The model's hull node: the only part that meets the water
+    hullNodeNames: SHIP_HULL_NODE_NAMES,
     levelY: SEASCAPE_SURFACE_LEVEL_Y,
     distance: CONTACT_FOAM_DISTANCE,
     // The FFT ocean's own height, so the hull is cut at the real waterline
@@ -243,7 +259,7 @@ function createSeaSurface(canUseCompute: boolean) {
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
     levelY: SEASCAPE_SURFACE_LEVEL_Y,
-    cellSize: cellSizeFor(SEASCAPE_SURFACE_GRID_SEGMENTS),
+    cellSize: cellSizeFor(PROFILE.gridSegments),
     cellGrowth: GRID_CELL_GROWTH,
     wind: INITIAL_WIND,
     foamTexture: getFoamTexture(SEASCAPE_DEFAULT_FOAM_TEXTURE),
@@ -266,7 +282,7 @@ function createSeaSurface(canUseCompute: boolean) {
 
   return {
     geometry,
-    segments: SEASCAPE_SURFACE_GRID_SEGMENTS as number,
+    segments: PROFILE.gridSegments,
     material,
     uniforms: nodes.uniforms,
     ocean,
@@ -282,6 +298,10 @@ function createSeaSurface(canUseCompute: boolean) {
     cameraProbe,
     shipMotion,
     waveProbes,
+    /** Frames drawn, for what is updated only every few. */
+    frame: 0,
+    /** Seconds the ship has been still, for when its wake has settled. */
+    stillSeconds: WAKE_SETTLE_SECONDS,
     /** How far the ship has sailed, in world units: for the buoys, moored along its track. */
     sailed: 0,
     /** The ship's speed through the water right now, in m/s: eased towards its target. */
@@ -331,9 +351,9 @@ const SEASCAPE_TUNING = {
   /**
    * Grid segments per side. More holds shorter waves in the geometry and
    * smooths the crests' outline, at the cost of vertices — see
-   * `SEASCAPE_SURFACE_GRID_SEGMENTS` for measurements.
+   * `performance-profile.ts` for what each device starts with.
    */
-  gridSegments: SEASCAPE_SURFACE_GRID_SEGMENTS as number,
+  gridSegments: PROFILE.gridSegments as number,
   /** The ship's speed through the water under way, in knots: the sea flows past at it. */
   shipSpeedKnots: SHIP_SPEED_KNOTS as number,
   /** How far the foam around the hull reaches, in world units. */
@@ -411,8 +431,10 @@ export function SceneSeascapeSurface() {
     mesh.position.x = snapToCell(camera.position.x, cellSize);
     mesh.position.z = snapToCell(camera.position.z, cellSize);
 
-    // The FFT ocean's waves, brought to this moment: a few compute passes
-    sea.ocean?.update(asSceneRenderer(gl), clock.elapsedTime);
+    // The FFT ocean's waves, brought to this moment: a few compute passes,
+    // every frame or, on a phone, every other
+    sea.frame++;
+    if (sea.frame % PROFILE.oceanUpdateFrames === 0) sea.ocean?.update(asSceneRenderer(gl), clock.elapsedTime);
 
     // The ship sails on: the sea flows past it, bow (+z) to stern
     // Under way it gathers speed, and stopped it slows down, over a few
@@ -482,7 +504,15 @@ export function SceneSeascapeSurface() {
     }
 
     // The wake flows back from the stern as the ship sails on
-    sea.wake.update(asSceneRenderer(gl), delta, speed);
+    // ...only while there is a wake: under way, and for a while after
+    sea.stillSeconds = speed > 0.01 ? 0 : sea.stillSeconds + delta;
+    if (sea.stillSeconds < WAKE_SETTLE_SECONDS) sea.wake.update(asSceneRenderer(gl), delta, speed);
+
+    // Not drawn when there is nothing to see: the propellers' bubbles only
+    // under way, and only from under the water (the sea hides them from
+    // above); rain and snow only when falling
+    sea.bubbles.sprite.visible = speed > STILL_SPEED && underwater.submerged.value > 0;
+    sea.precipitation.sprite.visible = weatherState.rain > 0 || weatherState.snow > 0;
 
     // Applied per frame rather than through change handlers, as SceneLights
     // does: a few assignments, and it cannot drift out of sync with the panel.

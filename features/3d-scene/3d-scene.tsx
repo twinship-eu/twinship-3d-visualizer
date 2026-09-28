@@ -50,6 +50,7 @@ import { ShipVoyageProvider } from "./components/ship-voyage-context";
 import { SceneCameraFollow } from "./components/scene-camera-follow";
 import { SceneRenderPipeline } from "./components/scene-render-pipeline";
 import { SceneWeather } from "./components/scene-weather";
+import { getPerformanceProfile } from "./lib/performance-profile";
 
 /** The camera's far plane, in world units: beyond where the sea's haze is complete. */
 const CAMERA_FAR = 2000;
@@ -109,6 +110,9 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
             far: CAMERA_FAR,
           }}
           gl={createSceneRenderer}
+          // At most 2 device pixels per CSS pixel, 1.25 on a phone — whose
+          // 3 filled the sea's shader, bloom and FXAA with over 6x the pixels
+          dpr={[1, getPerformanceProfile().maxPixelRatio]}
         >
           <RendererBackendProbe onResolved={setIsWebGPU} />
           {IS_SCENE_STATS_ENABLED && <SceneStatsProbe />}

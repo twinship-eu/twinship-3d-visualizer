@@ -7,6 +7,7 @@ import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import { fxaa } from "three/examples/jsm/tsl/display/FXAANode.js";
 import { RenderPipeline, type Camera, type Scene } from "three/webgpu";
 import { IS_SCENE_INSPECTOR_ENABLED } from "../lib/3d-scene-config";
+import { getPerformanceProfile } from "../lib/performance-profile";
 import { asSceneRenderer, getSceneInspector } from "../lib/webgpu-renderer";
 
 /**
@@ -28,7 +29,8 @@ const RENDER_PRIORITY = 1;
 
 /** Live values behind the Inspector's Bloom panel. */
 const BLOOM_TUNING = {
-  bloom: BLOOM.isEnabled as boolean,
+  // Off on a phone: its passes cover the whole screen several times
+  bloom: BLOOM.isEnabled && getPerformanceProfile().isBloomEnabled,
   strength: BLOOM.strength as number,
   radius: BLOOM.radius as number,
   threshold: BLOOM.threshold as number,
@@ -44,9 +46,9 @@ function createPipeline(renderer: ReturnType<typeof asSceneRenderer>, scene: Sce
 
   /** The chain: the scene, its bloom if on, the colour transform, then FXAA. */
   const outputFor = (withBloom: boolean) => fxaa(renderOutput(withBloom ? scenePass.add(bloomPass) : scenePass));
-  pipeline.outputNode = outputFor(BLOOM.isEnabled);
+  pipeline.outputNode = outputFor(BLOOM_TUNING.bloom);
 
-  return { pipeline, bloomPass, outputFor, withBloom: BLOOM.isEnabled as boolean };
+  return { pipeline, bloomPass, outputFor, withBloom: BLOOM_TUNING.bloom };
 }
 
 /**

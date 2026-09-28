@@ -62,6 +62,11 @@ type ContactFoamOptions = {
   /** How far from the hull the foam reaches, in world units, to start with. */
   distance: number;
   /**
+   * Names of the nodes whose meshes make the hull: only those are drawn into
+   * the footprint. Without it, every mesh that reaches the water.
+   */
+  hullNodeNames?: readonly string[];
+  /**
    * The sea's height above its mean level at a world point, if it is known:
    * the hull is then cut at the water it actually stands in, so the foam
    * follows the waterline up a crest and down a trough. Without it, at the
@@ -70,7 +75,23 @@ type ContactFoamOptions = {
   waterHeight?: (position: Node<"vec2">) => Node<"float">;
 };
 
-export function createContactFoam({ areaSize, resolution, levelY, distance, waterHeight }: ContactFoamOptions) {
+/** Whether an object lies under a node with one of `names`. */
+function isUnder(object: Object3D, names: readonly string[]) {
+  for (let node: Object3D | null = object; node; node = node.parent) {
+    if (names.includes(node.name)) return true;
+  }
+
+  return false;
+}
+
+export function createContactFoam({
+  areaSize,
+  resolution,
+  levelY,
+  distance,
+  waterHeight,
+  hullNodeNames,
+}: ContactFoamOptions) {
   const uniforms = {
     /** How far from the hull the foam reaches, in world units. */
     distance: uniform(distance),
@@ -158,6 +179,13 @@ export function createContactFoam({ areaSize, resolution, levelY, distance, wate
     scene.traverseVisible((object) => {
       const mesh = object as Mesh;
       if (!mesh.isMesh || !mesh.geometry) return;
+      // Only the hull meets the water: everything else is left out, whatever
+      // its height. (The engine, the containers and the crane are inside or
+      // on top of it — drawn here, they cost as many triangles as the ship.)
+      if (hullNodeNames && !isUnder(mesh, hullNodeNames)) {
+        above.push(mesh);
+        return;
+      }
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       const box = mesh.geometry.boundingBox;
       if (!box) return;
