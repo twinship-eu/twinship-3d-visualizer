@@ -32,3 +32,12 @@ export function formatPosition(position: GeoPosition) {
 export function formatUtcTime(timestamp: number) {
   return new Date(timestamp).toISOString().slice(11, 19);
 }
+
+const SECONDS_PER_MINUTE = 60;
+
+/** How long since a moment, as minutes and seconds: "02:15". */
+export function formatElapsed(since: number, now: number) {
+  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  const minutes = Math.floor(seconds / SECONDS_PER_MINUTE);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds % SECONDS_PER_MINUTE).padStart(2, "0")}`;
+}

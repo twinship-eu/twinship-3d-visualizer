@@ -27,3 +27,13 @@ export function getActiveAlarms(snapshot: LiveSnapshot | null): Alarm[] {
     (alarm) => !alarm.isAcknowledged && (alarm.severity === "alarm" || alarm.severity === "warning")
   );
 }
+
+/** Acknowledges an alarm: it leaves the active ones, and stays in the log. */
+export function acknowledgeAlarm(alarmId: string) {
+  liveDataStore.acknowledgeAlarm(alarmId);
+}
+
+/** The first active alarm on a component, by its label; null if it has none. */
+export function activeAlarmOn(snapshot: LiveSnapshot | null, componentLabel: string): Alarm | null {
+  return getActiveAlarms(snapshot).find((alarm) => alarm.componentLabel === componentLabel) ?? null;
+}

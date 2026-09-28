@@ -19,6 +19,8 @@ type Props = {
   onSelectConnectedComponent?: (targetLabel: string) => void;
   /** Opens the component in Live data; omitted there. */
   onShowLiveData?: () => void;
+  /** Hides the card at lg, where Live data shows its own panel instead. */
+  isDesktopHidden?: boolean;
 };
 
 /**
@@ -40,6 +42,7 @@ export function SelectionDetailsModal({
   onClose,
   onSelectConnectedComponent,
   onShowLiveData,
+  isDesktopHidden = false,
 }: Props) {
   if (selectedNode === null) return null;
 
@@ -59,7 +62,8 @@ export function SelectionDetailsModal({
         "fixed inset-x-0 bottom-0 rounded-t-2xl border-t transition-[height] duration-300 ease-out",
         isExpanded ? "h-[80vh]" : "h-[45vh]",
         // At lg: the design's card over the scene's top right
-        "lg:absolute lg:inset-x-auto lg:top-4 lg:right-4 lg:bottom-auto lg:h-auto lg:max-h-[calc(100%-2rem-var(--zoom-controls-clearance))] lg:w-[360px] lg:rounded-xl lg:border"
+        "lg:absolute lg:inset-x-auto lg:top-4 lg:right-4 lg:bottom-auto lg:h-auto lg:max-h-[calc(100%-2rem-var(--zoom-controls-clearance))] lg:w-[360px] lg:rounded-xl lg:border",
+        isDesktopHidden && "lg:hidden"
       )}
       style={{ "--zoom-controls-clearance": ZOOM_CONTROLS_CLEARANCE } as React.CSSProperties}
       role="dialog"

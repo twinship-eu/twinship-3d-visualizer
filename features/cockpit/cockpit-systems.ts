@@ -16,6 +16,19 @@ export const COMPONENT_SYSTEMS: Record<string, SystemId> = {
   Crane: "deck",
 };
 
+/** Each component's object in the ship's GLB, by its label in the ontology tree. */
+export const COMPONENT_OBJECT_NAMES: Record<string, string> = {
+  "Base Hull": "Base",
+  "Hull top towers": "Base_Top",
+  "Control room": "ControlRoom",
+  Radio: "Radio",
+  Container: "Container",
+  Crane: "Crane",
+  Propellers: "Propellers",
+  Engine: "Engine",
+  WAPS: "WindTurbines",
+};
+
 /** A system's state: warning while one of its components has an active warning. */
 export type SystemStatus = "normal" | "warning";
 

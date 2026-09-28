@@ -33,11 +33,16 @@ export const SIMULATION_SYSTEMS_BASELINE = {
   rotorRpm: { value: 210, spread: 3 },
   rollDeg: { value: -0.8, spread: 1.2 },
   pitchDeg: { value: 0.3, spread: 0.3 },
-  meanDraftM: { value: 7.42, spread: 0.02 },
+  draftForeM: { value: 7.37, spread: 0.02 },
+  draftAftM: { value: 7.49, spread: 0.02 },
+  slammingPerHour: { value: 2.2, spread: 0.1 },
+  ballastPct: { value: 48, spread: 0.1 },
   reeferTempC: { value: 4.1, spread: 0.1 },
   craneHydraulicBar: { value: 179, spread: 0.8 },
 } as const;
 export const SIMULATED_CRANE_STATE = "Stowed";
+/** The sea's significant wave height, m: head seas, as in the design's alarm. */
+export const SIMULATED_WAVE_HEIGHT = { value: 3.0, spread: 0.08 } as const;
 export const SIMULATED_BRIDGE = { vhfChannel: 16, radar: "Active", ais: "TX" } as const;
 
 /** Snapshots kept for the trends: a minute at 1 Hz. */
@@ -50,16 +55,6 @@ export const SIMULATION_START_POSITION = { latitude: 56.12, longitude: 7.45 } as
 export const SIMULATION_PULL = 0.15;
 
 export const SIMULATED_AUTONOMY_LEVEL = "L3";
-
-/** Sensors fitted per component, by label: sample counts. */
-export const SIMULATED_SENSOR_COUNTS: Record<string, number> = {
-  "Base Hull": 5,
-  Engine: 5,
-  Propellers: 3,
-  WAPS: 4,
-  Container: 2,
-  Crane: 2,
-};
 
 /** Metres in a nautical mile, and seconds in an hour: for moving the simulated ship. */
 export const METRES_PER_NAUTICAL_MILE = 1852;

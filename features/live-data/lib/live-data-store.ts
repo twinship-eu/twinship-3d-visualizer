@@ -32,7 +32,18 @@ function createLiveDataStore(source: LiveDataSource) {
     };
   }
 
-  return { subscribe, getSnapshot: () => latest, getHistory: () => history };
+  /** Acknowledges an alarm, and shows it at once rather than with the next snapshot. */
+  function acknowledgeAlarm(alarmId: string) {
+    source.acknowledgeAlarm(alarmId);
+    if (!latest) return;
+    latest = {
+      ...latest,
+      alarms: latest.alarms.map((alarm) => (alarm.id === alarmId ? { ...alarm, isAcknowledged: true } : alarm)),
+    };
+    listeners.forEach((notify) => notify());
+  }
+
+  return { subscribe, getSnapshot: () => latest, getHistory: () => history, acknowledgeAlarm };
 }
 
 /**

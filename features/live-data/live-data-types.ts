@@ -45,6 +45,14 @@ export type Alarm = {
   /** When it was raised, ms since the epoch. */
   raisedAt: number;
   isAcknowledged: boolean;
+  /** The sensor whose reading raised it, by id (see the sensor catalogue). */
+  sensorId?: string;
+  /** What most likely caused it, in a sentence. */
+  likelyCause?: string;
+  /** What the ship's decision support proposes, with the reading each is predicted to bring. */
+  recommendedActions?: { title: string; prediction: string }[];
+  /** Other sensors to watch with it, by id. */
+  relatedSensorIds?: string[];
 };
 
 /** The readings of each of the ship's systems. */
@@ -80,8 +88,16 @@ export type ShipSystems = {
     /** Roll and pitch, degrees: starboard down and bow up positive. */
     rollDeg: number;
     pitchDeg: number;
-    /** Mean draught, m. */
+    /** Mean draught, m, and at the bow and the stern. */
     meanDraftM: number;
+    draftForeM: number;
+    draftAftM: number;
+    /** Trim, m: by the stern positive. */
+    trimM: number;
+    /** Slamming events, per hour. */
+    slammingPerHour: number;
+    /** Ballast tanks filled, %. */
+    ballastPct: number;
   };
   deck: {
     /** Reefer container temperature, °C. */
@@ -111,6 +127,10 @@ export type LiveSnapshot = {
   autonomyLevel: string;
   navigation: NavigationState;
   systems: ShipSystems;
+  /** The sea round the ship. */
+  sea: { significantWaveHeightM: number };
+  /** Every sensor's latest reading, by its id (see the sensor catalogue). */
+  sensors: Record<string, number>;
   /** Active alarms first, then the logged events, newest first within each. */
   alarms: Alarm[];
   /** Sensors fitted per component, by the component's label. */
@@ -125,4 +145,6 @@ export type LiveDataSource = {
   origin: LiveDataOrigin;
   rateHz: number;
   start: (onSnapshot: (snapshot: LiveSnapshot) => void) => () => void;
+  /** Tells the ship an alarm has been seen: it stays in the log, no longer active. */
+  acknowledgeAlarm: (alarmId: string) => void;
 };

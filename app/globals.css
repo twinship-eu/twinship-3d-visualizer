@@ -51,6 +51,8 @@
   --color-warn-ink: var(--cp-warn-text);
   --color-warn-soft: var(--cp-warn-bg);
   --color-warn-line: var(--cp-warn-line);
+  --color-alarm: var(--cp-alarm);
+  --color-alarm-soft: var(--cp-alarm-bg);
   --color-sim: var(--cp-sim);
   --color-sim-soft: var(--cp-sim-bg);
   --color-eye: var(--cp-eye);
@@ -141,6 +143,8 @@
   --cp-warn-text: #fcd58a;
   --cp-warn-bg: rgba(245, 165, 36, 0.12);
   --cp-warn-line: rgba(245, 181, 68, 0.5);
+  --cp-alarm: #f87171;
+  --cp-alarm-bg: rgba(248, 113, 113, 0.14);
   --cp-sim: #c4b5fd;
   --cp-sim-bg: rgba(167, 139, 250, 0.14);
   --cp-eye: #a99bff;
@@ -180,6 +184,8 @@
   --cp-warn-text: #92400e;
   --cp-warn-bg: rgba(245, 158, 11, 0.12);
   --cp-warn-line: rgba(217, 119, 6, 0.45);
+  --cp-alarm: #dc2626;
+  --cp-alarm-bg: rgba(220, 38, 38, 0.1);
   --cp-sim: #6d28d9;
   --cp-sim-bg: rgba(124, 58, 237, 0.1);
   --cp-eye: #6d5dd3;

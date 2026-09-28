@@ -5,7 +5,7 @@ import {
   SIMULATED_AUTONOMY_LEVEL,
   SIMULATED_BRIDGE,
   SIMULATED_CRANE_STATE,
-  SIMULATED_SENSOR_COUNTS,
+  SIMULATED_WAVE_HEIGHT,
   SIMULATION_SYSTEMS_BASELINE,
   SIMULATION_BASELINE,
   SIMULATION_PULL,
@@ -13,7 +13,8 @@ import {
   SIMULATION_START_POSITION,
 } from "../live-data-config";
 import { createMockAlarms } from "../live-data-mock";
-import type { GeoPosition, LiveDataSource, LiveSnapshot, ShipSystems } from "../live-data-types";
+import { SENSORS } from "../live-data-sensors";
+import type { Alarm, GeoPosition, LiveDataSource, LiveSnapshot, ShipSystems } from "../live-data-types";
 
 type Drifting = { value: number; spread: number };
 
@@ -33,6 +34,12 @@ type SystemsReading = keyof typeof SIMULATION_SYSTEMS_BASELINE;
 
 /** A little apart, so the two rotors do not read the same. */
 const ROTOR_OFFSET_RPM = 5;
+
+/** Sensors fitted per component, from the catalogue. */
+const SENSOR_COUNTS = SENSORS.reduce<Record<string, number>>((counts, sensor) => {
+  counts[sensor.componentLabel] = (counts[sensor.componentLabel] ?? 0) + 1;
+  return counts;
+}, {});
 
 /** One step of a bounded random walk: a nudge, pulled back towards the baseline. */
 function drift(current: number, { value, spread }: Drifting) {
@@ -62,10 +69,18 @@ function sail(position: GeoPosition, courseDeg: number, speedKn: number, seconds
  */
 export function createSimulatedSource(): LiveDataSource {
   const base = SIMULATION_BASELINE;
+  /** The log, shared with `acknowledgeAlarm`: filled when the simulation starts. */
+  let alarms: Alarm[] = [];
+
+  function acknowledgeAlarm(alarmId: string) {
+    alarms = alarms.map((alarm) => (alarm.id === alarmId ? { ...alarm, isAcknowledged: true } : alarm));
+  }
 
   function start(onSnapshot: (snapshot: LiveSnapshot) => void) {
     const startedAt = Date.now();
-    const alarms = createMockAlarms(startedAt);
+    alarms = createMockAlarms(startedAt);
+    const sensors = Object.fromEntries(SENSORS.map((sensor) => [sensor.id, sensor.simulated.value]));
+    let waveHeight: number = SIMULATED_WAVE_HEIGHT.value;
     const state: SimulatedState = {
       heading: base.headingDeg.value,
       courseOffset: base.courseOffsetDeg.value,
@@ -108,7 +123,16 @@ export function createSimulatedSource(): LiveDataSource {
           fuelSavingPct: readings.fuelSavingPct,
           rotorRpm: [rotors[0], rotors[1]],
         },
-        hull: { rollDeg: readings.rollDeg, pitchDeg: readings.pitchDeg, meanDraftM: readings.meanDraftM },
+        hull: {
+          rollDeg: readings.rollDeg,
+          pitchDeg: readings.pitchDeg,
+          meanDraftM: (readings.draftForeM + readings.draftAftM) / 2,
+          draftForeM: readings.draftForeM,
+          draftAftM: readings.draftAftM,
+          trimM: readings.draftAftM - readings.draftForeM,
+          slammingPerHour: readings.slammingPerHour,
+          ballastPct: readings.ballastPct,
+        },
         deck: {
           reeferTempC: readings.reeferTempC,
           craneState: SIMULATED_CRANE_STATE,
@@ -116,6 +140,11 @@ export function createSimulatedSource(): LiveDataSource {
         },
         bridge: { ...SIMULATED_BRIDGE },
       };
+    }
+
+    function sensorsNow() {
+      for (const sensor of SENSORS) sensors[sensor.id] = drift(sensors[sensor.id], sensor.simulated);
+      return { ...sensors };
     }
 
     function tick() {
@@ -144,8 +173,10 @@ export function createSimulatedSource(): LiveDataSource {
           position: state.position,
         },
         systems: systemsNow(),
+        sea: { significantWaveHeightM: (waveHeight = drift(waveHeight, SIMULATED_WAVE_HEIGHT)) },
+        sensors: sensorsNow(),
         alarms,
-        sensorCounts: SIMULATED_SENSOR_COUNTS,
+        sensorCounts: SENSOR_COUNTS,
       });
     }
 
@@ -155,5 +186,5 @@ export function createSimulatedSource(): LiveDataSource {
     return () => window.clearInterval(interval);
   }
 
-  return { origin: "simulated", rateHz: SIMULATION_RATE_HZ, start };
+  return { origin: "simulated", rateHz: SIMULATION_RATE_HZ, start, acknowledgeAlarm };
 }

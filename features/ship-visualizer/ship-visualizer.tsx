@@ -13,6 +13,7 @@ import { collectNodeIds, findNodeByLabel } from "./lib/filter-tree";
 import {
   SIDEBAR_WIDTH_CLASS,
   DEFAULT_SHIP_MODEL_PATH,
+  SHIP_TREE_SECTIONS,
 } from "./ship-visualizer-config";
 import { SidebarToggleButton } from "./components/sidebar-toggle-button";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,12 @@ import { LiveViewControls } from "@/features/cockpit/components/live-view-contro
 import { SystemCardsStrip } from "@/features/cockpit/components/system-cards-strip";
 import { CalloutAnchorProjector } from "@/features/cockpit/callouts/callout-anchor-projector";
 import { SystemCallouts } from "@/features/cockpit/callouts/system-callouts";
+import { ComponentLivePanel } from "@/features/cockpit/component-live/component-live-panel";
+import { SelectedComponentStrip } from "@/features/cockpit/component-live/selected-component-strip";
+import { SelectionSceneHeader } from "@/features/cockpit/component-live/selection-scene-header";
+import { SensorAnchorProjector } from "@/features/cockpit/component-live/sensor-anchor-projector";
+import { SensorOverlay } from "@/features/cockpit/component-live/sensor-overlay";
+import { getSectionDotClass, getSectionIdOf } from "./lib/section-colors";
 import type { Alarm } from "@/features/live-data/live-data-types";
 
 const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
@@ -166,6 +173,19 @@ export function ShipVisualizer() {
   const isOntologyMode = mode === "ontology";
   const isSystemsView = !isOntologyMode && liveView.view === "systems";
   // The callouts give way to a selected component's own details
+  /** In Live data with a component selected: its live panel, sensors and trends. */
+  const liveSelection = isOntologyMode ? null : selectedStructureNode;
+  const liveSelectionSection = liveSelection
+    ? SHIP_TREE_SECTIONS.find(
+        (section) =>
+          section.id === getSectionIdOf(liveSelection) &&
+          section.id !== liveSelection.id
+      )
+    : undefined;
+  const clearSelection = () => {
+    setSelectedStructureNode(null);
+    setIsDetailsExpanded(false);
+  };
   const isShowingCallouts =
     isSystemsView &&
     liveView.isShowingCallouts &&
@@ -277,6 +297,13 @@ export function ShipVisualizer() {
                   isInteractive={loading.isInteractive}
                 />
                 {isShowingCallouts && <CalloutAnchorProjector />}
+                {liveSelection && (
+                  // A fresh projector for each component: it finds its part anew
+                  <SensorAnchorProjector
+                    key={liveSelection.id}
+                    componentLabel={liveSelection.label}
+                  />
+                )}
                 {loading.isRingVisible && (
                   <SceneErrorFallback fallback={null}>
                     <LoadingRing
@@ -292,7 +319,20 @@ export function ShipVisualizer() {
                 onOpenComponent={handleSelectConnectedComponent}
               />
             )}
-            {!isOntologyMode && (
+            {liveSelection && (
+              <>
+                <SelectionSceneHeader
+                  componentLabel={liveSelection.label}
+                  sectionLabel={liveSelectionSection?.label}
+                  onOverview={clearSelection}
+                />
+                <SensorOverlay
+                  key={liveSelection.id}
+                  componentLabel={liveSelection.label}
+                />
+              </>
+            )}
+            {!isOntologyMode && !liveSelection && (
               <LiveViewControls
                 view={liveView.view}
                 onViewChange={(view) => void liveView.setView(view)}
@@ -316,6 +356,7 @@ export function ShipVisualizer() {
               onShowLiveData={
                 isOntologyMode ? () => void setMode("live") : undefined
               }
+              isDesktopHidden={!isOntologyMode}
             />
           </div>
           {isOntologyMode && selectedStructureNode !== null && (
@@ -325,8 +366,21 @@ export function ShipVisualizer() {
               onShowSensors={() => void setMode("live")}
             />
           )}
-          {!isOntologyMode && <SystemCardsStrip />}
+          {!isOntologyMode && !liveSelection && <SystemCardsStrip />}
+          {liveSelection && (
+            <SelectedComponentStrip
+              componentLabel={liveSelection.label}
+              dotClass={getSectionDotClass(getSectionIdOf(liveSelection))}
+            />
+          )}
         </div>
+        {liveSelection && (
+          <ComponentLivePanel
+            key={liveSelection.id}
+            node={liveSelection}
+            onClose={clearSelection}
+          />
+        )}
       </div>
     </div>
   );

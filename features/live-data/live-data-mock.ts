@@ -11,10 +11,17 @@ const MOCK_ALARMS: (Omit<Alarm, "raisedAt"> & { minutesAgo: number })[] = [
     id: "hull-bending-stress",
     componentLabel: "Base Hull",
     title: "Hull bending stress high",
-    detail: "Base Hull · frame 112 · 89% of allowable",
+    detail: "Base Hull · frame 112 · over 80% of allowable",
     severity: "warning",
     minutesAgo: 2,
     isAcknowledged: false,
+    sensorId: "SG-03",
+    likelyCause: "Head seas at Hs 3.0 m while holding 11.4 kn.",
+    recommendedActions: [
+      { title: "Reduce speed to 9 kn", prediction: "Predicted stress ~71% · ETA +[x] h" },
+      { title: "Alter course 20° to starboard", prediction: "Predicted stress ~74% · waves off the bow" },
+    ],
+    relatedSensorIds: ["SG-04"],
   },
   {
     id: "exhaust-temp-cyl-4",
@@ -24,6 +31,7 @@ const MOCK_ALARMS: (Omit<Alarm, "raisedAt"> & { minutesAgo: number })[] = [
     severity: "warning",
     minutesAgo: 6,
     isAcknowledged: true,
+    sensorId: "EX-4",
   },
   {
     id: "rotor-sails-auto-trim",
