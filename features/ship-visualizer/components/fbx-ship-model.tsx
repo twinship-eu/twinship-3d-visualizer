@@ -7,7 +7,7 @@ import {
   buildTreeFromModel,
   ensureUniqueMaterialsPerMesh,
 } from "../lib/3d-model";
-import { Group } from "three";
+import { Group } from "three/webgpu";
 import {
   HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED,
   SHIP_MODEL_SCALE,

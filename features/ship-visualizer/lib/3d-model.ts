@@ -1,4 +1,4 @@
-import { Color, DoubleSide, Group, Material, Mesh, Object3D, SRGBColorSpace, Texture } from "three";
+import { Color, DoubleSide, Group, Material, Mesh, Object3D, SRGBColorSpace, Texture } from "three/webgpu";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { INTERNAL_NODE_FLAG } from "./propellers";
 

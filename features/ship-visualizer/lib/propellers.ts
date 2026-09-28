@@ -1,4 +1,4 @@
-import { BufferGeometry, Group, Mesh, Object3D, Vector2 } from "three";
+import { BufferGeometry, Group, Mesh, Object3D, Vector2 } from "three/webgpu";
 
 /**
  * The model exports both screws as a single mesh, so nothing in the scene graph

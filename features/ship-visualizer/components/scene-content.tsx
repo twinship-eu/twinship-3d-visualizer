@@ -1,9 +1,9 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { LOADING_RING_REVEAL } from "@/features/3d-scene/lib/loading-ring-particles";
-import { Group } from "three";
+import { Group } from "three/webgpu";
 import { ShipTreeNode } from "../ship-visualizer-types";
-import { Object3D } from "three";
+import { Object3D } from "three/webgpu";
 import {
   applyModelFade,
   easeOutCubic,

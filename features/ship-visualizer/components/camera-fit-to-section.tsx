@@ -2,7 +2,7 @@
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
-import { Box3, Group, Mesh, Vector3 } from "three";
+import { Box3, Group, Mesh, Vector3 } from "three/webgpu";
 import { CAMERA_TRANSITION_DURATION_S, DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET } from "../ship-visualizer-config";
 import { easeOutCubic, getMatchingMeshUuids } from "../lib/3d-model";
 import { CAMERA_FIT_PADDING, MIN_CAMERA_DISTANCE } from "../lib/constants";

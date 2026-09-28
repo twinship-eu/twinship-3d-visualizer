@@ -2,7 +2,7 @@ import { useGLTF } from "@react-three/drei";
 import { useThree, useFrame } from "@react-three/fiber";
 import { ShipTreeNode } from "../ship-visualizer-types";
 import { useEffect, useMemo, useRef } from "react";
-import { Group } from "three";
+import { Group } from "three/webgpu";
 import { getMaxTextureAnisotropy } from "@/features/3d-scene/lib/webgpu-renderer";
 import { ASSEMBLY_POINT_COUNT } from "@/features/3d-scene/lib/loading-ring-particles";
 import { sampleModelSurfacePoints } from "../lib/sample-model-points";
@@ -22,7 +22,7 @@ import {
 } from "../lib/3d-model";
 import { splitPropellersIntoSpinners } from "../lib/propellers";
 import { SHIP_MATERIAL_TUNING } from "@/features/3d-scene/lib/scene-material-tuning";
-import { Mesh, MeshStandardMaterial } from "three";
+import { Mesh, MeshStandardMaterial } from "three/webgpu";
 import CameraFitToSelection from "./camera-fit-to-section";
 import SpinningPropellers from "./spinning-propellers";
 

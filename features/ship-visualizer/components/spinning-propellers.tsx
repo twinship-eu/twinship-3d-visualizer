@@ -1,5 +1,5 @@
 import { useFrame } from "@react-three/fiber";
-import { Group } from "three";
+import { Group } from "three/webgpu";
 import {
   PROPELLER_ANGULAR_SPEED_RAD_S,
   PROPELLER_SPIN_DIRECTIONS,
