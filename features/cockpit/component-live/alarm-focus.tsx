@@ -18,6 +18,8 @@ type Props = {
   alarm: Alarm;
   snapshot: LiveSnapshot;
   history: LiveSnapshot[];
+  /** On a phone: acknowledge and a mute button only, without the procedure. */
+  isCompact?: boolean;
 };
 
 /**
@@ -25,7 +27,7 @@ type Props = {
  * likely cause, what the ship proposes, what to watch with it — and the
  * operator's answers: acknowledge, silence, the procedure.
  */
-export function AlarmFocus({ alarm, snapshot, history }: Props) {
+export function AlarmFocus({ alarm, snapshot, history, isCompact = false }: Props) {
   const [proposed, setProposed] = useState<Set<string>>(new Set());
   const [silencedUntil, setSilencedUntil] = useState<number | null>(null);
   const sensor = alarm.sensorId ? findSensor(alarm.sensorId) : undefined;
@@ -144,11 +146,13 @@ export function AlarmFocus({ alarm, snapshot, history }: Props) {
           type="button"
           onClick={() => setSilencedUntil(snapshot.timestamp + SILENCE_MS)}
           disabled={isSilenced}
+          aria-label={isCompact ? (isSilenced ? "Silenced" : "Silence 5 min") : undefined}
           className="flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-line-strong px-3.5 text-sm font-semibold disabled:cursor-default disabled:text-muted"
         >
           <BellOff className="size-4" aria-hidden />
-          {isSilenced ? `Silenced to ${formatUtcTime(silencedUntil!).slice(0, 5)}` : "Silence 5 min"}
+          {!isCompact && (isSilenced ? `Silenced to ${formatUtcTime(silencedUntil!).slice(0, 5)}` : "Silence 5 min")}
         </button>
+        {!isCompact && (
         <button
           type="button"
           disabled
@@ -158,6 +162,7 @@ export function AlarmFocus({ alarm, snapshot, history }: Props) {
           <BookOpen className="size-4" aria-hidden />
           Procedure
         </button>
+        )}
       </footer>
     </div>
   );

@@ -141,7 +141,7 @@ export function ZoomControlsBridge() {
 }
 
 /** Fixed DOM overlay; render outside Canvas so it does not move with zoom. */
-export function ZoomControlsOverlay() {
+export function ZoomControlsOverlay({ isHiddenBelowLg = false }: { isHiddenBelowLg?: boolean }) {
   const actions = useZoomControls();
   const { isRidingShip, setIsRidingShip } = useCameraMotion();
   const { isTraveling, setIsTraveling } = useShipVoyage();
@@ -154,7 +154,10 @@ export function ZoomControlsOverlay() {
         Below lg the controls sit just above the hint bar, which is 16px off the
         bottom and about 36px tall. 76px leaves a 24px gap between them.
       */
-      className="pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-auto lg:right-4 lg:bottom-4"
+      className={cn(
+        "pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-auto lg:right-4 lg:bottom-4",
+        isHiddenBelowLg && "max-lg:hidden"
+      )}
       aria-label="Zoom controls"
     >
       <div className="pointer-events-auto flex flex-col items-center gap-0.5 rounded-lg border border-glass-line bg-glass p-[3px] text-ink backdrop-blur">

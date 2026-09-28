@@ -5,14 +5,13 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { activeAlarmOn, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import { formatUtcTime } from "@/features/live-data/lib/format-readings";
-import { findSensor, sensorsOf, sensorState, type SensorState } from "@/features/live-data/live-data-sensors";
-import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { getObjectDetailsForNode } from "@/features/ship-visualizer/selection-details";
 import { getSectionDotClass, getSectionIdOf } from "@/features/ship-visualizer/lib/section-colors";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { COMPONENT_LIVE } from "./component-live-config";
 import { AlarmFocus } from "./alarm-focus";
 import { LiveTab } from "./live-tab";
+import { componentState, STATE_CHIPS } from "./component-state";
 
 type Tab = "live" | "description" | "parameters";
 const TABS: { id: Tab; label: string }[] = [
@@ -20,20 +19,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "description", label: "Description" },
   { id: "parameters", label: "Parameters" },
 ];
-
-const STATE_CHIPS: Record<SensorState, { label: string; className: string }> = {
-  normal: { label: "NORMAL", className: "bg-ok-soft text-ok" },
-  warning: { label: "WARNING", className: "bg-warn-soft text-warn" },
-  alarm: { label: "ALARM", className: "bg-alarm text-white" },
-};
-
-/** The worst state among a component's sensors now. */
-function componentState(componentLabel: string, snapshot: LiveSnapshot): SensorState {
-  const states = sensorsOf(componentLabel).map((sensor) => sensorState(sensor, snapshot.sensors[sensor.id] ?? 0));
-  if (states.includes("alarm")) return "alarm";
-  if (states.includes("warning")) return "warning";
-  return "normal";
-}
 
 type Props = {
   node: ShipTreeNode;
@@ -52,13 +37,7 @@ export function ComponentLivePanel({ node, onClose }: Props) {
   const details = getObjectDetailsForNode(node);
   const definition = COMPONENT_LIVE[node.label];
   const alarm = activeAlarmOn(snapshot, node.label);
-  const alarmSensor = alarm?.sensorId ? findSensor(alarm.sensorId) : undefined;
-  const state: SensorState = snapshot
-    ? alarmSensor
-      ? sensorState(alarmSensor, snapshot.sensors[alarmSensor.id] ?? 0)
-      : componentState(node.label, snapshot)
-    : "normal";
-  const chip = STATE_CHIPS[alarm && state === "normal" ? "warning" : state];
+  const chip = STATE_CHIPS[componentState(node.label, snapshot, alarm)];
 
   return (
     <aside

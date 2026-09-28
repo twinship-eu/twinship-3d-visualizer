@@ -1,0 +1,76 @@
+"use client";
+
+import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
+import { CalloutAnchorProjector } from "../callouts/callout-anchor-projector";
+import type { CalloutDefinition } from "../callouts/callout-config";
+import { LiveCallouts } from "../callouts/live-callouts";
+import { SelectionSceneHeader } from "../component-live/selection-scene-header";
+import { SensorAnchorProjector } from "../component-live/sensor-anchor-projector";
+import { SensorOverlay } from "../component-live/sensor-overlay";
+import type { LiveView } from "../cockpit-config";
+import { LiveViewControls } from "./live-view-controls";
+
+type ProjectorProps = {
+  callouts: CalloutDefinition[] | null;
+  /** The view the callouts are for: a fresh projector for each. */
+  view: LiveView;
+  liveSelection: ShipTreeNode | null;
+};
+
+/** Inside the Canvas, in Live data: what projects the callouts' and the sensors' parts onto the screen. */
+export function LiveSceneProjectors({ callouts, view, liveSelection }: ProjectorProps) {
+  return (
+    <>
+      {callouts && <CalloutAnchorProjector key={view} callouts={callouts} />}
+      {/* A fresh projector for each component: it finds its part anew */}
+      {liveSelection && <SensorAnchorProjector key={liveSelection.id} componentLabel={liveSelection.label} />}
+    </>
+  );
+}
+
+type OverlayProps = ProjectorProps & {
+  /** The section the selected component is part of, for the breadcrumb. */
+  sectionLabel?: string;
+  isShowingCallouts: boolean;
+  onViewChange: (view: LiveView) => void;
+  onShowCalloutsChange: (isShowing: boolean) => void;
+  onOpenComponent: (label: string) => void;
+  onOverview: () => void;
+};
+
+/**
+ * Over the scene, in Live data: the view's callouts and controls — or, with
+ * a component selected, its breadcrumb, alarm banner and sensors.
+ */
+export function LiveSceneOverlays({
+  callouts,
+  view,
+  liveSelection,
+  sectionLabel,
+  isShowingCallouts,
+  onViewChange,
+  onShowCalloutsChange,
+  onOpenComponent,
+  onOverview,
+}: OverlayProps) {
+  if (liveSelection) {
+    return (
+      <>
+        <SelectionSceneHeader componentLabel={liveSelection.label} sectionLabel={sectionLabel} onOverview={onOverview} />
+        <SensorOverlay key={liveSelection.id} componentLabel={liveSelection.label} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      {callouts && <LiveCallouts key={view} callouts={callouts} onOpenComponent={onOpenComponent} />}
+      <LiveViewControls
+        view={view}
+        onViewChange={onViewChange}
+        isShowingCallouts={isShowingCallouts}
+        onShowCalloutsChange={onShowCalloutsChange}
+      />
+    </>
+  );
+}

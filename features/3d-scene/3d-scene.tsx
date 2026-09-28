@@ -72,6 +72,11 @@ type Props = {
    * camera or set the ship under way (`useZoomControls`, `useShipVoyage`).
    */
   overlay?: React.ReactNode;
+  /**
+   * Below lg, the scene is a small card among other content: no zoom
+   * controls and no gesture hints on it.
+   */
+  isCompactBelowLg?: boolean;
 };
 
 
@@ -81,19 +86,30 @@ export function Scene({
   children,
   isDetailsOpen = false,
   overlay,
+  isCompactBelowLg = false,
 }: Props) {
   return (
     <div
       className={cn("relative", className ?? "h-full min-h-0 w-full")}
       style={{ backgroundColor: SCENE_BACKGROUND_COLOR }}
     >
-      <SceneWithInteraction overlay={overlay}>{children}</SceneWithInteraction>
-      <StageControlHints isDetailsOpen={isDetailsOpen} />
+      <SceneWithInteraction overlay={overlay} isCompactBelowLg={isCompactBelowLg}>
+        {children}
+      </SceneWithInteraction>
+      <StageControlHints isDetailsOpen={isDetailsOpen} isHiddenBelowLg={isCompactBelowLg} />
     </div>
   );
 }
 
-function SceneWithInteraction({ children, overlay }: { children: React.ReactNode; overlay?: React.ReactNode }) {
+function SceneWithInteraction({
+  children,
+  overlay,
+  isCompactBelowLg,
+}: {
+  children: React.ReactNode;
+  overlay?: React.ReactNode;
+  isCompactBelowLg: boolean;
+}) {
   const [isOrbitControlsActive, setIsOrbitControlsActive] = useState(false);
   const [isWebGPU, setIsWebGPU] = useState<boolean | null>(null);
   // Deliberately false until mounted: branching on the query string during the
@@ -156,7 +172,7 @@ function SceneWithInteraction({ children, overlay }: { children: React.ReactNode
           <SceneAdaptiveResolution />
           <ZoomControlsBridge />
         </Canvas>
-        <ZoomControlsOverlay />
+        <ZoomControlsOverlay isHiddenBelowLg={isCompactBelowLg} />
         {overlay}
         {IS_RENDERER_BADGE_ENABLED && <RendererBackendBadge isWebGPU={isWebGPU} />}
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}

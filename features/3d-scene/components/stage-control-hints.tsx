@@ -56,7 +56,10 @@ function HintList({ hints }: { hints: Hint[] }) {
 
 export function StageControlHints({
   isDetailsOpen = false,
+  isHiddenBelowLg = false,
 }: {
+  /** Hides the touch hints below lg: the scene is a card there, among other content. */
+  isHiddenBelowLg?: boolean;
   /**
    * Hides the hints while a component's details are open: below lg the sheet
    * would cover them, at lg its card runs down beside them.
@@ -80,7 +83,7 @@ export function StageControlHints({
           "rounded-lg border border-glass-line bg-glass px-4 py-2 backdrop-blur",
           // The sheet covers this space, and orbit hints are not what anyone is
           // reading while a component's details are open.
-          isDetailsOpen && "hidden",
+          (isDetailsOpen || isHiddenBelowLg) && "hidden",
           "lg:hidden"
         )}
         aria-label="Stage touch controls"

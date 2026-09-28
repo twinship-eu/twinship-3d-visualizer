@@ -35,7 +35,8 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm }: Props) {
   const isLive = mode === "live";
 
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-4 whitespace-nowrap border-b border-line bg-surface px-4">
+    // At lg only: below it, the phone's own header and tabs (MobileHeader, MobileTabBar)
+    <header className="hidden h-[52px] shrink-0 items-center gap-4 whitespace-nowrap border-b border-line bg-surface px-4 lg:flex">
       <div className="flex shrink-0 items-center gap-2.5 lg:w-[248px]">
         <Ship className="size-[22px] shrink-0 text-sim" aria-hidden />
         <div className="hidden flex-col leading-[1.1] sm:flex">

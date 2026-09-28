@@ -1,71 +1,44 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { Scene } from "@/features/3d-scene/3d-scene";
-import { SceneErrorFallback } from "./components/scene-error-fallback";
-import Ship from "./components/scene-content";
-import { MOCK_SHIP_TREE } from "./ship-visualizer-mock";
-import {
-  isNodeInNonSelectableSection,
-  mapModelTreeToSections,
-} from "./lib/map-tree-to-sections";
-import { collectNodeIds, findNodeByLabel } from "./lib/filter-tree";
-import {
-  SIDEBAR_WIDTH_CLASS,
-  DEFAULT_SHIP_MODEL_PATH,
-  SHIP_TREE_SECTIONS,
-} from "./ship-visualizer-config";
-import { SidebarToggleButton } from "./components/sidebar-toggle-button";
-import { cn } from "@/lib/utils";
-import type { ShipTreeNode } from "./ship-visualizer-types";
-import { OntologyExplorer } from "../ontology-explorrer/ontology-explorer";
-import { SelectionDetailsModal } from "./components/selection-details-modal";
-import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
-import { useModelLoadProgress } from "./hooks/use-model-load-progress";
-import { OntologyRelationsStrip } from "./components/ontology-relations-strip";
+import { useState, useCallback } from "react";
 import { CockpitTopBar } from "@/features/cockpit/components/cockpit-top-bar";
-import { LiveWarningCard } from "@/features/cockpit/components/live-warning-card";
-import { useViewerMode } from "@/features/cockpit/hooks/use-viewer-mode";
-import { useLiveView } from "@/features/cockpit/hooks/use-live-view";
-import { AlarmsEventsList } from "@/features/cockpit/components/alarms-events-list";
-import { LiveNodeReading } from "@/features/cockpit/components/live-node-reading";
-import { LiveViewControls } from "@/features/cockpit/components/live-view-controls";
-import { SystemCardsStrip } from "@/features/cockpit/components/system-cards-strip";
-import { CalloutAnchorProjector } from "@/features/cockpit/callouts/callout-anchor-projector";
-import { LiveCallouts } from "@/features/cockpit/callouts/live-callouts";
-import {
-  SYSTEMS_CALLOUTS,
-  VOYAGE_CALLOUTS,
-} from "@/features/cockpit/callouts/callout-config";
-import { VOYAGE_CARDS } from "@/features/cockpit/cockpit-voyage";
-import { LiveShipSpeed } from "@/features/cockpit/voyage/live-ship-speed";
-import { VoyageSceneOverlay } from "@/features/cockpit/voyage/voyage-scene-overlay";
-import { VoyageSummary } from "@/features/cockpit/voyage/voyage-summary";
+import { LiveSceneOverlays } from "@/features/cockpit/components/live-scene-layers";
+import { SidebarFooter, sidebarReadingFor } from "@/features/cockpit/components/sidebar-live-content";
+import { useLiveLayout } from "@/features/cockpit/hooks/use-live-layout";
 import { ComponentLivePanel } from "@/features/cockpit/component-live/component-live-panel";
-import { SelectedComponentStrip } from "@/features/cockpit/component-live/selected-component-strip";
-import { SelectionSceneHeader } from "@/features/cockpit/component-live/selection-scene-header";
-import { SensorAnchorProjector } from "@/features/cockpit/component-live/sensor-anchor-projector";
-import { SensorOverlay } from "@/features/cockpit/component-live/sensor-overlay";
-import { getSectionDotClass, getSectionIdOf } from "./lib/section-colors";
+import { useLiveView } from "@/features/cockpit/hooks/use-live-view";
+import { useMobileTab } from "@/features/cockpit/hooks/use-mobile-tab";
+import { useViewerMode } from "@/features/cockpit/hooks/use-viewer-mode";
+import { MobileComponentSheet } from "@/features/cockpit/mobile/mobile-component-sheet";
+import { MobileHeader } from "@/features/cockpit/mobile/mobile-header";
+import { MobileSceneCardChrome, MobileSelectionChrome } from "@/features/cockpit/mobile/mobile-scene-chrome";
+import { MobileTabBar } from "@/features/cockpit/mobile/mobile-tab-bar";
+import { MobileTabContent } from "@/features/cockpit/mobile/mobile-tab-content";
 import type { Alarm } from "@/features/live-data/live-data-types";
-
-const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
-
-/** A tree row's live reading, in Live data. */
-const renderLiveReading = (node: ShipTreeNode) => (
-  <LiveNodeReading label={node.label} />
-);
-/** A section's reading, in the Voyage view's tree of sections. */
-const renderVoyageReading = (node: ShipTreeNode) => (
-  <LiveNodeReading label={node.label} isVoyage />
-);
+import { SceneBottomStrip } from "./components/scene-bottom-strip";
+import { ShipScene } from "./components/ship-scene";
+import { SelectionDetailsModal } from "./components/selection-details-modal";
+import { ShipSidebar } from "./components/ship-sidebar";
+import { useEscapeKey } from "./hooks/use-escape-key";
+import { useShipModel } from "./hooks/use-ship-model";
+import { findNodeByLabel } from "./lib/filter-tree";
+import { isNodeInNonSelectableSection } from "./lib/map-tree-to-sections";
+import { sceneBoxClass, sceneColumnClass } from "./lib/scene-layout-classes";
+import type { ShipTreeNode } from "./ship-visualizer-types";
 
 export function ShipVisualizer() {
   const { mode, setMode } = useViewerMode();
   const liveView = useLiveView();
-  const [selectedModelPath, setSelectedModelPath] = useState(
-    DEFAULT_SHIP_MODEL_PATH
-  );
+  const mobile = useMobileTab({
+    mode,
+    liveView: liveView.view,
+    setMode: (next) => void setMode(next),
+    setLiveView: (next) => void liveView.setView(next),
+  });
+  /** Below lg: the scene's card opened full screen. */
+  const [isSceneExpanded, setIsSceneExpanded] = useState(false);
+  /** Below lg: the open component's alarm shown in its sheet, rather than its readings. */
+  const [isShowingMobileAlarm, setIsShowingMobileAlarm] = useState(false);
   /**
    * Only meaningful below `lg`, where the sidebar is an overlay. At `lg` and
    * above the panel is statically docked and this is ignored.
@@ -77,56 +50,33 @@ export function ShipVisualizer() {
     useState<ShipTreeNode | null>(null);
   const [hoveredStructureNode, setHoveredStructureNode] =
     useState<ShipTreeNode | null>(null);
-  const [modelTree, setModelTree] = useState<ShipTreeNode[] | null>(null);
-  const [visibleNodeIds, setVisibleNodeIds] = useState<Record<string, boolean>>(
-    {}
+  // A new model's tree: nothing in it is selected yet
+  const model = useShipModel(
+    useCallback(() => setSelectedStructureNode(null), [])
   );
-  const isModelReady = modelTree !== null;
-  const [assemblyTargets, setAssemblyTargets] = useState<Float32Array | null>(
-    null
-  );
-  const loading = useModelLoadProgress(isModelReady, assemblyTargets !== null);
+  const { tree, isModelReady } = model;
 
-  const renderedModelPath = selectedModelPath;
-
-  useEffect(() => {
-    setModelTree(null);
-  }, [renderedModelPath]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+  // Escape closes the overlay tree first, then deselects
+  useEscapeKey(
+    useCallback(() => {
       if (isSidebarOpen) {
         setIsSidebarOpen(false);
         return;
       }
-      if (selectedStructureNode !== null) {
-        setSelectedStructureNode(null);
-        setIsDetailsExpanded(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedStructureNode, isSidebarOpen]);
+      setSelectedStructureNode(null);
+      setIsDetailsExpanded(false);
+    }, [isSidebarOpen])
+  );
 
-  const handleModelTreeLoaded = useCallback((tree: ShipTreeNode[]) => {
-    const topLevelOnly = tree.map((node) => ({
-      ...node,
-      children: undefined,
-    }));
-    const sectioned = mapModelTreeToSections(topLevelOnly);
-    setModelTree([SHIP_MODEL_SECTION, ...sectioned]);
-    setSelectedStructureNode(null);
-  }, []);
-
+  const { setModelPath } = model;
   const handleSelectNode = useCallback((node: ShipTreeNode) => {
     if (node.modelPath) {
-      setSelectedModelPath(node.modelPath);
+      setModelPath(node.modelPath);
       return;
     }
     if (isNodeInNonSelectableSection(node)) return;
     setSelectedStructureNode((prev) => (prev?.id === node.id ? null : node));
-  }, []);
+  }, [setModelPath]);
 
   const handleHover = useCallback((node: ShipTreeNode | null) => {
     setHoveredStructureNode(node);
@@ -135,30 +85,6 @@ export function ShipVisualizer() {
   const handleSelectByClick = useCallback((node: ShipTreeNode | null) => {
     setSelectedStructureNode(node);
   }, []);
-
-  const setSectionVisible = useCallback(
-    (node: ShipTreeNode, visible: boolean) => {
-      const ids = collectNodeIds(node);
-      setVisibleNodeIds((prev) => {
-        const next = { ...prev };
-        for (const id of ids) next[id] = visible;
-        return next;
-      });
-    },
-    []
-  );
-
-  const hiddenNodeIds = useMemo(
-    () =>
-      new Set(
-        Object.entries(visibleNodeIds)
-          .filter(([, v]) => v === false)
-          .map(([id]) => id)
-      ),
-    [visibleNodeIds]
-  );
-
-  const tree = modelTree ?? MOCK_SHIP_TREE;
 
   const handleSelectConnectedComponent = useCallback(
     (targetLabel: string) => {
@@ -177,42 +103,33 @@ export function ShipVisualizer() {
       const componentNode = findNodeByLabel(tree, alarm.componentLabel);
       if (componentNode && !isNodeInNonSelectableSection(componentNode)) {
         setSelectedStructureNode(componentNode);
+        setIsShowingMobileAlarm(true);
       }
     },
     [tree, setMode]
   );
 
-  const isOntologyMode = mode === "ontology";
-  /** In Live data with a component selected: its live panel, sensors and trends. */
-  const liveSelection = isOntologyMode ? null : selectedStructureNode;
-  const isVoyageView =
-    !isOntologyMode && liveView.view === "voyage" && liveSelection === null;
-  const liveSelectionSection = liveSelection
-    ? SHIP_TREE_SECTIONS.find(
-        (section) =>
-          section.id === getSectionIdOf(liveSelection) &&
-          section.id !== liveSelection.id
-      )
-    : undefined;
+  const {
+    isOntologyMode,
+    liveSelection,
+    isVoyageView,
+    liveSelectionSection,
+    callouts,
+    sidebarTree,
+    isMobileCard,
+  } = useLiveLayout({
+    mode,
+    liveView: liveView.view,
+    isShowingCallouts: liveView.isShowingCallouts,
+    selectedNode: selectedStructureNode,
+    isModelReady,
+    tree,
+  });
   const clearSelection = () => {
     setSelectedStructureNode(null);
     setIsDetailsExpanded(false);
+    setIsShowingMobileAlarm(false);
   };
-  // The callouts over the scene: the Voyage view's, or the Systems view's
-  // unless turned off. They give way to a selected component's own details
-  const callouts =
-    isOntologyMode || liveSelection !== null || !isModelReady
-      ? null
-      : isVoyageView
-        ? VOYAGE_CALLOUTS
-        : liveView.isShowingCallouts
-          ? SYSTEMS_CALLOUTS
-          : null;
-  // The Voyage view's tree: its sections only, each with its reading
-  const voyageTree = useMemo(
-    () => tree.map((node) => ({ ...node, children: undefined })),
-    [tree]
-  );
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
@@ -221,221 +138,147 @@ export function ShipVisualizer() {
         onModeChange={(next) => void setMode(next)}
         onOpenAlarm={handleOpenAlarm}
       />
+      {liveSelection === null && <MobileHeader />}
       <div className="relative flex min-h-0 w-full flex-1 gap-0">
-        {/*
-        Dims the scene while the overlay sidebar is open, and closes it on tap.
-        `lg:hidden` because above the breakpoint the sidebar never covers
-        anything and there is nothing to dismiss.
-      */}
-        {isSidebarOpen && (
-          <div
-            className="absolute inset-0 z-40 bg-black/40 lg:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-            aria-hidden
-          />
-        )}
-
-        <SidebarToggleButton
+        <ShipSidebar
           isOpen={isSidebarOpen}
+          // Below lg the tree is the Ship tab's: behind its button
+          hasToggle={isOntologyMode}
           onOpen={() => setIsSidebarOpen(true)}
+          onClose={() => setIsSidebarOpen(false)}
+          tree={sidebarTree}
+          isLoading={!isModelReady}
+          visibleNodeIds={model.visibleNodeIds}
+          onToggleSectionVisible={model.setSectionVisible}
+          onSelect={handleSelectNode}
+          selectedNodeId={selectedStructureNode?.id ?? null}
+          footer={
+            <SidebarFooter
+              isOntologyMode={isOntologyMode}
+              isVoyageView={isVoyageView}
+              onOpenAlarm={handleOpenAlarm}
+            />
+          }
+          renderReading={sidebarReadingFor({ isOntologyMode, isVoyageView })}
         />
-
         <div
-          className={cn(
-            // Below lg: an overlay that slides in from the left over the scene.
-            "absolute inset-y-0 left-0 z-50 flex min-h-0 shrink-0 flex-col",
-            "transition-transform duration-300 ease-out",
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full",
-            // At lg: back to a static docked column, always visible.
-            "lg:relative lg:z-auto lg:translate-x-0 lg:transition-none",
-            SIDEBAR_WIDTH_CLASS
-          )}
+          className={sceneColumnClass({
+            isOntologyMode,
+            hasSelection: selectedStructureNode !== null,
+            isDetailsExpanded,
+            hasLiveSelection: liveSelection !== null,
+            isMobileCard,
+          })}
         >
-          <OntologyExplorer
-            tree={isVoyageView ? voyageTree : tree}
-            visibleNodeIds={visibleNodeIds}
-            onToggleSectionVisible={setSectionVisible}
-            onSelect={(node) => {
-              handleSelectNode(node);
-              setIsSidebarOpen(false);
-            }}
-            selectedNodeId={selectedStructureNode?.id ?? null}
-            isLoading={modelTree === null}
-            onClose={() => setIsSidebarOpen(false)}
-            footer={
-              isOntologyMode ? (
-                <LiveWarningCard onOpen={handleOpenAlarm} />
-              ) : isVoyageView ? (
-                <VoyageSummary />
-              ) : (
-                <AlarmsEventsList onOpen={handleOpenAlarm} />
-              )
-            }
-            renderReading={
-              isOntologyMode
-                ? undefined
-                : isVoyageView
-                  ? renderVoyageReading
-                  : renderLiveReading
-            }
-          />
-        </div>
-        <div
-          className={cn(
-            "relative flex min-w-0 flex-1 flex-col",
-            "transition-[padding] duration-300 ease-out",
-            /*
-            Below lg the sheet is an opaque panel across the bottom. Padding the
-            scene by its height keeps the ship centred in the space that is
-            left, instead of behind the sheet.
-
-            The padding is short of the sheet's full height by SHEET_PEEK, so
-            the scene runs a little way behind its top edge and shows through
-            the rounded corners. Matching the height exactly left nothing behind
-            them and the sheet read as square.
-          */
-            selectedStructureNode !== null &&
-              (isDetailsExpanded
-                ? "pb-[calc(80vh-20px)]"
-                : "pb-[calc(45vh-20px)]"),
-            "lg:pb-0"
-          )}
-        >
-          <div className="relative min-h-0 w-full flex-1">
-            <SceneErrorFallback
-              fallback={
-                <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-canvas text-muted">
-                  <p>Scene failed to load.</p>
-                  <p className="text-sm">
-                    Add a ship model at{" "}
-                    <code className="rounded bg-card px-1">public/ship/</code>
-                  </p>
-                </div>
+          <div
+            className={sceneBoxClass({ isMobileCard, isSceneExpanded })}
+          >
+            <ShipScene
+              model={model}
+              selectedNode={selectedStructureNode}
+              hoveredNode={hoveredStructureNode}
+              onHover={handleHover}
+              onSelectByClick={handleSelectByClick}
+              live={
+                isOntologyMode
+                  ? null
+                  : { view: liveView.view, isVoyageView, callouts, liveSelection }
               }
-            >
-              <Scene
-                // The gesture hints give way to the details, and to the
-                // Voyage view's own controls along the scene's bottom
-                isDetailsOpen={selectedStructureNode !== null || isVoyageView}
-                overlay={
-                  !isOntologyMode && (
-                    <>
-                      <LiveShipSpeed />
-                      {isVoyageView && <VoyageSceneOverlay />}
-                    </>
-                  )
-                }
-              >
-                <Ship
-                  modelPath={renderedModelPath}
-                  selectedStructureNode={selectedStructureNode}
-                  hoveredStructureNode={hoveredStructureNode}
-                  hiddenNodeIds={hiddenNodeIds}
-                  onModelTreeLoaded={handleModelTreeLoaded}
-                  tree={tree}
-                  onHover={handleHover}
-                  onSelectByClick={handleSelectByClick}
-                  onAssemblyPointsSampled={setAssemblyTargets}
-                  isInteractive={loading.isInteractive}
-                />
-                {callouts && (
-                  <CalloutAnchorProjector
-                    key={liveView.view}
-                    callouts={callouts}
-                  />
-                )}
-                {liveSelection && (
-                  // A fresh projector for each component: it finds its part anew
-                  <SensorAnchorProjector
-                    key={liveSelection.id}
-                    componentLabel={liveSelection.label}
-                  />
-                )}
-                {loading.isRingVisible && (
-                  <SceneErrorFallback fallback={null}>
-                    <LoadingRing
-                      phase={loading.phase}
-                      assemblyTargets={assemblyTargets}
-                    />
-                  </SceneErrorFallback>
-                )}
-              </Scene>
-            </SceneErrorFallback>
-            {callouts && (
-              <LiveCallouts
-                key={liveView.view}
+              // No zoom controls on the phone's card, nor under a component's sheet
+              isCompactBelowLg={
+                (isMobileCard && !isSceneExpanded) || liveSelection !== null
+              }
+            />
+            {!isOntologyMode && (
+              <LiveSceneOverlays
                 callouts={callouts}
-                onOpenComponent={handleSelectConnectedComponent}
-              />
-            )}
-            {liveSelection && (
-              <>
-                <SelectionSceneHeader
-                  componentLabel={liveSelection.label}
-                  sectionLabel={liveSelectionSection?.label}
-                  onOverview={clearSelection}
-                />
-                <SensorOverlay
-                  key={liveSelection.id}
-                  componentLabel={liveSelection.label}
-                />
-              </>
-            )}
-            {!isOntologyMode && !liveSelection && (
-              <LiveViewControls
                 view={liveView.view}
-                onViewChange={(view) => void liveView.setView(view)}
+                liveSelection={liveSelection}
+                sectionLabel={liveSelectionSection?.label}
                 isShowingCallouts={liveView.isShowingCallouts}
+                onViewChange={(view) => void liveView.setView(view)}
                 onShowCalloutsChange={(isShowing) =>
                   void liveView.setIsShowingCallouts(isShowing)
                 }
+                onOpenComponent={handleSelectConnectedComponent}
+                onOverview={clearSelection}
               />
             )}
-            <SelectionDetailsModal
-              // A new card for each component: it opens scrolled to its top
-              key={selectedStructureNode?.id}
-              selectedNode={selectedStructureNode}
-              isExpanded={isDetailsExpanded}
-              onToggleExpanded={() => setIsDetailsExpanded((open) => !open)}
-              onClose={() => {
-                setSelectedStructureNode(null);
-                setIsDetailsExpanded(false);
-              }}
-              onSelectConnectedComponent={handleSelectConnectedComponent}
-              onShowLiveData={
-                isOntologyMode ? () => void setMode("live") : undefined
-              }
-              isDesktopHidden={!isOntologyMode}
-            />
+            {isMobileCard && (
+              <MobileSceneCardChrome
+                isExpanded={isSceneExpanded}
+                onToggleExpanded={() => setIsSceneExpanded((open) => !open)}
+              />
+            )}
+            {liveSelection && (
+              <MobileSelectionChrome
+                componentLabel={liveSelection.label}
+                isShowingAlarm={isShowingMobileAlarm}
+                onBack={() =>
+                  isShowingMobileAlarm
+                    ? setIsShowingMobileAlarm(false)
+                    : clearSelection()
+                }
+              />
+            )}
+            {isOntologyMode && (
+              <SelectionDetailsModal
+                // A new card for each component: it opens scrolled to its top
+                key={selectedStructureNode?.id}
+                selectedNode={selectedStructureNode}
+                isExpanded={isDetailsExpanded}
+                onToggleExpanded={() => setIsDetailsExpanded((open) => !open)}
+                onClose={clearSelection}
+                onSelectConnectedComponent={handleSelectConnectedComponent}
+                onShowLiveData={() => void setMode("live")}
+              />
+            )}
           </div>
-          {isOntologyMode && selectedStructureNode !== null && (
-            <OntologyRelationsStrip
-              selectedNode={selectedStructureNode}
-              onSelectRelated={handleSelectConnectedComponent}
-              onShowSensors={() => void setMode("live")}
+          {isMobileCard && (
+            <MobileTabContent
+              tab={mobile.tab}
+              onOpenAlarm={handleOpenAlarm}
+              onOpenComponent={(label) => {
+                handleSelectConnectedComponent(label);
+                setIsShowingMobileAlarm(false);
+              }}
             />
           )}
-          {!isOntologyMode && !liveSelection && !isVoyageView && (
-            <SystemCardsStrip />
-          )}
-          {isVoyageView && (
-            <SystemCardsStrip cards={VOYAGE_CARDS} showsStatus={false} />
-          )}
-          {liveSelection && (
-            <SelectedComponentStrip
-              componentLabel={liveSelection.label}
-              dotClass={getSectionDotClass(getSectionIdOf(liveSelection))}
-            />
-          )}
+          <SceneBottomStrip
+            isOntologyMode={isOntologyMode}
+            isVoyageView={isVoyageView}
+            selectedNode={selectedStructureNode}
+            onSelectRelated={handleSelectConnectedComponent}
+            onShowLiveData={() => void setMode("live")}
+          />
         </div>
         {liveSelection && (
           <ComponentLivePanel
-            key={liveSelection.id}
+            key={`panel-${liveSelection.id}`}
             node={liveSelection}
             onClose={clearSelection}
           />
         )}
+        {liveSelection && (
+          <MobileComponentSheet
+            key={`sheet-${liveSelection.id}`}
+            node={liveSelection}
+            sectionLabel={liveSelectionSection?.label}
+            isShowingAlarm={isShowingMobileAlarm}
+            onShowAlarm={setIsShowingMobileAlarm}
+          />
+        )}
       </div>
+      {selectedStructureNode === null && (
+        <MobileTabBar
+          tab={mobile.tab}
+          onChange={(tab) => {
+            clearSelection();
+            setIsSceneExpanded(false);
+            mobile.setTab(tab);
+          }}
+        />
+      )}
     </div>
   );
 }
