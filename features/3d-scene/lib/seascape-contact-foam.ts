@@ -67,6 +67,12 @@ type ContactFoamOptions = {
    */
   hullNodeNames?: readonly string[];
   /**
+   * How far from the hull its distance is ever read, in world units: the
+   * foam's widest reach and the wake's stirring. Beyond it nothing needs it,
+   * and the distance field does less work (`createDistanceField`).
+   */
+  maxDistance?: number;
+  /**
    * The sea's height above its mean level at a world point, if it is known:
    * the hull is then cut at the water it actually stands in, so the foam
    * follows the waterline up a crest and down a trough. Without it, at the
@@ -91,6 +97,7 @@ export function createContactFoam({
   distance,
   waterHeight,
   hullNodeNames,
+  maxDistance,
 }: ContactFoamOptions) {
   const uniforms = {
     /** How far from the hull the foam reaches, in world units. */
@@ -101,7 +108,10 @@ export function createContactFoam({
   const footprint = new RenderTarget(resolution, resolution, { ...targetOptions, depthBuffer: true });
   // Distance to the hull, in texels: half floats are exact to 2048, and filterable
   const hullDistance = new RenderTarget(resolution, resolution, { ...targetOptions, depthBuffer: false });
-  const distanceField = createDistanceField(resolution);
+  const distanceField = createDistanceField(
+    resolution,
+    maxDistance === undefined ? undefined : (maxDistance * resolution) / areaSize
+  );
 
   // Looking straight down, the top of the image towards -Z
   const half = areaSize / 2;

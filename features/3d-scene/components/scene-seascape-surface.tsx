@@ -233,6 +233,8 @@ function createSeaSurface(canUseCompute: boolean) {
     resolution: CONTACT_FOAM_RESOLUTION,
     // The model's hull node: the only part that meets the water
     hullNodeNames: SHIP_HULL_NODE_NAMES,
+    // The widest the Inspector lets the foam reach (the wake stirs within less)
+    maxDistance: MAX_CONTACT_FOAM_DISTANCE,
     levelY: SEASCAPE_SURFACE_LEVEL_Y,
     distance: CONTACT_FOAM_DISTANCE,
     // The FFT ocean's own height, so the hull is cut at the real waterline

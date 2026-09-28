@@ -21,8 +21,14 @@ const FAR = 1.0e4;
 /**
  * Builds the passes for a `resolution`² mask. `run` reads `mask` and writes
  * into `output` (r: the distance to the mask, in texels).
+ *
+ * @param maxDistance how far out the distances are needed, in texels. The
+ *   first jump is the power of two at or above it, not half the texture:
+ *   jumps of k, k/2 … 1 reach 2k - 1 texels, so the distances up to
+ *   `maxDistance` come out exact and three or four passes are saved. Past it
+ *   they may come out too large, or as FAR. Without it, the whole texture.
  */
-export function createDistanceField(resolution: number) {
+export function createDistanceField(resolution: number, maxDistance = resolution / 2) {
   const steps = Math.log2(resolution);
   if (!Number.isInteger(steps)) throw new Error(`Distance field size must be a power of two, got ${resolution}`);
 
@@ -98,7 +104,8 @@ export function createDistanceField(resolution: number) {
   function buildPasses(mask: RenderTarget, output: RenderTarget) {
     const chain = [{ quad: new QuadMesh(seedMaterial(mask)), target: ping }];
     let source = ping;
-    for (let step = resolution / 2; step >= 1; step /= 2) {
+    const firstStep = Math.min(2 ** Math.ceil(Math.log2(Math.max(maxDistance, 1))), resolution / 2);
+    for (let step = firstStep; step >= 1; step /= 2) {
       const target = source === ping ? pong : ping;
       chain.push({ quad: new QuadMesh(jumpMaterial(source, step)), target });
       source = target;
