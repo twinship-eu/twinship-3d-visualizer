@@ -40,13 +40,26 @@ export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,330px)] lg:w-[330px]";
 export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
 
 /**
+ * The same model with its textures GPU-compressed, as KTX2: built from it by
+ *   scripts/encode-ship-textures-ktx2.sh <engine.glb> <out>
+ * UASTC for the normal maps, ETC1S for the rest. They stay compressed in GPU
+ * memory — ~130 MB against ~760 MB for the 34 WebP maps, which the GPU holds
+ * uncompressed — and upload faster; the file is a little smaller too (38 MB against 41).
+ */
+export const ENGINE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-engine-ktx2.glb";
+/** Off to load the WebP build instead, to compare. */
+const IS_KTX2_SHIP_TEXTURES_ENABLED = true;
+
+/**
  * Model the ship visualizer opens with, and the only one shipped.
  *
  * Earlier builds (V1, the V2 export and its raw source) were removed along
  * with the development-only toggle that compared them; recoverable from git
  * history if a comparison is ever wanted again.
  */
-export const DEFAULT_SHIP_MODEL_PATH = ENGINE_SHIP_MODEL_GLB;
+export const DEFAULT_SHIP_MODEL_PATH = IS_KTX2_SHIP_TEXTURES_ENABLED
+  ? ENGINE_SHIP_MODEL_KTX2_GLB
+  : ENGINE_SHIP_MODEL_GLB;
 
 /** Default ship mesh color (unselected). */
 export const SHIP_COLOR = "#ffffff";

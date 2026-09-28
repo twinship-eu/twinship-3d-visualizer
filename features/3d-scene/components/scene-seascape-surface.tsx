@@ -174,6 +174,11 @@ const CONTACT_FOAM_REDRAW_FRAMES = PROFILE.contactFoamRedrawFrames;
  * a few of its lifetimes. Past that, its passes are skipped.
  */
 const WAKE_SETTLE_SECONDS = 150;
+/**
+ * The same for the ship's own waves: five of their 15 s lifetimes
+ * (`seascape-kelvin-wake.ts`), by which under 1% of them is left.
+ */
+const SHIP_WAVES_SETTLE_SECONDS = 75;
 /** Speed through the water, in m/s, below which the ship counts as still: no propeller wash. */
 const STILL_SPEED = 0.3;
 
@@ -522,7 +527,11 @@ export function SceneSeascapeSurface() {
     // The wake flows back from the stern as the ship sails on
     // ...only while there is a wake: under way, and for a while after
     sea.stillSeconds = speed > 0.01 ? 0 : sea.stillSeconds + delta;
-    if (sea.stillSeconds < WAKE_SETTLE_SECONDS) sea.wake.update(asSceneRenderer(gl), delta, speed);
+    const hasWake = sea.stillSeconds < WAKE_SETTLE_SECONDS;
+    if (hasWake) sea.wake.update(asSceneRenderer(gl), delta, speed);
+    // ...and the sea's shader skips the wake, and the ship's waves, once they are gone
+    sea.uniforms.hasWake.value = hasWake ? 1 : 0;
+    sea.uniforms.hasShipWaves.value = sea.stillSeconds < SHIP_WAVES_SETTLE_SECONDS ? 1 : 0;
 
     // Not drawn when there is nothing to see: the propellers' bubbles only
     // under way, and only from under the water (the sea hides them from

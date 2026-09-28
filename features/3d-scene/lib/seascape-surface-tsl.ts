@@ -405,6 +405,13 @@ export function createSeascapeSurfaceNodes({
     sunDirection: uniform(sunDirection.clone().normalize()),
     /** The ship's speed through the water, in m/s: how big its own waves are. */
     shipSpeed: uniform(0),
+    /**
+     * 1 while the ship's own waves have something to draw (under way, and while
+     * they die away after), 0 once they are gone: the shader then skips them.
+     */
+    hasShipWaves: uniform(0),
+    /** The same for its wake and the churn behind the stern. */
+    hasWake: uniform(0),
     /** Light shining through the crests towards the camera. */
     subsurfaceColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.subsurfaceColor)),
     subsurfaceStrength: uniform(SEASCAPE_SURFACE_DEFAULTS.subsurfaceStrength),
@@ -457,13 +464,26 @@ export function createSeascapeSurfaceNodes({
   const vertexCell = uniforms.cellSize.mul(
     float(1.0).add(max(acrossGrid.x.mul(acrossGrid.x), acrossGrid.y.mul(acrossGrid.y)).mul(cellGrowth ?? 0))
   );
-  const vertexLift = (
-    fft
-      ? fft.gridHeight(onSea(vertexWorld.xz), vertexCell)
-      : windSeaElevation(onSea(vertexWorld.xz), time, sea, vertexCell.mul(GEOMETRY_FILTER_CELLS))
-  )
-    .add(shipWavesAt(vertexWorld.xz))
-    .add(sternChurnAt(vertexWorld.xz));
+  /**
+   * The grid's lift at this vertex: the sea, and the ship's waves and churn
+   * only while there are any — skipped at rest, where they are all 0. Called
+   * inside a Fn: its branches need one.
+   */
+  const vertexLiftAt = () => {
+    const lift = (
+      fft
+        ? fft.gridHeight(onSea(vertexWorld.xz), vertexCell)
+        : windSeaElevation(onSea(vertexWorld.xz), time, sea, vertexCell.mul(GEOMETRY_FILTER_CELLS))
+    ).toVar();
+    If(uniforms.hasShipWaves.greaterThan(0.5), () => {
+      lift.addAssign(shipWavesAt(vertexWorld.xz));
+    });
+    If(uniforms.hasWake.greaterThan(0.5), () => {
+      lift.addAssign(sternChurnAt(vertexWorld.xz));
+    });
+
+    return lift;
+  };
 
   /**
    * Vertex: lift the grid to the sea's height.
@@ -471,7 +491,7 @@ export function createSeascapeSurfaceNodes({
    * Uses the world position rather than the local one, so the waves stay put
    * in the world while the grid follows the camera around.
    */
-  const positionNode = Fn(() => positionGeometry.add(vec3(0.0, vertexLift, 0.0)))();
+  const positionNode = Fn(() => positionGeometry.add(vec3(0.0, vertexLiftAt(), 0.0)))();
 
   /**
    * Slope and height of the longest waves, computed per vertex and handed to
@@ -482,7 +502,7 @@ export function createSeascapeSurfaceNodes({
       // The FFT ocean's slopes all come per pixel
       if (fft) return vec3(0.0);
 
-      const toVertex = vertexWorld.add(vec3(0.0, vertexLift, 0.0)).sub(cameraPosition);
+      const toVertex = vertexWorld.add(vec3(0.0, vertexLiftAt(), 0.0)).sub(cameraPosition);
 
       const onSeaSlope = windSeaSlope("vertex", onSea(vertexWorld.xz), slopeStepFor(toVertex), time, sea, vertexCell);
 
@@ -525,31 +545,52 @@ export function createSeascapeSurfaceNodes({
     const chop = windSeaDetailSlope(seaPosition, length(toPoint), time, sea, detailNormals);
     // The FFT ocean already holds the chop, down to centimetres
     const detailSlope = fft ? vec2(0.0) : fromSea(chop.slope);
+    // What the ship does to the water — its waves, its V's foam, its wake and
+    // the churn behind it — only while there is any: at rest, once it has
+    // died away, every pixel skips it. (Branches on uniforms: the same way for
+    // every pixel, so the texture reads inside them stay valid.)
     // The ship's own waves' slope: finite differences, a little over half a metre
-    const shipWavesSlope =
-      shipWaves
-        ? kelvinWakeSlope(positionWorld.xz, shipWaves.track, shipWaves.bowZ, SHIP_WAVES_SLOPE_STEP)
-        : vec2(0.0);
+    const shipWavesSlope = vec2(0.0).toVar();
+    // Foam on the crests of the ship's own waves: the white V (shaded below)
+    const shipWavesFoamAmount = float(0.0).toVar();
+    if (shipWaves) {
+      If(uniforms.hasShipWaves.greaterThan(0.5), () => {
+        shipWavesSlope.assign(
+          kelvinWakeSlope(positionWorld.xz, shipWaves.track, shipWaves.bowZ, SHIP_WAVES_SLOPE_STEP)
+        );
+        shipWavesFoamAmount.assign(kelvinWakeFoam(positionWorld.xz, shipWaves.track, shipWaves.bowZ));
+      });
+    }
     // The churned water behind the ship: propeller wash, a tumbling surface
     // strongest at the stern and calming along the trail with the wake itself.
     // Noise carried with the sea, so the churn flows back with the water
-    const wakeHere = wake ? wake.sample(positionWorld.xz).toVar() : float(0.0);
-    const churnAt = seaPosition.div(CHURN_SIZE).add(vec2(time.mul(CHURN_TUMBLE), 0.0));
-    const churnStep = float(1.0 / CHURN_SIZE);
-    const churnHere = valueNoise(churnAt);
-    const churnSlope = vec2(
-      valueNoise(churnAt.add(vec2(churnStep, 0.0))).sub(churnHere),
-      valueNoise(churnAt.add(vec2(0.0, churnStep))).sub(churnHere)
-    )
-      .div(churnStep.mul(CHURN_SIZE))
-      .mul(CHURN_HEIGHT)
-      .mul(wakeHere);
+    const churnSlope = vec2(0.0).toVar();
     // The stern's mounds, as the grid is lifted by them: their slope for the light
-    const sternHere = sternChurnAt(positionWorld.xz);
-    const sternSlope = vec2(
-      sternChurnAt(positionWorld.xz.add(vec2(STERN_CHURN_SLOPE_STEP, 0.0))).sub(sternHere),
-      sternChurnAt(positionWorld.xz.add(vec2(0.0, STERN_CHURN_SLOPE_STEP))).sub(sternHere)
-    ).div(STERN_CHURN_SLOPE_STEP);
+    const sternSlope = vec2(0.0).toVar();
+    if (wake) {
+      If(uniforms.hasWake.greaterThan(0.5), () => {
+        const wakeHere = wake.sample(positionWorld.xz);
+        const churnAt = seaPosition.div(CHURN_SIZE).add(vec2(time.mul(CHURN_TUMBLE), 0.0));
+        const churnStep = float(1.0 / CHURN_SIZE);
+        const churnHere = valueNoise(churnAt);
+        churnSlope.assign(
+          vec2(
+            valueNoise(churnAt.add(vec2(churnStep, 0.0))).sub(churnHere),
+            valueNoise(churnAt.add(vec2(0.0, churnStep))).sub(churnHere)
+          )
+            .div(churnStep.mul(CHURN_SIZE))
+            .mul(CHURN_HEIGHT)
+            .mul(wakeHere)
+        );
+        const sternHere = sternChurnAt(positionWorld.xz);
+        sternSlope.assign(
+          vec2(
+            sternChurnAt(positionWorld.xz.add(vec2(STERN_CHURN_SLOPE_STEP, 0.0))).sub(sternHere),
+            sternChurnAt(positionWorld.xz.add(vec2(0.0, STERN_CHURN_SLOPE_STEP))).sub(sternHere)
+          ).div(STERN_CHURN_SLOPE_STEP)
+        );
+      });
+    }
     // Rain's rings on the water: only near the camera, only when it rains —
     // skipped everywhere else, so dry weather pays for a branch
     const rainRings = vec2(0.0).toVar();
@@ -676,26 +717,23 @@ export function createSeascapeSurfaceNodes({
     // The wake: foam left behind the ship, aging into lace as it falls back
     // Carried by the waves: pushed along their slopes, so the trail bends with
     // them, and thicker on their crests than in their troughs
-    const wakeOnWaves = wake
-      ? wake.sample(positionWorld.xz.add(fromSea(bigWaves.xy).mul(WAKE_WAVE_PUSH))).mul(
+    const wakeFoam = float(0.0).toVar();
+    if (wake) {
+      If(uniforms.hasWake.greaterThan(0.5), () => {
+        const wakeOnWaves = wake.sample(positionWorld.xz.add(fromSea(bigWaves.xy).mul(WAKE_WAVE_PUSH))).mul(
           mix(
             float(WAKE_IN_TROUGHS),
             float(WAKE_ON_CRESTS),
             smoothstep(sea.travel.w.mul(-0.5), sea.travel.w.mul(0.5), bigWaves.z)
           )
-        )
-      : float(0.0);
-    const wakeFoam = wake
-      ? crestFoamDensity(wakeOnWaves, grain, float(1.0)).mul(WAKE_FOAM_STRENGTH)
-      : float(0.0);
-    // Foam on the crests of the ship's own waves: the white V
-    const shipWavesFoam =
-      !shipWaves
-        ? float(0.0)
-        : // Fresh foam: the amount itself, shaded by the grain into a veil
-          kelvinWakeFoam(positionWorld.xz, shipWaves.track, shipWaves.bowZ)
-            .mul(mix(float(SHIP_WAVES_FOAM_THINNEST), float(1.0), grain.x))
-            .mul(MAX_SHIP_WAVES_FOAM);
+        );
+        wakeFoam.assign(crestFoamDensity(wakeOnWaves, grain, float(1.0)).mul(WAKE_FOAM_STRENGTH));
+      });
+    }
+    // The white V: fresh foam, its amount shaded by the grain into a veil
+    const shipWavesFoam = shipWavesFoamAmount
+      .mul(mix(float(SHIP_WAVES_FOAM_THINNEST), float(1.0), grain.x))
+      .mul(MAX_SHIP_WAVES_FOAM);
     // Residual foam: pale patches and streaks left by crests that broke a while
     // ago. They lie still in the water, drifting only slowly downwind — so
     // under way they pass the ship at its own speed, whichever way the waves
@@ -724,12 +762,21 @@ export function createSeascapeSurfaceNodes({
     if (contactFoam) Discard(contactFoam.isInsideHull(positionWorld.xz));
 
     // Seen from above: the water and its foam. From below — the camera under
-    // the surface — the surface's underside
-    const above = mix(water.rgb, foamColor, foam);
-    // ...with its foam, seen from underneath: darker, lit through the water
-    const below = mix(surfaceFromBelow(normal, viewDirection), foamColor.mul(FOAM_FROM_BELOW), foam);
+    // the surface — the surface's underside. A branch, not a select, so each
+    // pixel shades only the side it shows (neither reads a texture). What both
+    // use is held in variables first, outside the branch
+    const shared = { normal: normal.toVar(), viewDirection: viewDirection.toVar(), foam: foam.toVar(), foamColor: foamColor.toVar() };
+    const seen = vec3(0.0).toVar();
+    If(frontFacing, () => {
+      seen.assign(mix(water.rgb, shared.foamColor, shared.foam));
+    }).Else(() => {
+      // ...with its foam, seen from underneath: darker, lit through the water
+      seen.assign(
+        mix(surfaceFromBelow(shared.normal, shared.viewDirection), shared.foamColor.mul(FOAM_FROM_BELOW), shared.foam)
+      );
+    });
 
-    return vec4(frontFacing.select(above, below), 1.0);
+    return vec4(seen, 1.0);
   })();
 
   return { positionNode, fragmentNode, uniforms };

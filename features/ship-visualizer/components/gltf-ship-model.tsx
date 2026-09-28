@@ -23,6 +23,7 @@ import {
 import { splitPropellersIntoSpinners } from "../lib/propellers";
 import { SHIP_MATERIAL_TUNING } from "@/features/3d-scene/lib/scene-material-tuning";
 import { Mesh, MeshStandardMaterial } from "three/webgpu";
+import { withKtx2Textures } from "../lib/ktx2-loader";
 import CameraFitToSelection from "./camera-fit-to-section";
 import SpinningPropellers from "./spinning-propellers";
 
@@ -41,7 +42,9 @@ export default function GltfShipModel({
   onModelTreeLoaded?: (tree: ShipTreeNode[]) => void;
   onAssemblyPointsSampled?: (points: Float32Array) => void;
 }) {
-  const gltf = useGLTF(path);
+  const gl = useThree((state) => state.gl);
+  // Its textures may be KTX2, GPU-compressed (see `withKtx2Textures`)
+  const gltf = useGLTF(path, undefined, undefined, withKtx2Textures(gl));
   const maxAnisotropy = useThree((state) =>
     getMaxTextureAnisotropy(state.gl)
   );

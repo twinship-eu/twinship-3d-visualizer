@@ -64,6 +64,8 @@ const LIGHT_TUNING = {
 
 /** The sun's shadow map: SHADOW_MAP_SIZE, or the profile's smaller one on a phone. */
 const shadowMapSize = Math.min(SHADOW_MAP_SIZE, getPerformanceProfile().shadowMapSize);
+/** How often the shadow map is redrawn, in frames — see `shadowRedrawFrames`. */
+const SHADOW_REDRAW_FRAMES = getPerformanceProfile().shadowRedrawFrames;
 
 export function SceneLights() {
   const gl = useThree((state) => state.gl);
@@ -71,6 +73,7 @@ export function SceneLights() {
   const ambientRef = useRef<AmbientLight>(null);
   const hemisphereRef = useRef<HemisphereLight>(null);
   const fillRef = useRef<DirectionalLight>(null);
+  const framesSinceShadowRef = useRef(0);
   // Read once: the UA / query string do not change for the life of the page.
   const useMobileFill = !canAssignEnvironmentProbe();
 
@@ -118,6 +121,15 @@ export function SceneLights() {
     // The sun as much as the clouds let through (`seascape-weather.ts`)
     const sun = IS_SCENE_INSPECTOR_ENABLED ? LIGHT_TUNING.sun : LIGHT_INTENSITY.sun;
     if (sunRef.current) sunRef.current.intensity = sun * weatherState.sunlight;
+    // The shadow map only every few frames, not by itself every frame
+    if (sunRef.current) {
+      sunRef.current.shadow.autoUpdate = false;
+      framesSinceShadowRef.current++;
+      if (framesSinceShadowRef.current >= SHADOW_REDRAW_FRAMES) {
+        sunRef.current.shadow.needsUpdate = true;
+        framesSinceShadowRef.current = 0;
+      }
+    }
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
     if (ambientRef.current) {
       ambientRef.current.intensity = LIGHT_TUNING.ambient;
