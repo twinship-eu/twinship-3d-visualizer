@@ -45,6 +45,8 @@ import {
   ZoomControlsOverlay,
   ZoomControlsProvider,
 } from "./components/zoom-controls-overlay";
+import { CameraMotionProvider } from "./components/camera-motion-context";
+import { SceneCameraFollow } from "./components/scene-camera-follow";
 
 
 type Props = {
@@ -87,6 +89,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
 
   return (
     <SceneInteractionProvider value={{ isOrbitControlsActive }}>
+      <CameraMotionProvider>
       <ZoomControlsProvider>
         <Canvas
           // False on Android, where three's own shadow path emits invalid
@@ -124,6 +127,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
             onStart={() => setIsOrbitControlsActive(true)}
             onEnd={() => setIsOrbitControlsActive(false)}
           />
+          <SceneCameraFollow />
           <ZoomControlsBridge />
         </Canvas>
         <ZoomControlsOverlay />
@@ -131,6 +135,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
         {isDiagnosticsOn && <SceneDiagnosticsOverlay />}
       </ZoomControlsProvider>
+      </CameraMotionProvider>
     </SceneInteractionProvider>
   );
 }

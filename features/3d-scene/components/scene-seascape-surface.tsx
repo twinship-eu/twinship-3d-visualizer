@@ -19,6 +19,7 @@ import {
   SEASCAPE_DETAIL_NORMALS_ANISOTROPY,
   SEASCAPE_FOAM_ANISOTROPY,
   SEASCAPE_FOAM_TEXTURES,
+  SEASCAPE_SHIP_HULL,
   SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS,
   SEASCAPE_SURFACE_GRID_SEGMENTS,
   SEASCAPE_SURFACE_GRID_SIZE,
@@ -28,6 +29,9 @@ import {
   SEASCAPE_WIND_LIMITS,
   type SeascapeFoamTextureName,
 } from "../lib/seascape-config";
+import { createContactFoam } from "../lib/seascape-contact-foam";
+import { createShipMotionSolver } from "../lib/seascape-ship-motion";
+import { createWaveProbes } from "../lib/seascape-wave-probes";
 import { createFftOcean } from "../lib/seascape-fft-ocean";
 import { createFftSurfaceNodes } from "../lib/seascape-fft-surface";
 import { fullyDevelopedFetch } from "../lib/seascape-wind-waves";
@@ -92,6 +96,32 @@ function getFoamTexture(name: SeascapeFoamTextureName): Texture {
   return loaded;
 }
 
+/**
+ * The area around the ship the hull foam's footprint covers, in world units:
+ * the ship with room around it (it is about 200 long).
+ */
+const CONTACT_FOAM_AREA = 260;
+/**
+ * Texels along each side: about 25 cm each. The distance field is smooth, so
+ * the foam barely differs from 2048², at a quarter of the cost — which lets it
+ * be redrawn every frame.
+ */
+const CONTACT_FOAM_RESOLUTION = 1024;
+/**
+ * How far the foam reaches from the hull, in world units, to start with. A few
+ * tens of centimetres are what churns right against a hull, but seen from the
+ * default camera, 200 units from a ship this size, less than a unit does not
+ * show; the Inspector goes down to 0.1.
+ */
+const CONTACT_FOAM_DISTANCE = 1.0;
+const MAX_CONTACT_FOAM_DISTANCE = 10;
+/**
+ * How often the footprint is redrawn, in frames: every one, as the ship and
+ * the water it stands in move all the time. (Every 30, the foam trailed the
+ * ship's motion by up to half a second.)
+ */
+const CONTACT_FOAM_REDRAW_FRAMES = 1;
+
 /** The wind, with the fetch it has over open ocean: the speed alone sets the sea. */
 function windAt(speed: number, fromDegrees: number) {
   return { speed, fromDegrees, fetch: fullyDevelopedFetch(speed) };
@@ -112,6 +142,17 @@ function createSeaSurface(canUseCompute: boolean) {
   // fallback the analytic waves are drawn instead
   const ocean = IS_FFT_OCEAN_ENABLED && canUseCompute ? createFftOcean(INITIAL_WIND) : null;
   const fft = ocean ? createFftSurfaceNodes(ocean.cascades) : undefined;
+  // The ship rides the FFT ocean; on the analytic fallback it rests still
+  const shipMotion = createShipMotionSolver(SEASCAPE_SHIP_HULL);
+  const waveProbes = ocean ? createWaveProbes(ocean.cascades, shipMotion.points) : null;
+  const contactFoam = createContactFoam({
+    areaSize: CONTACT_FOAM_AREA,
+    resolution: CONTACT_FOAM_RESOLUTION,
+    levelY: SEASCAPE_SURFACE_LEVEL_Y,
+    distance: CONTACT_FOAM_DISTANCE,
+    // The FFT ocean's own height, so the hull is cut at the real waterline
+    waterHeight: fft ? (position) => fft.pixelWaves(position).z : undefined,
+  });
 
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
@@ -122,6 +163,7 @@ function createSeaSurface(canUseCompute: boolean) {
     detailNormalsTexture: loadDetailNormalsTexture(),
     sunDirection: getSunDirection(),
     fft,
+    contactFoam,
   });
   const material = new MeshBasicNodeMaterial();
   material.positionNode = nodes.positionNode;
@@ -136,6 +178,13 @@ function createSeaSurface(canUseCompute: boolean) {
     uniforms: nodes.uniforms,
     ocean,
     fft,
+    contactFoam,
+    shipMotion,
+    waveProbes,
+    /** Frames since the hull foam's footprint was last drawn. */
+    framesSinceContactFoam: Infinity,
+    /** The distance it was drawn for. */
+    contactFoamDistance: NaN,
     /** The wind the FFT spectrum was last built for, to rebuild it only on a change. */
     oceanWindKey: windKey(INITIAL_WIND),
   };
@@ -180,6 +229,8 @@ const SEASCAPE_TUNING = {
    * `SEASCAPE_SURFACE_GRID_SEGMENTS` for measurements.
    */
   gridSegments: SEASCAPE_SURFACE_GRID_SEGMENTS as number,
+  /** How far the foam around the hull reaches, in world units. */
+  contactFoamDistance: CONTACT_FOAM_DISTANCE as number,
   /** Draw the sea's triangles as lines, to see what the grid is doing. */
   wireframe: false,
 };
@@ -228,10 +279,11 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "scatterStrength", 0, 2, 0.01);
     panel.add(SEASCAPE_TUNING, "shininess", 10, 2000, 1);
     panel.add(SEASCAPE_TUNING, "gridSegments", [...SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS]);
+    panel.add(SEASCAPE_TUNING, "contactFoamDistance", 0.1, MAX_CONTACT_FOAM_DISTANCE, 0.1);
     panel.add(SEASCAPE_TUNING, "wireframe");
   }, [gl]);
 
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera, clock, scene }, delta) => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
@@ -246,6 +298,24 @@ export function SceneSeascapeSurface() {
 
     // The FFT ocean's waves, brought to this moment: a few compute passes
     sea.ocean?.update(asSceneRenderer(gl), clock.elapsedTime);
+
+    // The ship, carried by the sea under it
+    if (sea.waveProbes) sea.shipMotion.update(sea.waveProbes.update(asSceneRenderer(gl)), delta);
+
+    // The hull foam's footprint: now and then, and when its distance changes
+    const contactFoamDistance = IS_SCENE_INSPECTOR_ENABLED
+      ? SEASCAPE_TUNING.contactFoamDistance
+      : CONTACT_FOAM_DISTANCE;
+    sea.framesSinceContactFoam++;
+    if (
+      sea.framesSinceContactFoam >= CONTACT_FOAM_REDRAW_FRAMES ||
+      contactFoamDistance !== sea.contactFoamDistance
+    ) {
+      sea.contactFoam.uniforms.distance.value = contactFoamDistance;
+      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh]);
+      sea.framesSinceContactFoam = 0;
+      sea.contactFoamDistance = contactFoamDistance;
+    }
 
     // Applied per frame rather than through change handlers, as SceneLights
     // does: a few assignments, and it cannot drift out of sync with the panel.

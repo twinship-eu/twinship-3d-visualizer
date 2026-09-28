@@ -26,6 +26,7 @@ import {
 import ShipModel from "./ship-model";
 import { useSceneInteraction } from "@/features/3d-scene/components/scene-interaction-context";
 import { usePointerDragGuard } from "../hooks/use-pointer-drag-guard";
+import { shipMotion } from "../../3d-scene/lib/seascape-ship-motion";
 
 type ShipDisplayMode =
   | "animated"
@@ -109,6 +110,9 @@ export default function Ship({
   useFrame(() => {
     const group = floatGroupRef.current;
     if (!group) return;
+    // Where the ship is, for what follows it (the camera): last frame's height,
+    // in whichever mode it was placed
+    shipMotion.shipY = group.position.y;
 
     // The ship fades up as the loading ring's particles fade off it, so the
     // silhouette hands over to the real thing instead of snapping into place.
@@ -157,11 +161,12 @@ export default function Ship({
     }
 
     if (displayMode === "transitioning-to-animated") {
+      // Eased into the pose the waves give it, so it lands on them without a jump
       group.position.y =
         SHIP_INTERACTION_Y_OFFSET +
-        eased * (SHIP_VERTICAL_OFFSET - SHIP_INTERACTION_Y_OFFSET);
-      group.rotation.x = 0;
-      group.rotation.z = 0;
+        eased * (SHIP_VERTICAL_OFFSET + shipMotion.heave - SHIP_INTERACTION_Y_OFFSET);
+      group.rotation.x = eased * shipMotion.pitch;
+      group.rotation.z = eased * shipMotion.roll;
       if (t >= 1) {
         setDisplayMode("animated");
       }
@@ -169,16 +174,17 @@ export default function Ship({
     }
 
     if (displayMode === "animated") {
-      // Floating (bob, pitch, roll) disabled on this branch: the ship rests
-      // still. Restore the three lines below to bring it back.
+      // The old floating (bob, pitch, roll), made up of sines — kept for
+      // reference; the ship now rides the real waves below.
       // const time = state.clock.getElapsedTime();
       // group.position.y =
       //   SHIP_VERTICAL_OFFSET + FLOATING_BOB_AMPLITUDE * Math.sin(time * FLOATING_BOB_SPEED);
       // group.rotation.x = FLOATING_PITCH_AMPLITUDE * Math.sin(time * FLOATING_TILT_SPEED);
       // group.rotation.z = FLOATING_ROLL_AMPLITUDE * Math.cos(time * FLOATING_TILT_SPEED * 1.1);
-      group.position.y = SHIP_VERTICAL_OFFSET;
-      group.rotation.x = 0;
-      group.rotation.z = 0;
+      // Carried by the waves under it: see seascape-ship-motion.ts
+      group.position.y = SHIP_VERTICAL_OFFSET + shipMotion.heave;
+      group.rotation.x = shipMotion.pitch;
+      group.rotation.z = shipMotion.roll;
     }
   });
 

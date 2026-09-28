@@ -51,8 +51,9 @@ import {
   vec4,
 } from "three/tsl";
 import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/webgpu";
+import type { ContactFoam } from "./seascape-contact-foam";
 import type { FftSurfaceNodes } from "./seascape-fft-surface";
-import { crestFoamColor, crestFoamDensity, foamGrain } from "./seascape-foam-tsl";
+import { crestFoamColor, crestFoamDensity, foamGrain, hullFoamDensity } from "./seascape-foam-tsl";
 import { shadeSea } from "./seascape-lighting";
 import { WAVES_AMPLITUDE } from "./seascape-waves";
 import {
@@ -83,6 +84,12 @@ const MIN_SLOPE_STEP = 0.01;
  * stepped and faceted.
  */
 const GEOMETRY_FILTER_CELLS = 2;
+
+/**
+ * How opaque the foam against the hull gets: thicker than a whitecap's, as
+ * the hull churns the water all the time.
+ */
+const MAX_HULL_FOAM = 0.8;
 
 /**
  * The share of Monahan's whitecap coverage that `foamAmount` 1 gives. The full
@@ -211,6 +218,8 @@ type SurfaceOptions = {
    * normal map are drawn instead.
    */
   fft?: FftSurfaceNodes;
+  /** How close the hull is, for the foam around it (see `seascape-contact-foam.ts`). */
+  contactFoam?: ContactFoam;
 };
 
 /**
@@ -247,6 +256,7 @@ export function createSeascapeSurfaceNodes({
   detailNormalsTexture,
   sunDirection,
   fft,
+  contactFoam,
 }: SurfaceOptions) {
   const detailNormals = texture(detailNormalsTexture);
 
@@ -458,7 +468,13 @@ export function createSeascapeSurfaceNodes({
       uniforms.whitecapLevels,
       grain.x.add(grain.y).mul(0.5)
     );
-    const foam = crestFoamDensity(whitecaps, grain, waveFace(bigWaves.xy, sea.travel.xy));
+    const crestFoam = crestFoamDensity(whitecaps, grain, waveFace(bigWaves.xy, sea.travel.xy));
+
+    // Foam against the hull: a continuous veil fading out with the distance
+    const hullFoam = contactFoam
+      ? hullFoamDensity(contactFoam.sample(positionWorld.xz), grain).mul(MAX_HULL_FOAM)
+      : float(0.0);
+    const foam = max(crestFoam, hullFoam);
     const foamColor = crestFoamColor(vec3(uniforms.foamColor), normal, sun);
 
     return vec4(mix(water.rgb, foamColor, foam), 1.0);

@@ -5,7 +5,9 @@ import {
   DEFAULT_CAMERA_TARGET,
 } from "@/features/ship-visualizer/ship-visualizer-config";
 import { useThree } from "@react-three/fiber";
-import { RotateCw, ZoomIn, ZoomOut } from "lucide-react";
+import { RotateCw, Ship, ZoomIn, ZoomOut } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useCameraMotion } from "./camera-motion-context";
 import {
   createContext,
   useCallback,
@@ -93,6 +95,7 @@ export function ZoomControlsBridge() {
 /** Fixed DOM overlay; render outside Canvas so it does not move with zoom. */
 export function ZoomControlsOverlay() {
   const actions = useZoomControls();
+  const { isRidingShip, setIsRidingShip } = useCameraMotion();
 
   if (!actions) return null;
 
@@ -130,6 +133,20 @@ export function ZoomControlsOverlay() {
           className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
         >
           <RotateCw className="h-4 w-4" aria-hidden />
+        </button>
+        <div className="h-px w-6 bg-gray-200" aria-hidden />
+        <button
+          type="button"
+          aria-label="Ride with the ship"
+          aria-pressed={isRidingShip}
+          title={isRidingShip ? "Stop riding with the ship" : "Ride with the ship"}
+          onClick={() => setIsRidingShip(!isRidingShip)}
+          className={cn(
+            "flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8",
+            isRidingShip && "bg-primary text-primary-foreground hover:bg-primary/90"
+          )}
+        >
+          <Ship className="h-4 w-4" aria-hidden />
         </button>
       </div>
     </div>

@@ -50,6 +50,8 @@ const FRESH_FOAM = 0.85;
  * turns from gathering to aging: crest and front stay fresh.
  */
 const BEHIND_CREST_FACE = 0.4;
+/** How far the grain moves the hull foam's outer fade, as a share of its reach. */
+const HULL_FOAM_FRAY = 0.5;
 /** How much longer the foam's edge fades in front of the crest than behind it. */
 const FRONT_FADE_LONGER = 1.5;
 /** Texel value above which spread foam stays: only its strands. */
@@ -150,6 +152,24 @@ export function crestFoamDensity(whitecaps: Node<"float">, grain: Node<"vec2">, 
   const body = smoothstep(0.0, fadeLength, whitecaps);
 
   return body.mul(mix(lace, veil, fresh)).mul(MAX_FOAM_DENSITY);
+}
+
+/**
+ * How much foam lies against the hull, from 0 to 1, given how far the point
+ * is from it as a share of the foam's reach (`ContactFoam.sample`) and the
+ * grain (`foamGrain`).
+ *
+ * A continuous veil, as fresh foam on a crest — the hull churns it all the
+ * time, so it never ages into lace with holes. It thins out smoothly towards
+ * its reach; the grain moves that fade in and out a little, so the outer edge
+ * frays instead of running parallel to the hull.
+ */
+export function hullFoamDensity(reach: Node<"float">, grain: Node<"vec2">) {
+  const frayedReach = reach.add(grain.y.sub(0.5).mul(HULL_FOAM_FRAY));
+  const fade = smoothstep(0.0, 1.0, frayedReach).oneMinus();
+  const veil = mix(float(VEIL_THINNEST), float(1.0), grain.x);
+
+  return fade.mul(veil);
 }
 
 /**

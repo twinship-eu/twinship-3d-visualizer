@@ -115,6 +115,16 @@ export const SEASCAPE_WIND = {
   fromDegrees: 225,
 } as const;
 
+/**
+ * The ship's hull at the waterline, for how it rides the waves (see
+ * `seascape-ship-motion.ts`): about 190 long along z (the stern at -z) and 16
+ * wide, in world units.
+ */
+export const SEASCAPE_SHIP_HULL = {
+  halfLength: 95,
+  halfBeam: 8,
+} as const;
+
 /** Limits of the Inspector's wind sliders. 35 m/s is a hurricane, Beaufort 12. */
 export const SEASCAPE_WIND_LIMITS = {
   maxSpeed: 35,
