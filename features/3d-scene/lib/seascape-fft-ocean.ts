@@ -23,6 +23,7 @@ import {
   cos,
   float,
   Fn,
+  If,
   instanceIndex,
   sin,
   sqrt,
@@ -41,10 +42,11 @@ import {
   RepeatWrapping,
   StorageBufferAttribute,
   StorageTexture,
-  type ComputeNode,
+  Vector4,
+  type Node,
   type Renderer,
 } from "three/webgpu";
-import { createGpuFft, type GpuFft } from "./seascape-fft-tsl";
+import { createGpuFft } from "./seascape-fft-tsl";
 import {
   buildCascadeSpectrum,
   cascadeBands,
@@ -80,32 +82,37 @@ function makeFloatUniform(value: number) {
   return uniform(value);
 }
 
-type CascadeGpu = {
-  spectrum: StorageBufferAttribute;
-  tileSize: FloatUniform;
-  fft: GpuFft;
-  evolve: ComputeNode;
-  store: ComputeNode;
-  texture: StorageTexture;
-};
-
-/** Builds one cascade's GPU side: its spectrum buffer, FFT, and passes. */
-function createCascadeGpu(seconds: FloatUniform): CascadeGpu {
+/**
+ * The cascades' GPU side: one spectrum buffer and one FFT for all of them,
+ * layer after layer, so each step is a single dispatch for every cascade.
+ * (Per cascade, the ocean took 54 dispatches a frame, each costing the CPU
+ * ~0.1 ms to issue; now 18.)
+ */
+function createOceanGpu(seconds: FloatUniform) {
   const cells = FFT_SIZE * FFT_SIZE;
-  const spectrum = new StorageBufferAttribute(new Float32Array(cells * 4), 4);
-  const spectrumNode = storage(spectrum, "vec4", cells);
-  const tileSize = makeFloatUniform(1);
-  const fft = createGpuFft(FFT_SIZE);
+  const allCells = cells * FFT_CASCADES;
+  const spectrum = new StorageBufferAttribute(new Float32Array(allCells * 4), 4);
+  const spectrumNode = storage(spectrum, "vec4", allCells);
+  /** The cascades' tile sizes, in x, y, z. */
+  const tileSizes = uniform(new Vector4(1, 1, 1, 1));
+  const fft = createGpuFft(FFT_SIZE, FFT_CASCADES);
+
+  /** Which cascade an element of the buffers belongs to, and where it is in its own grid. */
+  const layerOf = () => instanceIndex.div(uint(cells));
+  const cellOf = () => instanceIndex.mod(uint(cells));
+  const tileSizeOf = (layer: Node<"uint">) =>
+    layer.equal(uint(0)).select(tileSizes.x, layer.equal(uint(1)).select(tileSizes.y, tileSizes.z));
 
   // This moment's waves: h(k, t) = h0(k) e^{-iωt} + conj(h0(-k)) e^{iωt}, and
   // its slopes i·kx·h, i·kz·h — packed as (h + i·slopeX, slopeZ), two real
   // fields per complex transform
   const evolve = Fn(() => {
-    const row = instanceIndex.div(uint(FFT_SIZE));
-    const column = instanceIndex.mod(uint(FFT_SIZE));
+    const cell = cellOf();
+    const row = cell.div(uint(FFT_SIZE));
+    const column = cell.mod(uint(FFT_SIZE));
     const signedColumn = column.toFloat().sub(column.greaterThanEqual(uint(FFT_SIZE / 2)).select(FFT_SIZE, 0));
     const signedRow = row.toFloat().sub(row.greaterThanEqual(uint(FFT_SIZE / 2)).select(FFT_SIZE, 0));
-    const spacing = float(2 * Math.PI).div(tileSize);
+    const spacing = float(2 * Math.PI).div(tileSizeOf(layerOf()));
     const kx = signedColumn.mul(spacing);
     const kz = signedRow.mul(spacing);
     const frequency = sqrt(sqrt(kx.mul(kx).add(kz.mul(kz))).mul(GRAVITY));
@@ -127,29 +134,40 @@ function createCascadeGpu(seconds: FloatUniform): CascadeGpu {
     const slopeZ = vec2(height.y.negate(), height.x).mul(kz);
 
     fft.dataNode.element(instanceIndex).assign(vec4(heightAndSlopeX, slopeZ));
-  })().compute(cells);
+  })().compute(allCells);
 
-  // The result, (height, slope x, slope z), into a texture the surface samples.
-  // Half floats: filterable, so three regenerates its mipmaps after every
-  // write, and the waves too short for a pixel average out instead of aliasing
-  const texture = new StorageTexture(FFT_SIZE, FFT_SIZE);
-  texture.type = HalfFloatType;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = RepeatWrapping;
-  texture.minFilter = LinearMipmapLinearFilter;
-  texture.magFilter = LinearFilter;
-  texture.generateMipmaps = true;
-  texture.anisotropy = FFT_TEXTURE_ANISOTROPY;
+  // The result, (height, slope x, slope z), into a texture per cascade that
+  // the surface samples. Half floats: filterable, so three regenerates their
+  // mipmaps after every write, and the waves too short for a pixel average
+  // out instead of aliasing
+  const textures = Array.from({ length: FFT_CASCADES }, () => {
+    const texture = new StorageTexture(FFT_SIZE, FFT_SIZE);
+    texture.type = HalfFloatType;
+    texture.wrapS = RepeatWrapping;
+    texture.wrapT = RepeatWrapping;
+    texture.minFilter = LinearMipmapLinearFilter;
+    texture.magFilter = LinearFilter;
+    texture.generateMipmaps = true;
+    texture.anisotropy = FFT_TEXTURE_ANISOTROPY;
+
+    return texture;
+  });
 
   const store = Fn(() => {
-    const row = instanceIndex.div(uint(FFT_SIZE));
-    const column = instanceIndex.mod(uint(FFT_SIZE));
+    const layer = layerOf();
+    const cell = cellOf();
+    const at = uvec2(cell.mod(uint(FFT_SIZE)), cell.div(uint(FFT_SIZE)));
     const result = fft.dataNode.element(instanceIndex);
+    const value = vec4(result.x, result.y, result.z, 1.0);
 
-    textureStore(texture, uvec2(column, row), vec4(result.x, result.y, result.z, 1.0)).toWriteOnly();
-  })().compute(cells);
+    textures.forEach((texture, index) => {
+      If(layer.equal(uint(index)), () => {
+        textureStore(texture, at, value).toWriteOnly();
+      });
+    });
+  })().compute(allCells);
 
-  return { spectrum, tileSize, fft, evolve, store, texture };
+  return { spectrum, tileSizes, fft, passes: [evolve, ...fft.passes, store], textures, cells };
 }
 
 /**
@@ -157,8 +175,8 @@ function createCascadeGpu(seconds: FloatUniform): CascadeGpu {
  */
 export function createFftOcean(wind: Wind) {
   const seconds = makeFloatUniform(0);
-  const gpu = Array.from({ length: FFT_CASCADES }, () => createCascadeGpu(seconds));
-  const cascades: FftCascade[] = gpu.map((cascade) => ({ tileSize: 1, texture: cascade.texture }));
+  const gpu = createOceanGpu(seconds);
+  const cascades: FftCascade[] = gpu.textures.map((texture) => ({ tileSize: 1, texture }));
 
   /** Recomputes the spectrum for a wind: on the CPU, a few tens of milliseconds. */
   function setWind(nextWind: Wind) {
@@ -168,22 +186,19 @@ export function createFftOcean(wind: Wind) {
     const bands = cascadeBands(tileSizes);
     const random = seededRandom(SPECTRUM_SEED);
 
-    gpu.forEach((cascade, index) => {
-      cascade.spectrum.array.set(buildCascadeSpectrum(nextWind, tileSizes[index], bands[index], random));
-      cascade.spectrum.needsUpdate = true;
-      cascade.tileSize.value = tileSizes[index];
-      cascades[index].tileSize = tileSizes[index];
+    tileSizes.forEach((tileSize, index) => {
+      gpu.spectrum.array.set(buildCascadeSpectrum(nextWind, tileSize, bands[index], random), index * gpu.cells * 4);
+      cascades[index].tileSize = tileSize;
     });
+    gpu.spectrum.needsUpdate = true;
+    gpu.tileSizes.value.set(tileSizes[0], tileSizes[1], tileSizes[2], 1);
   }
 
-  /** Brings the waves to `time` seconds: evolve, FFT and store, for every cascade. */
+  /** Brings the waves to `time` seconds: evolve, FFT and store, for every cascade at once. */
   function update(renderer: Renderer, time: number) {
     seconds.value = time;
-    for (const cascade of gpu) {
-      renderer.compute(cascade.evolve);
-      for (const pass of cascade.fft.passes) renderer.compute(pass);
-      renderer.compute(cascade.store);
-    }
+    // All the passes in one call: one command submission for the frame's ocean
+    renderer.compute(gpu.passes);
   }
 
   setWind(wind);

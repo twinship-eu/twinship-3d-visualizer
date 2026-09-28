@@ -227,7 +227,7 @@ function createSeaSurface(canUseCompute: boolean) {
   // The ship rides the FFT ocean; on the analytic fallback it rests still
   const shipMotion = createShipMotionSolver(SEASCAPE_SHIP_HULL);
   const seaFrame = createSeaFrame();
-  const waveProbes = ocean ? createWaveProbes(ocean.cascades, shipMotion.points, seaFrame.toSea) : null;
+
   const contactFoam = createContactFoam({
     areaSize: CONTACT_FOAM_AREA,
     resolution: CONTACT_FOAM_RESOLUTION,
@@ -252,9 +252,20 @@ function createSeaSurface(canUseCompute: boolean) {
     SEASCAPE_SURFACE_LEVEL_Y,
     fft ? (position) => fft.gridHeight(seaFrame.toSea(position), float(BUBBLE_SURFACE_FILTER)) : undefined
   );
-  const buoyProbes = ocean ? createWaveProbes(ocean.cascades, buoys.probePoints(0), seaFrame.toSea) : null;
-  // The water right above (or below) the camera: whether it is under water
-  const cameraProbe = ocean ? createWaveProbes(ocean.cascades, [{ x: 0, z: 0 }], seaFrame.toSea) : null;
+
+  // The sea's height where things ride it — under the ship, at the buoys,
+  // right over the camera (whether it is under water) — all in one set of
+  // probes: one dispatch and one read back a frame, not three
+  const probeLayout = {
+    ship: shipMotion.points.length,
+    buoys: buoys.probePoints(0).length,
+  };
+  const probePointsFor = (sailed: number, cameraX: number, cameraZ: number) => [
+    ...shipMotion.points,
+    ...buoys.probePoints(sailed),
+    { x: cameraX, z: cameraZ },
+  ];
+  const probes = ocean ? createWaveProbes(ocean.cascades, probePointsFor(0, 0, 0), seaFrame.toSea) : null;
 
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
@@ -294,10 +305,10 @@ function createSeaSurface(canUseCompute: boolean) {
     buoys,
     bubbles,
     precipitation,
-    buoyProbes,
-    cameraProbe,
+    probes,
+    probeLayout,
+    probePointsFor,
     shipMotion,
-    waveProbes,
     /** Frames drawn, for what is updated only every few. */
     frame: 0,
     /** Seconds the ship has been still, for when its wake has settled. */
@@ -464,20 +475,23 @@ export function SceneSeascapeSurface() {
     sea.bubbles.uniforms.shipY.value = shipMotionState.shipY;
     sea.kelvinTrack.update(speed * delta, speed, delta);
 
+    // The sea's height at every probe: under the ship, at the buoys, over the camera
+    const sailed = sea.sailed;
+    sea.probes?.setPoints(sea.probePointsFor(sailed, camera.position.x, camera.position.z));
+    const heights = sea.probes ? sea.probes.update(asSceneRenderer(gl)) : null;
+    const { ship: shipProbes, buoys: buoyProbes } = sea.probeLayout;
+
     // Under the water or above it: the water's height right over the camera
-    sea.cameraProbe?.setPoints([{ x: camera.position.x, z: camera.position.z }]);
-    const waterAbove = SEASCAPE_SURFACE_LEVEL_Y + (sea.cameraProbe ? sea.cameraProbe.update(asSceneRenderer(gl))[0] ?? 0 : 0);
+    const waterAbove = SEASCAPE_SURFACE_LEVEL_Y + (heights?.[shipProbes + buoyProbes] ?? 0);
     const underBy = waterAbove - camera.position.y;
     underwater.submerged.value = Math.min(Math.max(underBy / WATERLINE_BLEND + 0.5, 0), 1);
     underwater.depth.value = Math.max(underBy, 0);
 
     // The buoys stay where they are moored in the sea, so they fall behind
-    const sailed = sea.sailed;
-    sea.buoyProbes?.setPoints(sea.buoys.probePoints(sailed));
-    sea.buoys.update(sailed, sea.buoyProbes ? sea.buoyProbes.update(asSceneRenderer(gl)) : null, delta);
+    sea.buoys.update(sailed, heights ? heights.subarray(shipProbes, shipProbes + buoyProbes) : null, delta);
 
     // The ship, carried by the sea under it
-    if (sea.waveProbes) sea.shipMotion.update(sea.waveProbes.update(asSceneRenderer(gl)), delta, speed);
+    if (heights) sea.shipMotion.update(heights.subarray(0, shipProbes), delta, speed);
 
     // The hull foam's footprint: now and then, and when its distance changes
     const contactFoamDistance = IS_SCENE_INSPECTOR_ENABLED

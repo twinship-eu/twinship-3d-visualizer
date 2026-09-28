@@ -11,7 +11,10 @@
  * order and writes in natural order.
  *
  * Each buffer element is a vec4 holding two complex numbers (xy and zw), so
- * one transform carries two fields. The transform is not normalised: it
+ * one transform carries two fields. Several grids (`layers`) are transformed
+ * by the same passes, one after another in the buffer: each pass is one
+ * dispatch whatever the number of grids, and a dispatch costs the CPU far
+ * more than the GPU's work in it. The transform is not normalised: it
  * computes f(x) = Σ_k F(k) e^{+2πi k·x / N}, a plain sum of waves, which is
  * what the spectrum's amplitudes are defined for.
  */
@@ -35,14 +38,15 @@ export type GpuFft = {
 };
 
 /**
- * Builds a 2D inverse FFT of size × size, for two complex fields packed in
- * each vec4.
+ * Builds a 2D inverse FFT of `layers` grids of size × size, for two complex
+ * fields packed in each vec4. Grid `l` starts at element l · size².
  */
-export function createGpuFft(size: number): GpuFft {
+export function createGpuFft(size: number, layers = 1): GpuFft {
   const stages = Math.log2(size);
   if (!Number.isInteger(stages)) throw new Error(`GPU FFT size must be a power of two, got ${size}`);
 
-  const elements = size * size;
+  const cellsPerLayer = size * size;
+  const elements = cellsPerLayer * layers;
   const data = new StorageBufferAttribute(new Float32Array(elements * 4), 4);
   const scratch = new StorageBufferAttribute(new Float32Array(elements * 4), 4);
   const dataNode = storage(data, "vec4", elements);
@@ -60,14 +64,18 @@ export function createGpuFft(size: number): GpuFft {
       const write = target;
 
       const pass = Fn(() => {
-        // One thread per butterfly: size / 2 of them along each of `size` lines
-        const line = instanceIndex.div(uint(half));
+        // One thread per butterfly: size / 2 of them along each of `size`
+        // lines of each grid
+        const lineOfAll = instanceIndex.div(uint(half));
+        const layer = lineOfAll.div(uint(size));
+        const line = lineOfAll.mod(uint(size));
+        const layerStart = layer.mul(uint(cellsPerLayer));
         const i = instanceIndex.mod(uint(half));
         const k = i.mod(uint(span));
 
         // Positions along the line, turned into buffer indices for this axis
         const at = (position: Node<"uint">) =>
-          axis === "rows" ? line.mul(uint(size)).add(position) : position.mul(uint(size)).add(line);
+          layerStart.add(axis === "rows" ? line.mul(uint(size)).add(position) : position.mul(uint(size)).add(line));
 
         const even = read.element(at(i));
         const odd = read.element(at(i.add(uint(half))));
@@ -81,7 +89,7 @@ export function createGpuFft(size: number): GpuFft {
         const out = i.sub(k).mul(uint(2)).add(k);
         write.element(at(out)).assign(vec4(even.xy.add(oddFirst), even.zw.add(oddSecond)));
         write.element(at(out.add(uint(span)))).assign(vec4(even.xy.sub(oddFirst), even.zw.sub(oddSecond)));
-      })().compute(size * half);
+      })().compute(size * half * layers);
 
       passes.push(pass);
       [source, target] = [target, source];
