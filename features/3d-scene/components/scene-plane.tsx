@@ -7,7 +7,7 @@ import {
   GROUND_PLANE_COLOR,
   GROUND_PLANE_OPACITY,
 } from "../lib/3d-scene-config";
-import { DoubleSide } from "three";
+import { DoubleSide } from "three/webgpu";
 
 export function SceneGrid({ scale = 1 }: { scale?: number }) {
   const config = getSceneScaleConfig(scale);

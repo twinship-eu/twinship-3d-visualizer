@@ -1,9 +1,9 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { LOADING_RING_REVEAL } from "@/features/3d-scene/lib/loading-ring-particles";
-import { Group } from "three";
+import { Group } from "three/webgpu";
 import { ShipTreeNode } from "../ship-visualizer-types";
-import { Object3D } from "three";
+import { Object3D } from "three/webgpu";
 import {
   applyModelFade,
   easeOutCubic,
@@ -11,11 +11,12 @@ import {
 } from "../lib/3d-model";
 import { isNodeInNonSelectableSection } from "../lib/map-tree-to-sections";
 import {
-  FLOATING_BOB_AMPLITUDE,
-  FLOATING_BOB_SPEED,
-  FLOATING_PITCH_AMPLITUDE,
-  FLOATING_ROLL_AMPLITUDE,
-  FLOATING_TILT_SPEED,
+  // Floating animation disabled on this branch; see the "animated" block below.
+  // FLOATING_BOB_AMPLITUDE,
+  // FLOATING_BOB_SPEED,
+  // FLOATING_PITCH_AMPLITUDE,
+  // FLOATING_ROLL_AMPLITUDE,
+  // FLOATING_TILT_SPEED,
   SHIP_IDLE_RESET_MS,
   SHIP_INTERACTION_Y_OFFSET,
   SHIP_TRANSITION_DURATION_MS,
@@ -25,6 +26,8 @@ import {
 import ShipModel from "./ship-model";
 import { useSceneInteraction } from "@/features/3d-scene/components/scene-interaction-context";
 import { usePointerDragGuard } from "../hooks/use-pointer-drag-guard";
+import { shipMotion } from "../../3d-scene/lib/seascape-ship-motion";
+import { useShipVoyage } from "../../3d-scene/components/ship-voyage-context";
 
 type ShipDisplayMode =
   | "animated"
@@ -76,12 +79,23 @@ export default function Ship({
     hoveredStructureNode !== null ||
     (hiddenNodeIds !== undefined && hiddenNodeIds.size > 0);
 
+  // Under way the ship stays in the water when a part is focused: the camera
+  // goes to the part instead, under the surface if need be. Set under way
+  // while lifted, it goes back down onto the water
+  const { isTraveling } = useShipVoyage();
+  // The selection shows once the ship is lifted — or at once under way, where
+  // it is not lifted at all
+  const isShowingSelection = displayMode === "interaction" || isTraveling;
   useEffect(() => {
-    if (hasInteraction && displayMode === "animated") {
+    if (hasInteraction && displayMode === "animated" && !isTraveling) {
       setDisplayMode("transitioning-to-interaction");
       transitionStartCapturedRef.current = false;
     }
-  }, [hasInteraction, displayMode]);
+    if (isTraveling && (displayMode === "interaction" || displayMode === "transitioning-to-interaction")) {
+      setDisplayMode("transitioning-to-animated");
+      transitionStartTimeRef.current = performance.now();
+    }
+  }, [hasInteraction, displayMode, isTraveling]);
 
   useEffect(() => {
     if (displayMode !== "interaction" || hasInteraction) {
@@ -103,9 +117,17 @@ export default function Ship({
     };
   }, [displayMode, hasInteraction]);
 
-  useFrame((state) => {
+  // `state` only fed the floating animation's clock, disabled below.
+  // useFrame((state) => {
+  useFrame(() => {
     const group = floatGroupRef.current;
     if (!group) return;
+    // Where the ship is, for what follows it (the camera): last frame's height,
+    // in whichever mode it was placed
+    shipMotion.shipY = group.position.y;
+    // ...and how much of it is the waves': none while lifted for inspection
+    shipMotion.waveY =
+      displayMode === "animated" || displayMode === "transitioning-to-animated" ? shipMotion.heave : 0;
 
     // The ship fades up as the loading ring's particles fade off it, so the
     // silhouette hands over to the real thing instead of snapping into place.
@@ -154,11 +176,12 @@ export default function Ship({
     }
 
     if (displayMode === "transitioning-to-animated") {
+      // Eased into the pose the waves give it, so it lands on them without a jump
       group.position.y =
         SHIP_INTERACTION_Y_OFFSET +
-        eased * (SHIP_VERTICAL_OFFSET - SHIP_INTERACTION_Y_OFFSET);
-      group.rotation.x = 0;
-      group.rotation.z = 0;
+        eased * (SHIP_VERTICAL_OFFSET + shipMotion.heave - SHIP_INTERACTION_Y_OFFSET);
+      group.rotation.x = eased * shipMotion.pitch;
+      group.rotation.z = eased * shipMotion.roll;
       if (t >= 1) {
         setDisplayMode("animated");
       }
@@ -166,11 +189,17 @@ export default function Ship({
     }
 
     if (displayMode === "animated") {
-      const time = state.clock.getElapsedTime();
-      group.position.y =
-        SHIP_VERTICAL_OFFSET + FLOATING_BOB_AMPLITUDE * Math.sin(time * FLOATING_BOB_SPEED);
-      group.rotation.x = FLOATING_PITCH_AMPLITUDE * Math.sin(time * FLOATING_TILT_SPEED);
-      group.rotation.z = FLOATING_ROLL_AMPLITUDE * Math.cos(time * FLOATING_TILT_SPEED * 1.1);
+      // The old floating (bob, pitch, roll), made up of sines — kept for
+      // reference; the ship now rides the real waves below.
+      // const time = state.clock.getElapsedTime();
+      // group.position.y =
+      //   SHIP_VERTICAL_OFFSET + FLOATING_BOB_AMPLITUDE * Math.sin(time * FLOATING_BOB_SPEED);
+      // group.rotation.x = FLOATING_PITCH_AMPLITUDE * Math.sin(time * FLOATING_TILT_SPEED);
+      // group.rotation.z = FLOATING_ROLL_AMPLITUDE * Math.cos(time * FLOATING_TILT_SPEED * 1.1);
+      // Carried by the waves under it: see seascape-ship-motion.ts
+      group.position.y = SHIP_VERTICAL_OFFSET + shipMotion.heave;
+      group.rotation.x = shipMotion.pitch;
+      group.rotation.z = shipMotion.roll;
     }
   });
 
@@ -241,10 +270,10 @@ export default function Ship({
           <ShipModel
             path={modelPath}
             selectedStructureNode={
-              displayMode === "interaction" ? selectedStructureNode : null
+              isShowingSelection ? selectedStructureNode : null
             }
             hoveredStructureNode={
-              displayMode === "interaction" ? (hoveredStructureNode ?? null) : null
+              isShowingSelection ? (hoveredStructureNode ?? null) : null
             }
             hiddenNodeIds={hiddenNodeIds}
             onModelTreeLoaded={onModelTreeLoaded}

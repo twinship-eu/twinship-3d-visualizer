@@ -14,8 +14,12 @@
  * The proper fix is in the source asset: the painted areas of the hull should
  * not be marked as bare metal in the first place. This compensates uniformly,
  * which is blunter than fixing the map.
+ *
+ * For now 1: the model's own metalness, as authored. At 0.85 the paint's
+ * diffuse part picked up the bright midday light and the hull looked washed
+ * out.
  */
-export const SHIP_METALNESS_SCALE = 0.85;
+export const SHIP_METALNESS_SCALE = 1;
 
 /**
  * Live material tuning, written by the Inspector's Lights panel and read by the

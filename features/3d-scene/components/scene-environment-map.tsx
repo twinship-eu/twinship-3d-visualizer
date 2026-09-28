@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import { PMREMGenerator } from "three/webgpu";
-import { Scene } from "three";
+import { Scene } from "three/webgpu";
 import {
   ENVIRONMENT_MAP_INTENSITY,
   ENVIRONMENT_SKY_OVERRIDES,

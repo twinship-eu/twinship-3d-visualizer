@@ -2,7 +2,7 @@
 
 import { Canvas } from "@react-three/fiber";
 import { cn } from "@/lib/utils";
-import { Vector3 } from "three";
+import { Vector3 } from "three/webgpu";
 import {
   DEFAULT_CAMERA_POSITION,
 } from "../ship-visualizer/ship-visualizer-config";
@@ -15,7 +15,12 @@ import {
 import { SceneLights } from "./components/scene-lights";
 import { SceneSky } from "./components/scene-sky";
 import { SceneEnvironmentMap } from "./components/scene-environment-map";
-import { SceneWater } from "./components/scene-water";
+// Water replaced by the raymarched seascape on this branch. Kept, not deleted.
+// import { SceneWater } from "./components/scene-water";
+import { SceneSeascape } from "./components/scene-seascape";
+import { SceneSeascapeSurface } from "./components/scene-seascape-surface";
+import { SceneSeascapeAtmosphere } from "./components/scene-seascape-atmosphere";
+import { IS_SEASCAPE_SURFACE_ENABLED } from "./lib/seascape-config";
 import { canRenderShadows, createSceneRenderer } from "./lib/webgpu-renderer";
 import {
   installConsoleCapture,
@@ -40,6 +45,16 @@ import {
   ZoomControlsOverlay,
   ZoomControlsProvider,
 } from "./components/zoom-controls-overlay";
+import { CameraMotionProvider } from "./components/camera-motion-context";
+import { ShipVoyageProvider } from "./components/ship-voyage-context";
+import { SceneCameraFollow } from "./components/scene-camera-follow";
+import { SceneRenderPipeline } from "./components/scene-render-pipeline";
+import { SceneWeather } from "./components/scene-weather";
+import { SceneAdaptiveResolution } from "./components/scene-adaptive-resolution";
+import { getPerformanceProfile } from "./lib/performance-profile";
+
+/** The camera's far plane, in world units: beyond where the sea's haze is complete. */
+const CAMERA_FAR = 2000;
 
 
 type Props = {
@@ -82,6 +97,8 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
 
   return (
     <SceneInteractionProvider value={{ isOrbitControlsActive }}>
+      <CameraMotionProvider>
+      <ShipVoyageProvider>
       <ZoomControlsProvider>
         <Canvas
           // False on Android, where three's own shadow path emits invalid
@@ -90,16 +107,31 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           camera={{
             position: new Vector3(...DEFAULT_CAMERA_POSITION),
             fov: 45,
+            // Past the sea's haze (1550): at R3F's default 1000 the far sea was cut off
+            far: CAMERA_FAR,
           }}
           gl={createSceneRenderer}
+          // At most 2 device pixels per CSS pixel, 1.25 on a phone — whose
+          // 3 filled the sea's shader, bloom and FXAA with over 6x the pixels;
+          // lowered further while the frame rate cannot keep up (SceneAdaptiveResolution)
+          dpr={[1, getPerformanceProfile().maxPixelRatio]}
         >
           <RendererBackendProbe onResolved={setIsWebGPU} />
           {IS_SCENE_STATS_ENABLED && <SceneStatsProbe />}
           {isDiagnosticsOn && <SceneDiagnosticsProbe />}
-          <SceneSky />
+          {/*
+            With the surface sea, the sky comes from SceneSeascapeAtmosphere:
+            the same sky the water reflects, so sea and sky meet without a seam.
+            SkyMesh stays for the raymarched background. (The ship's lighting
+            probe bakes its own sky and does not depend on this one.)
+          */}
+          {!IS_SEASCAPE_SURFACE_ENABLED && <SceneSky />}
+          {IS_SEASCAPE_SURFACE_ENABLED && <SceneSeascapeAtmosphere />}
           <SceneEnvironmentMap />
-          <SceneWater />
+          {/* <SceneWater /> */}
+          {IS_SEASCAPE_SURFACE_ENABLED ? <SceneSeascapeSurface /> : <SceneSeascape />}
           <SceneLights />
+          {IS_SEASCAPE_SURFACE_ENABLED && <SceneWeather />}
           {children}
           <OrbitControls
             makeDefault
@@ -107,10 +139,15 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
             dampingFactor={0.05}
             minDistance={5}
             maxDistance={400}
-            maxPolarAngle={Math.PI / 2}
+            // Nearly straight up from below: the camera may orbit under the
+            // water, and the view turns underwater there by itself
+            maxPolarAngle={Math.PI * 0.95}
             onStart={() => setIsOrbitControlsActive(true)}
             onEnd={() => setIsOrbitControlsActive(false)}
           />
+          <SceneCameraFollow />
+          <SceneRenderPipeline />
+          <SceneAdaptiveResolution />
           <ZoomControlsBridge />
         </Canvas>
         <ZoomControlsOverlay />
@@ -118,6 +155,8 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
         {isDiagnosticsOn && <SceneDiagnosticsOverlay />}
       </ZoomControlsProvider>
+      </ShipVoyageProvider>
+      </CameraMotionProvider>
     </SceneInteractionProvider>
   );
 }

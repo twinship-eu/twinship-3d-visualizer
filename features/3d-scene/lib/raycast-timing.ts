@@ -1,4 +1,4 @@
-import { Mesh } from "three";
+import { Mesh } from "three/webgpu";
 import { SCENE_STATS } from "./scene-stats-state";
 
 /**

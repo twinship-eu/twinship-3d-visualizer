@@ -19,7 +19,7 @@
 - three version floor: **0.183.1** — `SkyMesh`, `WaterMesh`, and the `PMREMGenerator` that accepts a WebGPU renderer all require it.
 - `mx_worley_noise_float(texcoord, jitter)` accepts vec2 or vec3. `mx_fractal_noise_float(position, octaves, lacunarity, diminish, amplitude)` requires a **vec3** position. Passing vec2 to the fractal noise will not compile.
 - Codebase conventions from `CLAUDE.md`, all enforced: named exports only (no default exports outside Next pages); internal component props typed as `type Props`; files `kebab-case`; constants `UPPER_SNAKE_CASE`; no `any` and no `as any`; prefer `type` over `interface`; no magic numbers inline; no silent `console.log` error handling; files under 300 lines.
-- Do not rewrite existing `import { Group } from "three"` style imports. `three.module.js` and `three.webgpu.js` re-export from the same `three.core.js`, so core classes are the same objects through either entry point. Only `WebGPURenderer` and `PMREMGenerator` must come from `three/webgpu`.
+- Do not rewrite existing `import { Group } from "three/webgpu"` style imports. `three.module.js` and `three.webgpu.js` re-export from the same `three.core.js`, so core classes are the same objects through either entry point. Only `WebGPURenderer` and `PMREMGenerator` must come from `three/webgpu`.
 
 ---
 
@@ -435,7 +435,7 @@ In `features/3d-scene/components/scene-environment-map.tsx`, change one import l
 
 ```ts
 import { PMREMGenerator } from "three/webgpu";
-import { Scene } from "three";
+import { Scene } from "three/webgpu";
 ```
 
 Nothing else changes. `fromScene()` stays synchronous — it warns only when called before the backend is initialised, and `createSceneRenderer` already awaits `renderer.init()` before R3F ever receives the renderer. (`fromSceneAsync` is deprecated as of r181; do not use it.)
@@ -523,7 +523,7 @@ Replace the whole body of `features/3d-scene/components/scene-water.tsx`:
 
 import { Suspense, useMemo } from "react";
 import { WaterMesh } from "three/examples/jsm/objects/WaterMesh.js";
-import { PlaneGeometry, RepeatWrapping } from "three";
+import { PlaneGeometry, RepeatWrapping } from "three/webgpu";
 import { useTexture } from "@react-three/drei";
 import {
   getSunDirection,
@@ -722,7 +722,7 @@ First visible payoff, and the tool the next task needs. The shader here is delib
 Create `features/3d-scene/lib/depth-veil-shader.ts`:
 
 ```ts
-import { Color } from "three";
+import { Color } from "three/webgpu";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import {
   Fn,

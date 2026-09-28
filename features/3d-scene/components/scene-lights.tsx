@@ -7,7 +7,7 @@ import {
   type AmbientLight,
   type DirectionalLight,
   type HemisphereLight,
-} from "three";
+} from "three/webgpu";
 import {
   ANDROID_AMBIENT_COLOR,
   ANDROID_FILL_COLOR,
@@ -32,6 +32,8 @@ import {
   getSceneInspector,
   TONE_MAPPING_EXPOSURE,
 } from "../lib/webgpu-renderer";
+import { weatherState } from "../lib/seascape-weather";
+import { getPerformanceProfile } from "../lib/performance-profile";
 
 const SUN_POS = getShadowLightPosition();
 
@@ -60,12 +62,18 @@ const LIGHT_TUNING = {
   exposure: TONE_MAPPING_EXPOSURE,
 };
 
+/** The sun's shadow map: SHADOW_MAP_SIZE, or the profile's smaller one on a phone. */
+const shadowMapSize = Math.min(SHADOW_MAP_SIZE, getPerformanceProfile().shadowMapSize);
+/** How often the shadow map is redrawn, in frames — see `shadowRedrawFrames`. */
+const SHADOW_REDRAW_FRAMES = getPerformanceProfile().shadowRedrawFrames;
+
 export function SceneLights() {
   const gl = useThree((state) => state.gl);
   const sunRef = useRef<DirectionalLight>(null);
   const ambientRef = useRef<AmbientLight>(null);
   const hemisphereRef = useRef<HemisphereLight>(null);
   const fillRef = useRef<DirectionalLight>(null);
+  const framesSinceShadowRef = useRef(0);
   // Read once: the UA / query string do not change for the life of the page.
   const useMobileFill = !canAssignEnvironmentProbe();
 
@@ -110,8 +118,19 @@ export function SceneLights() {
   // Scene and renderer come from the frame state rather than `useThree`, which
   // hands back values react-hooks will not let a component mutate.
   useFrame((state) => {
+    // The sun as much as the clouds let through (`seascape-weather.ts`)
+    const sun = IS_SCENE_INSPECTOR_ENABLED ? LIGHT_TUNING.sun : LIGHT_INTENSITY.sun;
+    if (sunRef.current) sunRef.current.intensity = sun * weatherState.sunlight;
+    // The shadow map only every few frames, not by itself every frame
+    if (sunRef.current) {
+      sunRef.current.shadow.autoUpdate = false;
+      framesSinceShadowRef.current++;
+      if (framesSinceShadowRef.current >= SHADOW_REDRAW_FRAMES) {
+        sunRef.current.shadow.needsUpdate = true;
+        framesSinceShadowRef.current = 0;
+      }
+    }
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
-    if (sunRef.current) sunRef.current.intensity = LIGHT_TUNING.sun;
     if (ambientRef.current) {
       ambientRef.current.intensity = LIGHT_TUNING.ambient;
       ambientRef.current.color.set(LIGHT_TUNING.ambientColor);
@@ -140,8 +159,8 @@ export function SceneLights() {
         position={[SUN_POS.x, SUN_POS.y, SUN_POS.z]}
         intensity={LIGHT_INTENSITY.sun}
         castShadow
-        shadow-mapSize-width={SHADOW_MAP_SIZE}
-        shadow-mapSize-height={SHADOW_MAP_SIZE}
+        shadow-mapSize-width={shadowMapSize}
+        shadow-mapSize-height={shadowMapSize}
         shadow-camera-near={SHADOW_CAMERA_NEAR}
         shadow-camera-far={SHADOW_CAMERA_FAR}
         shadow-camera-left={-SHADOW_CAMERA_EXTENT}

@@ -123,7 +123,7 @@ it throws a named error rather than logging and leaving a dead canvas.
 `three.core.js`, so `Mesh`, `PlaneGeometry`, `Group`, `Object3D`, `Vector3` and
 friends are **the same class objects** through either entry point. There is no
 dual-identity hazard and no sweeping import rewrite: every existing
-`import { Group } from "three"` stays exactly as it is.
+`import { Group } from "three/webgpu"` stays exactly as it is.
 
 Only genuinely renderer-specific classes differ, and we use two:
 `WebGPURenderer` and `PMREMGenerator`.

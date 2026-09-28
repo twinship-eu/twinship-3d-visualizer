@@ -1,13 +1,16 @@
-import { MathUtils, Vector3 } from "three";
+import { MathUtils, Vector3 } from "three/webgpu";
 
 const DEFAULT_SCENE_SCALE = 1;
 
 /**
  * Sun elevation above the horizon. Drives shadow length directly: a point `h`
  * above the water casts a shadow `h / tan(elevation)` long, so 35 degrees gives
- * shadows ~1.4x the caster's height where 60 degrees gave ~0.6x.
+ * shadows ~1.4x the caster's height where 58 degrees gives ~0.6x.
+ *
+ * 58: midday. At 35 (late afternoon) the sea away from the sun reflected only
+ * the pale sky near the horizon and looked dull and washed out.
  */
-const SUN_ELEVATION_DEG = 35;
+const SUN_ELEVATION_DEG = 58;
 
 /**
  * Sun compass bearing. The stern is at -Z (the propellers sit at Z -98..-91),
@@ -16,9 +19,9 @@ const SUN_ELEVATION_DEG = 35;
  * 205 puts it off the port quarter, well aft. Chosen so the wind-turbine
  * towers' shadows land on the deck rather than over the side: the towers stand
  * 11.6 units above a deck 7.8 units to a side, so at this elevation their
- * shadow is 11.6 / tan(35) = 16.6 units long, and its sideways component is
- * that times |sin(azimuth)|. Staying on deck needs |sin| below 7.8 / 16.6 =
- * 0.47, so within 28 degrees of 180; at 205 it is 7.0 units.
+ * shadow is 11.6 / tan(58) = 7.2 units long, and its sideways component is
+ * that times |sin(azimuth)|: 3.1 units at 205, well inside the deck. (At 35
+ * the shadow was 16.6 long, 7.0 sideways — only just on the deck.)
  *
  * Drives the visible sun and the water's specular highlight too, via
  * `getSunDirection`, so the shading stays consistent with the shadows.

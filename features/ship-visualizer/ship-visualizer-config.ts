@@ -22,6 +22,10 @@ export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,330px)] lg:w-[330px]";
  * Built from the ~226 MB raw Blender export in two stages:
  *   npm run optimize:ship-model <raw> <tmp>      2048px WebP + Meshopt
  *   node scripts/simplify-engine-mesh.mjs <tmp> <out> 0.25
+ * and then, since, the engine to 87k (`... 0.5 Engine 0.02`), and the
+ * container and the crane by the method that keeps hard edges' shading
+ * (45.7k -> 22.8k and 12.7k -> 9.2k triangles, no difference seen):
+ *   node scripts/simplify-mesh-keeping-shading.mjs <in> <out> 0.5 Container,Crane 0.005
  *
  * The second stage exists because the `Engine` node ships at 494,596 triangles
  * — more than the rest of the vessel combined, and in an object only ~10 units
@@ -40,13 +44,26 @@ export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,330px)] lg:w-[330px]";
 export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
 
 /**
+ * The same model with its textures GPU-compressed, as KTX2: built from it by
+ *   scripts/encode-ship-textures-ktx2.sh <engine.glb> <out>
+ * UASTC for the normal maps, ETC1S for the rest. They stay compressed in GPU
+ * memory — ~130 MB against ~760 MB for the 34 WebP maps, which the GPU holds
+ * uncompressed — and upload faster; the file is a little smaller too (38 MB against 41).
+ */
+export const ENGINE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-engine-ktx2.glb";
+/** Off to load the WebP build instead, to compare. */
+const IS_KTX2_SHIP_TEXTURES_ENABLED = true;
+
+/**
  * Model the ship visualizer opens with, and the only one shipped.
  *
  * Earlier builds (V1, the V2 export and its raw source) were removed along
  * with the development-only toggle that compared them; recoverable from git
  * history if a comparison is ever wanted again.
  */
-export const DEFAULT_SHIP_MODEL_PATH = ENGINE_SHIP_MODEL_GLB;
+export const DEFAULT_SHIP_MODEL_PATH = IS_KTX2_SHIP_TEXTURES_ENABLED
+  ? ENGINE_SHIP_MODEL_KTX2_GLB
+  : ENGINE_SHIP_MODEL_GLB;
 
 /** Default ship mesh color (unselected). */
 export const SHIP_COLOR = "#ffffff";
@@ -72,8 +89,14 @@ export const DEFAULT_CAMERA_TARGET: [number, number, number] = [0, 0, 0];
 /** Duration in seconds for camera transition when selecting a part or resetting. */
 export const CAMERA_TRANSITION_DURATION_S = 0.6;
 
-/** Vertical offset (Y) for the ship so it sits at water level. */
-export const SHIP_VERTICAL_OFFSET = -3;
+/**
+ * Vertical offset (Y) for the ship so it sits at water level. Measured from
+ * the model: the keel is 5.26 below its origin, the top of the propellers
+ * 1.75 below it. The sea's mean level is at -5, so -4.75 keeps the propellers
+ * 1.5 under the water, with a draft of about 5. (At -3 the propellers' tips
+ * stood above the water even at rest.)
+ */
+export const SHIP_VERTICAL_OFFSET = -4.75;
 
 /** Floating animation: vertical bobbing amplitude (world units). */
 export const FLOATING_BOB_AMPLITUDE = 0.15;

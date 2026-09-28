@@ -1,4 +1,4 @@
-import { Mesh, Object3D, Triangle, Vector3 } from "three";
+import { Mesh, Object3D, Triangle, Vector3 } from "three/webgpu";
 
 /**
  * A triangle's world-space corners plus the running area total up to and

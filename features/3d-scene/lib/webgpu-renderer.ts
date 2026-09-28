@@ -1,5 +1,5 @@
 import {
-  ACESFilmicToneMapping,
+  CineonToneMapping,
   PCFSoftShadowMap,
   WebGPURenderer,
 } from "three/webgpu";
@@ -171,7 +171,7 @@ async function initRenderer(
     powerPreference: "high-performance",
     forceWebGL,
   });
-  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMapping = CineonToneMapping;
   renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
   // Set here for a renderer built outside R3F, but R3F overwrites it from the
   // Canvas `shadows` prop straight after this factory returns. See
