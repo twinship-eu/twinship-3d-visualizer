@@ -107,22 +107,22 @@ export const SEASCAPE_FOAM_ANISOTROPY = 8;
  *
  * The sea is always the one the wind raises over open ocean — fully developed
  * (see `fullyDevelopedFetch`) — so the wind's speed alone sets how big it is.
- * 15 m/s is a near gale, Beaufort 7 (Hs ≈ 7 m). From 225° (south-west, with
- * 0 = +Z as for the sun), so the waves roll towards the default camera.
+ * 10 m/s is a fresh breeze, Beaufort 5 (Hs ≈ 3 m). From 225° (south-west,
+ * with 0 = +Z as for the sun), so the waves roll towards the default camera.
  */
 export const SEASCAPE_WIND = {
-  speed: 15,
+  speed: 10,
   fromDegrees: 225,
 } as const;
 
 /**
  * The ship's hull at the waterline, for how it rides the waves (see
- * `seascape-ship-motion.ts`): about 190 long along z (the stern at -z) and 16
- * wide, in world units.
+ * `seascape-ship-motion.ts`): 100 long along z (the stern at -z) and 16.6
+ * wide, in world units — measured from the model at its scale.
  */
 export const SEASCAPE_SHIP_HULL = {
-  halfLength: 95,
-  halfBeam: 8,
+  halfLength: 50,
+  halfBeam: 8.3,
 } as const;
 
 /** Limits of the Inspector's wind sliders. 35 m/s is a hurricane, Beaufort 12. */

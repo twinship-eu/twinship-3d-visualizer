@@ -14,7 +14,11 @@ import type { FftCascade } from "./seascape-fft-ocean";
 /** A point to probe, in world x and z. */
 export type ProbePoint = { x: number; z: number };
 
-export function createWaveProbes(cascades: FftCascade[], points: ProbePoint[]) {
+/**
+ * @param seaOffset how far the sea has flowed past the ship — see
+ *   `createSeascapeSurfaceNodes`; the probes ride with the ship
+ */
+export function createWaveProbes(cascades: FftCascade[], points: ProbePoint[], seaOffset: Node<"vec2">) {
   const count = points.length;
   const positions = new StorageBufferAttribute(new Float32Array(count * 4), 4);
   const heights = new StorageBufferAttribute(new Float32Array(count * 4), 4);
@@ -33,7 +37,7 @@ export function createWaveProbes(cascades: FftCascade[], points: ProbePoint[]) {
 
   // The height at each probe: every cascade, unfiltered
   const probe: ComputeNode = Fn(() => {
-    const point = positionsNode.element(instanceIndex).xy;
+    const point = positionsNode.element(instanceIndex).xy.add(seaOffset);
     let height: Node<"float"> = vec2(0.0).x;
     for (const layer of layers) {
       height = height.add(texture(layer.texture, point.div(layer.tileSize), 0).x);

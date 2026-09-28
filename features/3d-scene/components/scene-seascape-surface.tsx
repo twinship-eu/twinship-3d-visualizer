@@ -10,6 +10,7 @@ import {
   TextureLoader,
   type Mesh,
   type Texture,
+  Vector2,
 } from "three/webgpu";
 import { getSunDirection, IS_SCENE_INSPECTOR_ENABLED } from "../lib/3d-scene-config";
 import {
@@ -29,7 +30,9 @@ import {
   SEASCAPE_WIND_LIMITS,
   type SeascapeFoamTextureName,
 } from "../lib/seascape-config";
+import { uniform } from "three/tsl";
 import { createContactFoam } from "../lib/seascape-contact-foam";
+import { createWake } from "../lib/seascape-wake";
 import { createShipMotionSolver } from "../lib/seascape-ship-motion";
 import { createWaveProbes } from "../lib/seascape-wave-probes";
 import { createFftOcean } from "../lib/seascape-fft-ocean";
@@ -98,7 +101,7 @@ function getFoamTexture(name: SeascapeFoamTextureName): Texture {
 
 /**
  * The area around the ship the hull foam's footprint covers, in world units:
- * the ship with room around it (it is about 200 long).
+ * the ship (100 long) with room around it, for its bow and stern waves.
  */
 const CONTACT_FOAM_AREA = 260;
 /**
@@ -122,6 +125,18 @@ const MAX_CONTACT_FOAM_DISTANCE = 10;
  */
 const CONTACT_FOAM_REDRAW_FRAMES = 1;
 
+/** The highest crest the sea can raise, as a multiple of Hs: every wave train's crest at once. */
+const HIGHEST_CREST_OF_HS = 1.7;
+
+/**
+ * The ship's speed through the water to start with, in knots. It stays at the
+ * origin and the sea flows past it (see `seaOffset`).
+ */
+const SHIP_SPEED_KNOTS = 18;
+const MAX_SHIP_SPEED_KNOTS = 30;
+/** Metres per second in a knot. */
+const METRES_PER_SECOND_PER_KNOT = 0.514444;
+
 /** The wind, with the fetch it has over open ocean: the speed alone sets the sea. */
 function windAt(speed: number, fromDegrees: number) {
   return { speed, fromDegrees, fetch: fullyDevelopedFetch(speed) };
@@ -144,15 +159,17 @@ function createSeaSurface(canUseCompute: boolean) {
   const fft = ocean ? createFftSurfaceNodes(ocean.cascades) : undefined;
   // The ship rides the FFT ocean; on the analytic fallback it rests still
   const shipMotion = createShipMotionSolver(SEASCAPE_SHIP_HULL);
-  const waveProbes = ocean ? createWaveProbes(ocean.cascades, shipMotion.points) : null;
+  const seaOffset = uniform(new Vector2());
+  const waveProbes = ocean ? createWaveProbes(ocean.cascades, shipMotion.points, seaOffset) : null;
   const contactFoam = createContactFoam({
     areaSize: CONTACT_FOAM_AREA,
     resolution: CONTACT_FOAM_RESOLUTION,
     levelY: SEASCAPE_SURFACE_LEVEL_Y,
     distance: CONTACT_FOAM_DISTANCE,
     // The FFT ocean's own height, so the hull is cut at the real waterline
-    waterHeight: fft ? (position) => fft.pixelWaves(position).z : undefined,
+    waterHeight: fft ? (position) => fft.pixelWaves(position.add(seaOffset)).z : undefined,
   });
+  const wake = createWake(contactFoam);
 
   const nodes = createSeascapeSurfaceNodes({
     scale: SEASCAPE_SURFACE_SCALE,
@@ -164,6 +181,9 @@ function createSeaSurface(canUseCompute: boolean) {
     sunDirection: getSunDirection(),
     fft,
     contactFoam,
+    seaOffset,
+    wake,
+    bowZ: SEASCAPE_SHIP_HULL.halfLength,
   });
   const material = new MeshBasicNodeMaterial();
   material.positionNode = nodes.positionNode;
@@ -179,6 +199,8 @@ function createSeaSurface(canUseCompute: boolean) {
     ocean,
     fft,
     contactFoam,
+    seaOffset,
+    wake,
     shipMotion,
     waveProbes,
     /** Frames since the hull foam's footprint was last drawn. */
@@ -229,6 +251,8 @@ const SEASCAPE_TUNING = {
    * `SEASCAPE_SURFACE_GRID_SEGMENTS` for measurements.
    */
   gridSegments: SEASCAPE_SURFACE_GRID_SEGMENTS as number,
+  /** The ship's speed through the water, in knots: the sea flows past at it. */
+  shipSpeedKnots: SHIP_SPEED_KNOTS as number,
   /** How far the foam around the hull reaches, in world units. */
   contactFoamDistance: CONTACT_FOAM_DISTANCE as number,
   /** Draw the sea's triangles as lines, to see what the grid is doing. */
@@ -279,6 +303,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "scatterStrength", 0, 2, 0.01);
     panel.add(SEASCAPE_TUNING, "shininess", 10, 2000, 1);
     panel.add(SEASCAPE_TUNING, "gridSegments", [...SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS]);
+    panel.add(SEASCAPE_TUNING, "shipSpeedKnots", 0, MAX_SHIP_SPEED_KNOTS, 0.5);
     panel.add(SEASCAPE_TUNING, "contactFoamDistance", 0.1, MAX_CONTACT_FOAM_DISTANCE, 0.1);
     panel.add(SEASCAPE_TUNING, "wireframe");
   }, [gl]);
@@ -299,8 +324,14 @@ export function SceneSeascapeSurface() {
     // The FFT ocean's waves, brought to this moment: a few compute passes
     sea.ocean?.update(asSceneRenderer(gl), clock.elapsedTime);
 
+    // The ship sails on: the sea flows past it, bow (+z) to stern
+    const speedKnots = IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.shipSpeedKnots : SHIP_SPEED_KNOTS;
+    const speed = speedKnots * METRES_PER_SECOND_PER_KNOT;
+    sea.seaOffset.value.y += speed * delta;
+    sea.uniforms.shipSpeed.value = speed;
+
     // The ship, carried by the sea under it
-    if (sea.waveProbes) sea.shipMotion.update(sea.waveProbes.update(asSceneRenderer(gl)), delta);
+    if (sea.waveProbes) sea.shipMotion.update(sea.waveProbes.update(asSceneRenderer(gl)), delta, speed);
 
     // The hull foam's footprint: now and then, and when its distance changes
     const contactFoamDistance = IS_SCENE_INSPECTOR_ENABLED
@@ -312,10 +343,15 @@ export function SceneSeascapeSurface() {
       contactFoamDistance !== sea.contactFoamDistance
     ) {
       sea.contactFoam.uniforms.distance.value = contactFoamDistance;
-      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh]);
+      // The highest the sea can rise: the crests of the tallest waves
+      const highestWater = sea.uniforms.windSea.travel.value.w * HIGHEST_CREST_OF_HS;
+      sea.contactFoam.update(asSceneRenderer(gl), scene, [mesh], highestWater);
       sea.framesSinceContactFoam = 0;
       sea.contactFoamDistance = contactFoamDistance;
     }
+
+    // The wake flows back from the stern as the ship sails on
+    sea.wake.update(asSceneRenderer(gl), delta, speed);
 
     // Applied per frame rather than through change handlers, as SceneLights
     // does: a few assignments, and it cannot drift out of sync with the panel.

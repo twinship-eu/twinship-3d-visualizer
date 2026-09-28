@@ -72,8 +72,14 @@ export const DEFAULT_CAMERA_TARGET: [number, number, number] = [0, 0, 0];
 /** Duration in seconds for camera transition when selecting a part or resetting. */
 export const CAMERA_TRANSITION_DURATION_S = 0.6;
 
-/** Vertical offset (Y) for the ship so it sits at water level. */
-export const SHIP_VERTICAL_OFFSET = -3;
+/**
+ * Vertical offset (Y) for the ship so it sits at water level. Measured from
+ * the model: the keel is 5.26 below its origin, the top of the propellers
+ * 1.75 below it. The sea's mean level is at -5, so -4.75 keeps the propellers
+ * 1.5 under the water, with a draft of about 5. (At -3 the propellers' tips
+ * stood above the water even at rest.)
+ */
+export const SHIP_VERTICAL_OFFSET = -4.75;
 
 /** Floating animation: vertical bobbing amplitude (world units). */
 export const FLOATING_BOB_AMPLITUDE = 0.15;

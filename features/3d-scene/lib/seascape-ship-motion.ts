@@ -57,6 +57,23 @@ const MAX_HEAVE_DRIFT = 1.5;
  * side to side every few seconds instead of rolling on its own slow period.
  */
 const UNLIMITED = Infinity;
+// Under way
+/** Speed through the water, in m/s, the numbers below are given at: 18 knots. */
+const REFERENCE_SPEED = 9.26;
+/**
+ * How much of the waves' effect is left at REFERENCE_SPEED and above. Under
+ * way, a ship meets the waves faster than their own period and its speed
+ * damps its pitch and roll: it rides them more steadily than at rest.
+ */
+const WAVE_RESPONSE_UNDER_WAY = 0.55;
+/**
+ * Squat at REFERENCE_SPEED: how far the ship sinks, in world units, and how
+ * far it trims by the stern, in radians (0.3°). Both grow with the speed
+ * squared: the faster water under the hull lowers the pressure there.
+ */
+const SQUAT_SINKAGE = 0.4;
+const SQUAT_TRIM = 0.3 * (Math.PI / 180);
+
 /** Longest time step taken at once, in seconds: a stalled tab must not fling the ship. */
 const MAX_STEP = 1 / 20;
 
@@ -150,16 +167,23 @@ export function createShipMotionSolver(hull: Hull) {
   const pitch = createSpring(RESPONSE.pitch, UNLIMITED);
   const roll = createSpring(RESPONSE.roll, UNLIMITED);
 
-  /** Moves the ship on towards the sea under it, `elapsed` seconds on. */
-  function update(heights: ArrayLike<number>, elapsed: number) {
+  /**
+   * Moves the ship on towards the sea under it, `elapsed` seconds on, sailing
+   * at `speed` m/s.
+   */
+  function update(heights: ArrayLike<number>, elapsed: number, speed: number) {
     const step = Math.min(elapsed, MAX_STEP);
     const plane = fitPlane(points, heights);
+    const underWay = Math.min(Math.max(speed / REFERENCE_SPEED, 0), 1);
+    const response = 1 - (1 - WAVE_RESPONSE_UNDER_WAY) * underWay;
+    const squat = Math.pow(Math.max(speed, 0) / REFERENCE_SPEED, 2);
 
-    shipMotion.heave = heave(plane.mean, step);
-    // Bow (at +z) on a rising sea goes up: a negative rotation about x
-    shipMotion.pitch = pitch(-Math.atan(plane.slopeZ), step);
+    shipMotion.heave = heave(plane.mean * response - SQUAT_SINKAGE * squat, step);
+    // Bow (at +z) on a rising sea goes up: a negative rotation about x. Squat
+    // trims it by the stern: bow up, negative too
+    shipMotion.pitch = pitch(-Math.atan(plane.slopeZ) * response - SQUAT_TRIM * squat, step);
     // The +x side on a rising sea goes up: a positive rotation about z
-    shipMotion.roll = roll(Math.atan(plane.slopeX), step);
+    shipMotion.roll = roll(Math.atan(plane.slopeX) * response, step);
   }
 
   return { points, update };

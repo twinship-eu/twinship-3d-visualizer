@@ -27,6 +27,7 @@ import {
   vec4,
 } from "three/tsl";
 import {
+  Box3,
   Color,
   DoubleSide,
   HalfFloatType,
@@ -34,6 +35,7 @@ import {
   MeshBasicNodeMaterial,
   OrthographicCamera,
   RenderTarget,
+  type Mesh,
   type Node,
   type Object3D,
   type Renderer,
@@ -106,7 +108,14 @@ export function createContactFoam({ areaSize, resolution, levelY, distance, wate
    * `scene`, without `hidden` (the sea itself): a render of the ship and the
    * distance field's passes, about a millisecond at 1024².
    */
-  function update(renderer: Renderer, scene: Scene, hidden: Object3D[]) {
+  function update(renderer: Renderer, scene: Scene, hidden: Object3D[], highestWater: number) {
+    // Only what can reach the water: meshes wholly above the highest the sea
+    // can rise (the superstructure, the masts, the deck gear, the selection's
+    // highlights) are left out. Drawing the whole ship into the footprint every
+    // frame cost as many triangles again as the ship itself
+    const aboveWater = meshesAbove(scene, levelY + highestWater);
+    hidden = [...hidden, ...aboveWater];
+
     const previous = {
       target: renderer.getRenderTarget(),
       clearAlpha: renderer.getClearAlpha(),
@@ -138,6 +147,24 @@ export function createContactFoam({ areaSize, resolution, levelY, distance, wate
     hidden.forEach((object, index) => (object.visible = previous.visibility[index]));
   }
 
+  const worldBox = new Box3();
+
+  /** The visible meshes of `scene` wholly above `height`. */
+  function meshesAbove(scene: Scene, height: number) {
+    const above: Object3D[] = [];
+    scene.traverseVisible((object) => {
+      const mesh = object as Mesh;
+      if (!mesh.isMesh || !mesh.geometry) return;
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox;
+      if (!box) return;
+      worldBox.copy(box).applyMatrix4(mesh.matrixWorld);
+      if (worldBox.min.y > height) above.push(mesh);
+    });
+
+    return above;
+  }
+
   const distanceTexture = texture(hullDistance.texture);
   const unitsPerTexel = areaSize / resolution;
 
@@ -158,7 +185,17 @@ export function createContactFoam({ areaSize, resolution, levelY, distance, wate
     return inside.select(distanceToHull.div(uniforms.distance.max(1e-3)), OUTSIDE_AREA);
   }
 
-  return { update, sample, uniforms, footprint, hullDistance, camera };
+  /** How far a world point is from the hull, in world units (far outside the area). */
+  function distanceAt(position: Node<"vec2">) {
+    const footprintUV = vec2(position.x.div(areaSize).add(0.5), position.y.div(areaSize).add(0.5));
+    const inside = footprintUV.x.greaterThan(0.0).and(footprintUV.x.lessThan(1.0)).and(
+      footprintUV.y.greaterThan(0.0).and(footprintUV.y.lessThan(1.0))
+    );
+
+    return inside.select(texture(distanceTexture, footprintUV).r.mul(unitsPerTexel), OUTSIDE_AREA);
+  }
+
+  return { update, sample, distanceAt, uniforms, footprint, hullDistance, camera };
 }
 
 export type ContactFoam = ReturnType<typeof createContactFoam>;
