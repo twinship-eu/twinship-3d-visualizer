@@ -26,6 +26,25 @@ const READINGS: Record<string, (snapshot: LiveSnapshot) => ComponentReading> = {
   WAPS: (snapshot) => ({ text: `${snapshot.systems.windAssist.thrustKn.toFixed(0)} kN`, tone: "value" }),
 };
 
+/** The Voyage view's tree: sections only, each with its system's reading. By section label. */
+const VOYAGE_SECTION_READINGS: Record<string, (snapshot: LiveSnapshot) => ComponentReading> = {
+  "Ship model": (snapshot) => READINGS["TwinShip VESSEL"](snapshot),
+  Hull: (snapshot) => ({ text: `roll ${snapshot.systems.hull.rollDeg.toFixed(1)}°`, tone: "value" }),
+  Superstructure: () => ({ text: "OK", tone: "ok" }),
+  "Deck equipment": () => ({ text: "Secured", tone: "value" }),
+  "Propeller system": (snapshot) => ({ text: `${snapshot.systems.propulsion.shaftRpm.toFixed(0)} rpm`, tone: "value" }),
+  "Energy system": (snapshot) => ({ text: `${snapshot.systems.energy.fuelTph.toFixed(2)} t/h`, tone: "value" }),
+  "Wind assisted propulsion system": (snapshot) => ({
+    text: `${snapshot.systems.windAssist.thrustKn.toFixed(0)} kN`,
+    tone: "value",
+  }),
+};
+
+/** A section's reading in the Voyage view's tree; null for one with none. */
+export function voyageSectionReading(label: string, snapshot: LiveSnapshot): ComponentReading | null {
+  return VOYAGE_SECTION_READINGS[label]?.(snapshot) ?? null;
+}
+
 /**
  * What a tree row shows beside its label in Live data: the component's key
  * reading, or "Warning" while it has an active warning.

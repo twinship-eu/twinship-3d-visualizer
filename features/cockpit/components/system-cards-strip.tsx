@@ -10,9 +10,10 @@ type CardProps = {
   card: SystemCard;
   history: LiveSnapshot[];
   isWarning: boolean;
+  showsStatus: boolean;
 };
 
-function SystemCardView({ card, history, isWarning }: CardProps) {
+function SystemCardView({ card, history, isWarning, showsStatus }: CardProps) {
   const latest = history[history.length - 1];
   const [first, second] = card.readings;
 
@@ -26,14 +27,16 @@ function SystemCardView({ card, history, isWarning }: CardProps) {
       <div className="flex items-center gap-1.5 text-[13px]">
         <span className={cn("size-[7px] shrink-0 rounded-full", card.dotClass)} aria-hidden />
         <span className="grow truncate font-semibold">{card.title}</span>
-        <span className={cn("text-[11px] font-semibold tracking-[0.06em]", isWarning ? "text-warn" : "text-ok")}>
-          {isWarning ? "WARNING" : "NORMAL"}
-        </span>
+        {showsStatus && (
+          <span className={cn("text-[11px] font-semibold tracking-[0.06em]", isWarning ? "text-warn" : "text-ok")}>
+            {isWarning ? "WARNING" : "NORMAL"}
+          </span>
+        )}
       </div>
       <div className="flex items-end gap-3">
         <span className="flex shrink-0 items-baseline gap-1">
           <span className={cn("font-mono text-[26px] leading-none font-semibold tabular-nums", isWarning && "text-warn")}>
-            {latest ? card.format(card.value(latest)) : "—"}
+            {latest && (card.isAvailable?.(latest) ?? true) ? card.format(card.value(latest)) : "—"}
           </span>
           <span className="text-[11px] text-muted">{card.unit}</span>
         </span>
@@ -51,11 +54,19 @@ function SystemCardView({ card, history, isWarning }: CardProps) {
   );
 }
 
+type Props = {
+  /** The cards, left to right: the systems' by default. */
+  cards?: SystemCard[];
+  /** Whether each card says if its system is normal: the systems' do. */
+  showsStatus?: boolean;
+};
+
 /**
  * Under the scene, in Live data: a card for each of the ship's systems — its
- * main reading, its last minute, two more readings and whether it is normal.
+ * main reading, its last minute, two more readings and whether it is normal
+ * — or the Voyage view's cards, the same way.
  */
-export function SystemCardsStrip() {
+export function SystemCardsStrip({ cards = SYSTEM_CARDS, showsStatus = true }: Props) {
   const history = useLiveHistory();
   const latest = history[history.length - 1] ?? null;
   const warning = systemsInWarning(getActiveAlarms(latest));
@@ -65,8 +76,14 @@ export function SystemCardsStrip() {
       aria-label="Ship systems"
       className="hidden h-[170px] shrink-0 grid-cols-5 gap-3 border-t border-line bg-surface px-4 py-3.5 lg:grid"
     >
-      {SYSTEM_CARDS.map((card) => (
-        <SystemCardView key={card.id} card={card} history={history} isWarning={warning.has(card.id)} />
+      {cards.map((card) => (
+        <SystemCardView
+          key={card.id}
+          card={card}
+          history={history}
+          isWarning={showsStatus && warning.has(card.id)}
+          showsStatus={showsStatus}
+        />
       ))}
     </section>
   );

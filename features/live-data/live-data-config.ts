@@ -15,6 +15,23 @@ export const SIMULATION_BASELINE = {
   rateOfTurnDegPerMin: { value: 0.2, spread: 0.3 },
   trueWindSpeedKn: { value: 17.6, spread: 0.8 },
   trueWindFromDeg: { value: 40, spread: 3 },
+  rudderDeg: { value: 1.1, spread: 0.6 },
+  crossTrackErrorNm: { value: 0.04, spread: 0.01 },
+} as const;
+
+/** The simulated voyage: placeholder names as in the design, 62% along its route. */
+export const SIMULATED_VOYAGE = {
+  origin: "[ORIGIN]",
+  destination: "[DESTINATION]",
+  totalNm: 484,
+  distanceToGoNm: 184,
+  waypoints: [
+    { name: "[WP 1]", atNm: 160 },
+    { name: "[WP NAME]", atNm: 316 },
+    { name: "[WP 3]", atNm: 420 },
+  ],
+  ecoSpeedKn: 9,
+  designSpeedKn: 18,
 } as const;
 
 /** The systems' simulated readings: value and spread, as for the navigation. */
@@ -22,6 +39,7 @@ export const SIMULATION_SYSTEMS_BASELINE = {
   shaftRpm: { value: 119, spread: 2 },
   shaftPowerMw: { value: 4.12, spread: 0.05 },
   pitchPct: { value: 73, spread: 0.6 },
+  slipPct: { value: 6, spread: 0.3 },
   fuelTph: { value: 1.42, spread: 0.03 },
   engineLoadPct: { value: 67, spread: 1.5 },
   engineRpm: { value: 615, spread: 4 },
@@ -37,6 +55,8 @@ export const SIMULATION_SYSTEMS_BASELINE = {
   draftAftM: { value: 7.49, spread: 0.02 },
   slammingPerHour: { value: 2.2, spread: 0.1 },
   ballastPct: { value: 48, spread: 0.1 },
+  heaveM: { value: 0.9, spread: 0.05 },
+  rollPeriodS: { value: 11.8, spread: 0.1 },
   reeferTempC: { value: 4.1, spread: 0.1 },
   craneHydraulicBar: { value: 179, spread: 0.8 },
 } as const;

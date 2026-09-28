@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Box3, Vector3, type Object3D } from "three/webgpu";
-import { CALLOUTS, type CalloutId } from "./callout-config";
+import type { CalloutDefinition, CalloutId } from "./callout-config";
 import { calloutAnchors } from "./callout-anchors";
 
 /** Frames between looking again for a part not found yet: the ship loads after the scene. */
@@ -17,14 +17,14 @@ type Tracked = { object: Object3D; localCentre: Vector3 };
  * centre onto the screen every frame, for the overlay's lines
  * (`calloutAnchors`). Draws nothing.
  */
-export function CalloutAnchorProjector() {
+export function CalloutAnchorProjector({ callouts }: { callouts: CalloutDefinition[] }) {
   const tracked = useRef<Partial<Record<CalloutId, Tracked>>>({});
   const framesSinceSearch = useRef(RETRY_FRAMES);
   const point = useRef(new Vector3());
 
   useFrame(({ scene, camera, size }) => {
     framesSinceSearch.current++;
-    for (const callout of CALLOUTS) {
+    for (const callout of callouts) {
       let part = tracked.current[callout.id];
       // Dropped when the model is swapped: its object leaves the scene
       if (part && !part.object.parent) part = tracked.current[callout.id] = undefined;

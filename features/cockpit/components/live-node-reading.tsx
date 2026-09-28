@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { getActiveAlarms, useLiveData } from "@/features/live-data/hooks/use-live-data";
-import { componentReading, type ReadingTone } from "../lib/component-readings";
+import { componentReading, voyageSectionReading, type ReadingTone } from "../lib/component-readings";
 
 const TONE_CLASSES: Record<ReadingTone, string> = {
   value: "font-mono text-muted",
@@ -14,12 +14,12 @@ const TONE_CLASSES: Record<ReadingTone, string> = {
  * A tree row's live reading, beside its label. Reads the live data itself,
  * so only the reading re-renders every second, not the tree.
  */
-export function LiveNodeReading({ label }: { label: string }) {
+export function LiveNodeReading({ label, isVoyage = false }: { label: string; isVoyage?: boolean }) {
   const snapshot = useLiveData();
   if (!snapshot) return null;
 
   const hasActiveAlarm = getActiveAlarms(snapshot).some((alarm) => alarm.componentLabel === label);
-  const reading = componentReading(label, snapshot, hasActiveAlarm);
+  const reading = isVoyage ? voyageSectionReading(label, snapshot) : componentReading(label, snapshot, hasActiveAlarm);
   if (!reading) return null;
 
   return (

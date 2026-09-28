@@ -33,7 +33,7 @@ export const COMPONENT_OBJECT_NAMES: Record<string, string> = {
 export type SystemStatus = "normal" | "warning";
 
 /** The systems with an active, unacknowledged warning or alarm. */
-export function systemsInWarning(activeAlarms: Alarm[]): Set<SystemId> {
+export function systemsInWarning(activeAlarms: Alarm[]): Set<string> {
   return new Set(
     activeAlarms.map((alarm) => COMPONENT_SYSTEMS[alarm.componentLabel]).filter((system): system is SystemId => !!system)
   );
@@ -44,7 +44,8 @@ type CardReading = { label: string; value: (snapshot: LiveSnapshot) => string };
 
 /** One of the system cards under the scene: its main value, trend and two readings. */
 export type SystemCard = {
-  id: SystemId;
+  /** A system's id, for its warning state; any unique id for cards with no status. */
+  id: string;
   title: string;
   /** The Tailwind classes for its dot and trend: its section's colour. */
   dotClass: string;
@@ -52,6 +53,8 @@ export type SystemCard = {
   value: (snapshot: LiveSnapshot) => number;
   format: (value: number) => string;
   unit: string;
+  /** Shown instead of the main value when the reading has no meaning now (the ship stopped…). */
+  isAvailable?: (snapshot: LiveSnapshot) => boolean;
   readings: [CardReading, CardReading];
 };
 

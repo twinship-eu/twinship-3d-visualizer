@@ -1,0 +1,81 @@
+import { formatBearing } from "@/features/live-data/lib/format-readings";
+import type { SystemCard } from "./cockpit-systems";
+import { currentKn, fuelPerMileKg } from "./lib/voyage-math";
+
+/** The Voyage view's cards under the scene, left to right, as the design lays them out. */
+export const VOYAGE_CARDS: SystemCard[] = [
+  {
+    id: "speed",
+    title: "Speed over ground",
+    dotClass: "bg-accent",
+    strokeClass: "stroke-accent",
+    value: (snapshot) => snapshot.navigation.speedOverGroundKn,
+    format: (value) => value.toFixed(1),
+    unit: "kn",
+    readings: [
+      { label: "STW", value: (snapshot) => snapshot.navigation.speedThroughWaterKn.toFixed(1) },
+      { label: "Current", value: (snapshot) => `${currentKn(snapshot.navigation).toFixed(1)} kn` },
+    ],
+  },
+  {
+    id: "heading",
+    title: "Heading & turn",
+    dotClass: "bg-accent",
+    strokeClass: "stroke-accent",
+    value: (snapshot) => snapshot.navigation.headingDeg,
+    format: formatBearing,
+    unit: "",
+    readings: [
+      { label: "ROT", value: (snapshot) => snapshot.navigation.rateOfTurnDegPerMin.toFixed(1) },
+      { label: "XTE", value: (snapshot) => `${snapshot.navigation.crossTrackErrorNm.toFixed(2)} nm` },
+    ],
+  },
+  {
+    id: "attitude",
+    title: "Roll & pitch",
+    dotClass: "bg-warn",
+    strokeClass: "stroke-warn",
+    value: (snapshot) => snapshot.systems.hull.rollDeg,
+    format: (value) => `${value.toFixed(1)}°`,
+    unit: "roll",
+    readings: [
+      { label: "Pitch", value: (snapshot) => `${snapshot.systems.hull.pitchDeg.toFixed(1)}°` },
+      { label: "Heave", value: (snapshot) => `±${snapshot.systems.hull.heaveM.toFixed(1)} m` },
+    ],
+  },
+  {
+    id: "efficiency",
+    title: "Efficiency",
+    dotClass: "bg-system-energy",
+    strokeClass: "stroke-system-energy",
+    value: (snapshot) => fuelPerMileKg(snapshot) ?? 0,
+    isAvailable: (snapshot) => fuelPerMileKg(snapshot) !== null,
+    format: (value) => value.toFixed(0),
+    unit: "kg/nm",
+    readings: [
+      { label: "Fuel", value: (snapshot) => `${snapshot.systems.energy.fuelTph.toFixed(2)} t/h` },
+      { label: "Shaft", value: (snapshot) => `${snapshot.systems.propulsion.shaftRpm.toFixed(0)} rpm` },
+    ],
+  },
+  {
+    id: "windAssist",
+    title: "Wind assist",
+    dotClass: "bg-system-hull",
+    strokeClass: "stroke-system-hull",
+    value: (snapshot) => snapshot.systems.windAssist.thrustKn,
+    format: (value) => value.toFixed(0),
+    unit: "kN",
+    readings: [
+      { label: "Saving", value: (snapshot) => `${snapshot.systems.windAssist.fuelSavingPct.toFixed(0)}%` },
+      { label: "Wind", value: (snapshot) => `${snapshot.navigation.trueWind.speedKn.toFixed(1)} kn` },
+    ],
+  },
+];
+
+/** Camera positions for the Voyage view's camera modes: [x, y, z], the ship at the origin, its bow to +z. */
+export const VOYAGE_CAMERA = {
+  /** Behind and above the stern, off the port quarter: the design's view. */
+  follow: { position: [-55, 42, -125] as [number, number, number], target: [0, 0, 10] as [number, number, number] },
+  /** Straight down over the ship; a little aft, so the orbit controls keep their bearing. */
+  topDown: { position: [0, 230, -18] as [number, number, number], target: [0, 0, 0] as [number, number, number] },
+} as const;

@@ -1,10 +1,17 @@
 /**
- * The Systems view's callouts: a card for a part of the ship, over the
+ * Live data's callouts: a card for a part of the ship, over the
  * scene, with a line to where that part is. Laid out as the cockpit design
  * places them, in shares of the scene's width and height.
  */
 
-export type CalloutId = "bridge" | "deck" | "waps" | "propellers" | "engine";
+export type CalloutId =
+  | "bridge"
+  | "deck"
+  | "waps"
+  | "propellers"
+  | "engine"
+  | "voyageRotors"
+  | "voyagePropellers";
 
 /** Where a card sits over the scene: its left or right edge and its top, in % of the scene. */
 type CalloutSlot = { leftPct?: number; rightPct?: number; topPct: number };
@@ -21,9 +28,14 @@ export type CalloutDefinition = {
   slot: CalloutSlot;
   /** The card's width, in CSS pixels. */
   widthPx: number;
+  /** What its header shows on the right: a plain OK, a Normal chip, or nothing. */
+  status?: "ok" | "normal";
+  /** Whether it links to its component's details. */
+  hasDetailsLink?: boolean;
 };
 
-export const CALLOUTS: CalloutDefinition[] = [
+/** The Systems view's callouts. */
+export const SYSTEMS_CALLOUTS: CalloutDefinition[] = [
   {
     id: "bridge",
     title: "Control room · Radio",
@@ -32,6 +44,7 @@ export const CALLOUTS: CalloutDefinition[] = [
     dotClass: "bg-system-hull",
     slot: { leftPct: 2, topPct: 17 },
     widthPx: 220,
+    status: "ok",
   },
   {
     id: "deck",
@@ -50,6 +63,7 @@ export const CALLOUTS: CalloutDefinition[] = [
     dotClass: "bg-system-hull",
     slot: { rightPct: 10, topPct: 2.5 },
     widthPx: 226,
+    status: "ok",
   },
   {
     id: "propellers",
@@ -68,5 +82,29 @@ export const CALLOUTS: CalloutDefinition[] = [
     dotClass: "bg-system-energy",
     slot: { rightPct: 14.5, topPct: 64 },
     widthPx: 244,
+    status: "normal",
+    hasDetailsLink: true,
+  },
+];
+
+/** The Voyage view's callouts: fewer, smaller, round the instruments. */
+export const VOYAGE_CALLOUTS: CalloutDefinition[] = [
+  {
+    id: "voyageRotors",
+    title: "Rotor sails",
+    objectName: "WindTurbines",
+    componentLabel: "WAPS",
+    dotClass: "bg-system-hull",
+    slot: { leftPct: 60, topPct: 24 },
+    widthPx: 170,
+  },
+  {
+    id: "voyagePropellers",
+    title: "Propellers",
+    objectName: "Propellers",
+    componentLabel: "Propellers",
+    dotClass: "bg-system-propeller",
+    slot: { leftPct: 13, topPct: 76 },
+    widthPx: 250,
   },
 ];

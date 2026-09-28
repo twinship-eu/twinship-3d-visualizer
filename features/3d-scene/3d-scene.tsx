@@ -67,6 +67,11 @@ type Props = {
   isDetailsOpen?: boolean;
   /** Scale for grid/fog (e.g. from model bounds); default 1. */
   sceneScale?: number;
+  /**
+   * DOM over the scene, inside its providers: for controls that move the
+   * camera or set the ship under way (`useZoomControls`, `useShipVoyage`).
+   */
+  overlay?: React.ReactNode;
 };
 
 
@@ -75,19 +80,20 @@ export function Scene({
   className,
   children,
   isDetailsOpen = false,
+  overlay,
 }: Props) {
   return (
     <div
       className={cn("relative", className ?? "h-full min-h-0 w-full")}
       style={{ backgroundColor: SCENE_BACKGROUND_COLOR }}
     >
-      <SceneWithInteraction>{children}</SceneWithInteraction>
+      <SceneWithInteraction overlay={overlay}>{children}</SceneWithInteraction>
       <StageControlHints isDetailsOpen={isDetailsOpen} />
     </div>
   );
 }
 
-function SceneWithInteraction({ children }: { children: React.ReactNode }) {
+function SceneWithInteraction({ children, overlay }: { children: React.ReactNode; overlay?: React.ReactNode }) {
   const [isOrbitControlsActive, setIsOrbitControlsActive] = useState(false);
   const [isWebGPU, setIsWebGPU] = useState<boolean | null>(null);
   // Deliberately false until mounted: branching on the query string during the
@@ -151,6 +157,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
           <ZoomControlsBridge />
         </Canvas>
         <ZoomControlsOverlay />
+        {overlay}
         {IS_RENDERER_BADGE_ENABLED && <RendererBackendBadge isWebGPU={isWebGPU} />}
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
         {isDiagnosticsOn && <SceneDiagnosticsOverlay />}

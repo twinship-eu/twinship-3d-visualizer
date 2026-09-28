@@ -32,7 +32,15 @@ import { LiveNodeReading } from "@/features/cockpit/components/live-node-reading
 import { LiveViewControls } from "@/features/cockpit/components/live-view-controls";
 import { SystemCardsStrip } from "@/features/cockpit/components/system-cards-strip";
 import { CalloutAnchorProjector } from "@/features/cockpit/callouts/callout-anchor-projector";
-import { SystemCallouts } from "@/features/cockpit/callouts/system-callouts";
+import { LiveCallouts } from "@/features/cockpit/callouts/live-callouts";
+import {
+  SYSTEMS_CALLOUTS,
+  VOYAGE_CALLOUTS,
+} from "@/features/cockpit/callouts/callout-config";
+import { VOYAGE_CARDS } from "@/features/cockpit/cockpit-voyage";
+import { LiveShipSpeed } from "@/features/cockpit/voyage/live-ship-speed";
+import { VoyageSceneOverlay } from "@/features/cockpit/voyage/voyage-scene-overlay";
+import { VoyageSummary } from "@/features/cockpit/voyage/voyage-summary";
 import { ComponentLivePanel } from "@/features/cockpit/component-live/component-live-panel";
 import { SelectedComponentStrip } from "@/features/cockpit/component-live/selected-component-strip";
 import { SelectionSceneHeader } from "@/features/cockpit/component-live/selection-scene-header";
@@ -46,6 +54,10 @@ const SHIP_MODEL_SECTION = MOCK_SHIP_TREE[0];
 /** A tree row's live reading, in Live data. */
 const renderLiveReading = (node: ShipTreeNode) => (
   <LiveNodeReading label={node.label} />
+);
+/** A section's reading, in the Voyage view's tree of sections. */
+const renderVoyageReading = (node: ShipTreeNode) => (
+  <LiveNodeReading label={node.label} isVoyage />
 );
 
 export function ShipVisualizer() {
@@ -171,10 +183,10 @@ export function ShipVisualizer() {
   );
 
   const isOntologyMode = mode === "ontology";
-  const isSystemsView = !isOntologyMode && liveView.view === "systems";
-  // The callouts give way to a selected component's own details
   /** In Live data with a component selected: its live panel, sensors and trends. */
   const liveSelection = isOntologyMode ? null : selectedStructureNode;
+  const isVoyageView =
+    !isOntologyMode && liveView.view === "voyage" && liveSelection === null;
   const liveSelectionSection = liveSelection
     ? SHIP_TREE_SECTIONS.find(
         (section) =>
@@ -186,11 +198,21 @@ export function ShipVisualizer() {
     setSelectedStructureNode(null);
     setIsDetailsExpanded(false);
   };
-  const isShowingCallouts =
-    isSystemsView &&
-    liveView.isShowingCallouts &&
-    selectedStructureNode === null &&
-    isModelReady;
+  // The callouts over the scene: the Voyage view's, or the Systems view's
+  // unless turned off. They give way to a selected component's own details
+  const callouts =
+    isOntologyMode || liveSelection !== null || !isModelReady
+      ? null
+      : isVoyageView
+        ? VOYAGE_CALLOUTS
+        : liveView.isShowingCallouts
+          ? SYSTEMS_CALLOUTS
+          : null;
+  // The Voyage view's tree: its sections only, each with its reading
+  const voyageTree = useMemo(
+    () => tree.map((node) => ({ ...node, children: undefined })),
+    [tree]
+  );
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
@@ -230,7 +252,7 @@ export function ShipVisualizer() {
           )}
         >
           <OntologyExplorer
-            tree={tree}
+            tree={isVoyageView ? voyageTree : tree}
             visibleNodeIds={visibleNodeIds}
             onToggleSectionVisible={setSectionVisible}
             onSelect={(node) => {
@@ -243,11 +265,19 @@ export function ShipVisualizer() {
             footer={
               isOntologyMode ? (
                 <LiveWarningCard onOpen={handleOpenAlarm} />
+              ) : isVoyageView ? (
+                <VoyageSummary />
               ) : (
                 <AlarmsEventsList onOpen={handleOpenAlarm} />
               )
             }
-            renderReading={isOntologyMode ? undefined : renderLiveReading}
+            renderReading={
+              isOntologyMode
+                ? undefined
+                : isVoyageView
+                  ? renderVoyageReading
+                  : renderLiveReading
+            }
           />
         </div>
         <div
@@ -283,7 +313,19 @@ export function ShipVisualizer() {
                 </div>
               }
             >
-              <Scene isDetailsOpen={selectedStructureNode !== null}>
+              <Scene
+                // The gesture hints give way to the details, and to the
+                // Voyage view's own controls along the scene's bottom
+                isDetailsOpen={selectedStructureNode !== null || isVoyageView}
+                overlay={
+                  !isOntologyMode && (
+                    <>
+                      <LiveShipSpeed />
+                      {isVoyageView && <VoyageSceneOverlay />}
+                    </>
+                  )
+                }
+              >
                 <Ship
                   modelPath={renderedModelPath}
                   selectedStructureNode={selectedStructureNode}
@@ -296,7 +338,12 @@ export function ShipVisualizer() {
                   onAssemblyPointsSampled={setAssemblyTargets}
                   isInteractive={loading.isInteractive}
                 />
-                {isShowingCallouts && <CalloutAnchorProjector />}
+                {callouts && (
+                  <CalloutAnchorProjector
+                    key={liveView.view}
+                    callouts={callouts}
+                  />
+                )}
                 {liveSelection && (
                   // A fresh projector for each component: it finds its part anew
                   <SensorAnchorProjector
@@ -314,8 +361,10 @@ export function ShipVisualizer() {
                 )}
               </Scene>
             </SceneErrorFallback>
-            {isShowingCallouts && (
-              <SystemCallouts
+            {callouts && (
+              <LiveCallouts
+                key={liveView.view}
+                callouts={callouts}
                 onOpenComponent={handleSelectConnectedComponent}
               />
             )}
@@ -366,7 +415,12 @@ export function ShipVisualizer() {
               onShowSensors={() => void setMode("live")}
             />
           )}
-          {!isOntologyMode && !liveSelection && <SystemCardsStrip />}
+          {!isOntologyMode && !liveSelection && !isVoyageView && (
+            <SystemCardsStrip />
+          )}
+          {isVoyageView && (
+            <SystemCardsStrip cards={VOYAGE_CARDS} showsStatus={false} />
+          )}
           {liveSelection && (
             <SelectedComponentStrip
               componentLabel={liveSelection.label}

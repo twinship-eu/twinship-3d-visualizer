@@ -26,6 +26,12 @@ export type NavigationState = {
   rateOfTurnDegPerMin: number;
   /** The true wind: its speed in knots, and the bearing it blows from, degrees true. */
   trueWind: { speedKn: number; fromDeg: number };
+  /** Rudder angle, degrees, starboard positive. */
+  rudderDeg: number;
+  /** Drift angle, degrees: between heading and course over ground. */
+  driftDeg: number;
+  /** Cross-track error, nautical miles, off the planned route. */
+  crossTrackErrorNm: number;
   /** Null until a fix is received. */
   position: GeoPosition | null;
 };
@@ -64,6 +70,8 @@ export type ShipSystems = {
     powerMw: number;
     /** Controllable pitch, % of full. */
     pitchPct: number;
+    /** Propeller slip, %. */
+    slipPct: number;
   };
   energy: {
     /** Fuel burnt, tonnes per hour. */
@@ -98,6 +106,9 @@ export type ShipSystems = {
     slammingPerHour: number;
     /** Ballast tanks filled, %. */
     ballastPct: number;
+    /** Heave amplitude, m, and the period of the ship's roll, s. */
+    heaveM: number;
+    rollPeriodS: number;
   };
   deck: {
     /** Reefer container temperature, °C. */
@@ -111,6 +122,22 @@ export type ShipSystems = {
     radar: string;
     ais: string;
   };
+};
+
+/** A point of the planned route: its name, and how far along the route it is. */
+export type Waypoint = { name: string; atNm: number };
+
+/** The voyage: where from and to, how far along, and the route's waypoints. */
+export type VoyageState = {
+  origin: string;
+  destination: string;
+  /** The route's length, and how much of it is left, nautical miles. */
+  totalNm: number;
+  distanceToGoNm: number;
+  waypoints: Waypoint[];
+  /** The ship's economical and design speeds, knots. */
+  ecoSpeedKn: number;
+  designSpeedKn: number;
 };
 
 /** Where the snapshot comes from: the simulation, or the ship's own stream. */
@@ -127,6 +154,7 @@ export type LiveSnapshot = {
   autonomyLevel: string;
   navigation: NavigationState;
   systems: ShipSystems;
+  voyage: VoyageState;
   /** The sea round the ship. */
   sea: { significantWaveHeightM: number };
   /** Every sensor's latest reading, by its id (see the sensor catalogue). */

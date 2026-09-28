@@ -21,7 +21,7 @@ export function LiveViewControls({ view, onViewChange, isShowingCallouts, onShow
         onChange={onViewChange}
         options={[
           { value: "systems", label: "Systems", icon: LayoutGrid },
-          { value: "voyage", label: "Voyage", icon: Compass, disabledReason: "The Voyage view comes next" },
+          { value: "voyage", label: "Voyage", icon: Compass },
         ]}
       />
       {view === "systems" && (

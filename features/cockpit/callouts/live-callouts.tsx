@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 import { useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { Sparkline } from "../components/sparkline";
-import { CALLOUTS, type CalloutDefinition, type CalloutId } from "./callout-config";
+import type { CalloutDefinition, CalloutId } from "./callout-config";
 import { calloutAnchors } from "./callout-anchors";
 
 type Props = {
+  callouts: CalloutDefinition[];
   /** Opens a component, by its label: a card's link. */
   onOpenComponent: (label: string) => void;
 };
@@ -78,6 +79,19 @@ function CalloutBody({ id, snapshot, history }: { id: CalloutId; snapshot: LiveS
           </span>
         </div>
       );
+    case "voyageRotors":
+      return (
+        <span className="text-muted">
+          <b className="font-mono font-semibold text-ink">{systems.windAssist.thrustKn.toFixed(0)} kN</b> · auto-trim
+        </span>
+      );
+    case "voyagePropellers":
+      return (
+        <span className="text-muted">
+          <b className="font-mono font-semibold text-ink">{systems.propulsion.shaftRpm.toFixed(0)} rpm</b> · pitch{" "}
+          {systems.propulsion.pitchPct.toFixed(0)}% · slip {systems.propulsion.slipPct.toFixed(0)}%
+        </span>
+      );
     case "engine":
       return (
         <div className="flex flex-col gap-2">
@@ -126,7 +140,7 @@ function nearestOnRect(x: number, y: number, rect: DOMRect) {
 }
 
 /**
- * The Systems view's callouts, over the scene: a card for each part of the
+ * The Live data callouts, over the scene: a card for each part of the
  * ship with its live readings, and a line from the card to the part, which
  * follows it as the camera moves and the ship rides the waves.
  *
@@ -134,7 +148,7 @@ function nearestOnRect(x: number, y: number, rect: DOMRect) {
  * projector's anchors (`CalloutAnchorProjector`); the cards re-render only
  * with the live data, once a second.
  */
-export function SystemCallouts({ onOpenComponent }: Props) {
+export function LiveCallouts({ callouts, onOpenComponent }: Props) {
   const snapshot = useLiveData();
   const history = useLiveHistory();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,7 +163,7 @@ export function SystemCallouts({ onOpenComponent }: Props) {
       const container = containerRef.current;
       if (!container) return;
       const origin = container.getBoundingClientRect();
-      for (const { id } of CALLOUTS) {
+      for (const { id } of callouts) {
         const anchor = calloutAnchors[id];
         const card = cardRefs.current[id];
         const line = lineRefs.current[id];
@@ -172,14 +186,14 @@ export function SystemCallouts({ onOpenComponent }: Props) {
     };
     follow();
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [callouts]);
 
   if (!snapshot) return null;
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0 z-10 hidden lg:block" aria-label="Live callouts">
       <svg className="absolute inset-0 size-full overflow-visible" aria-hidden>
-        {CALLOUTS.map(({ id }) => (
+        {callouts.map(({ id }) => (
           <line
             key={id}
             ref={(element) => {
@@ -191,7 +205,7 @@ export function SystemCallouts({ onOpenComponent }: Props) {
           />
         ))}
       </svg>
-      {CALLOUTS.map((callout) => (
+      {callouts.map((callout) => (
         <span
           key={`${callout.id}-dot`}
           ref={(element) => {
@@ -202,7 +216,7 @@ export function SystemCallouts({ onOpenComponent }: Props) {
           aria-hidden
         />
       ))}
-      {CALLOUTS.map((callout) => (
+      {callouts.map((callout) => (
         <article
           key={callout.id}
           ref={(element) => {
@@ -214,14 +228,13 @@ export function SystemCallouts({ onOpenComponent }: Props) {
           <header className="flex items-center gap-2">
             <span className={cn("size-[7px] shrink-0 rounded-full", callout.dotClass)} aria-hidden />
             <h3 className="grow truncate text-[13px] font-semibold">{callout.title}</h3>
-            {callout.id === "engine" ? (
+            {callout.status === "normal" && (
               <span className="rounded-full bg-ok-soft px-2 py-px text-[11px] font-semibold text-ok">Normal</span>
-            ) : (
-              callout.id !== "propellers" && callout.id !== "deck" && <StatusOk />
             )}
+            {callout.status === "ok" && <StatusOk />}
           </header>
           <CalloutBody id={callout.id} snapshot={snapshot} history={history} />
-          {callout.id === "engine" && (
+          {callout.hasDetailsLink && (
             <button
               type="button"
               onClick={() => onOpenComponent(callout.componentLabel)}

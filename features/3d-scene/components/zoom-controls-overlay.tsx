@@ -4,7 +4,8 @@ import {
   DEFAULT_CAMERA_POSITION,
   DEFAULT_CAMERA_TARGET,
 } from "@/features/ship-visualizer/ship-visualizer-config";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Vector3 } from "three/webgpu";
 import { Anchor, Navigation, RotateCw, Ship, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCameraMotion } from "./camera-motion-context";
@@ -14,15 +15,23 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+
+type Point = [number, number, number];
 
 type ZoomActions = {
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+  /** Glides the camera to a position, looking at a target, over CAMERA_MOVE_SECONDS. */
+  moveCameraTo: (position: Point, target: Point) => void;
 };
+
+/** How long `moveCameraTo` takes, in seconds. */
+const CAMERA_MOVE_SECONDS = 0.8;
 
 type ZoomControlsContextValue = {
   actions: ZoomActions | null;
@@ -85,10 +94,48 @@ export function ZoomControlsBridge() {
     }
   }, [camera, controls]);
 
+  /** A camera move under way: where from and to, and how far through, 0 to 1. */
+  const move = useRef<{
+    fromPosition: Vector3;
+    toPosition: Vector3;
+    fromTarget: Vector3;
+    toTarget: Vector3;
+    progress: number;
+  } | null>(null);
+
+  const moveCameraTo = useCallback(
+    (position: Point, target: Point) => {
+      const orbitTarget =
+        controls && "target" in controls ? controls.target : new Vector3();
+      move.current = {
+        fromPosition: camera.position.clone(),
+        toPosition: new Vector3(...position),
+        fromTarget: orbitTarget.clone(),
+        toTarget: new Vector3(...target),
+        progress: 0,
+      };
+    },
+    [camera, controls]
+  );
+
+  useFrame((_, delta) => {
+    const current = move.current;
+    if (!current) return;
+    current.progress = Math.min(1, current.progress + delta / CAMERA_MOVE_SECONDS);
+    // Eased out: fast away, gently into place
+    const eased = 1 - (1 - current.progress) ** 3;
+    camera.position.lerpVectors(current.fromPosition, current.toPosition, eased);
+    if (controls && "target" in controls) {
+      controls.target.lerpVectors(current.fromTarget, current.toTarget, eased);
+      controls.update();
+    }
+    if (current.progress >= 1) move.current = null;
+  });
+
   useEffect(() => {
-    setActions({ zoomIn, zoomOut, resetZoom });
+    setActions({ zoomIn, zoomOut, resetZoom, moveCameraTo });
     return () => setActions(null);
-  }, [setActions, zoomIn, zoomOut, resetZoom]);
+  }, [setActions, zoomIn, zoomOut, resetZoom, moveCameraTo]);
 
   return null;
 }

@@ -31,7 +31,7 @@ import {
 } from "../lib/seascape-config";
 import { float } from "three/tsl";
 import { createContactFoam } from "../lib/seascape-contact-foam";
-import { useShipVoyage } from "./ship-voyage-context";
+import { shipSpeedOverride, useShipVoyage } from "./ship-voyage-context";
 import { createWake } from "../lib/seascape-wake";
 import { createSeaFrame, headOnTurn } from "../lib/seascape-sea-frame";
 import { apparentWind, weatherState } from "../lib/seascape-weather";
@@ -457,7 +457,9 @@ export function SceneSeascapeSurface() {
     // The ship sails on: the sea flows past it, bow (+z) to stern
     // Under way it gathers speed, and stopped it slows down, over a few
     // seconds: the wake and the ship's waves build up and die away with it
-    const speedKnots = IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.shipSpeedKnots : SHIP_SPEED_KNOTS;
+    // The ship's live speed when Live data gives one; else the panel's, or the default
+    const speedKnots =
+      shipSpeedOverride.knots ?? (IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.shipSpeedKnots : SHIP_SPEED_KNOTS);
     const targetSpeed = isTravelingRef.current ? speedKnots * METRES_PER_SECOND_PER_KNOT : 0;
     sea.speed += (targetSpeed - sea.speed) * (1 - Math.exp(-delta / SPEED_CHANGE_TIME));
     const speed = sea.speed;

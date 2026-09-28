@@ -5,6 +5,7 @@ import {
   SIMULATED_AUTONOMY_LEVEL,
   SIMULATED_BRIDGE,
   SIMULATED_CRANE_STATE,
+  SIMULATED_VOYAGE,
   SIMULATED_WAVE_HEIGHT,
   SIMULATION_SYSTEMS_BASELINE,
   SIMULATION_BASELINE,
@@ -27,6 +28,9 @@ type SimulatedState = {
   rateOfTurn: number;
   windSpeed: number;
   windFrom: number;
+  rudder: number;
+  crossTrackError: number;
+  distanceToGo: number;
   position: GeoPosition;
 };
 
@@ -89,6 +93,9 @@ export function createSimulatedSource(): LiveDataSource {
       rateOfTurn: base.rateOfTurnDegPerMin.value,
       windSpeed: base.trueWindSpeedKn.value,
       windFrom: base.trueWindFromDeg.value,
+      rudder: base.rudderDeg.value,
+      crossTrackError: base.crossTrackErrorNm.value,
+      distanceToGo: SIMULATED_VOYAGE.distanceToGoNm,
       position: { ...SIMULATION_START_POSITION },
     };
     const readings = Object.fromEntries(
@@ -109,7 +116,12 @@ export function createSimulatedSource(): LiveDataSource {
       rotors[1] = drift(rotors[1], { value: rotorBaseline.value - ROTOR_OFFSET_RPM, spread: rotorBaseline.spread });
 
       return {
-        propulsion: { shaftRpm: readings.shaftRpm, powerMw: readings.shaftPowerMw, pitchPct: readings.pitchPct },
+        propulsion: {
+          shaftRpm: readings.shaftRpm,
+          powerMw: readings.shaftPowerMw,
+          pitchPct: readings.pitchPct,
+          slipPct: readings.slipPct,
+        },
         energy: {
           fuelTph: readings.fuelTph,
           engineLoadPct: readings.engineLoadPct,
@@ -132,6 +144,8 @@ export function createSimulatedSource(): LiveDataSource {
           trimM: readings.draftAftM - readings.draftForeM,
           slammingPerHour: readings.slammingPerHour,
           ballastPct: readings.ballastPct,
+          heaveM: readings.heaveM,
+          rollPeriodS: readings.rollPeriodS,
         },
         deck: {
           reeferTempC: readings.reeferTempC,
@@ -155,8 +169,12 @@ export function createSimulatedSource(): LiveDataSource {
       state.rateOfTurn = drift(state.rateOfTurn, base.rateOfTurnDegPerMin);
       state.windSpeed = drift(state.windSpeed, base.trueWindSpeedKn);
       state.windFrom = drift(state.windFrom, base.trueWindFromDeg);
+      state.rudder = drift(state.rudder, base.rudderDeg);
+      state.crossTrackError = drift(state.crossTrackError, base.crossTrackErrorNm);
       const course = wrapDegrees(state.heading + state.courseOffset);
       state.position = sail(state.position, course, state.speedOverGround, intervalSeconds);
+      // The route shortens with the way made good, until the ship arrives
+      state.distanceToGo = Math.max(0, state.distanceToGo - (state.speedOverGround * intervalSeconds) / SECONDS_PER_HOUR);
 
       onSnapshot({
         timestamp: Date.now(),
@@ -170,7 +188,15 @@ export function createSimulatedSource(): LiveDataSource {
           speedThroughWaterKn: state.speedThroughWater,
           rateOfTurnDegPerMin: state.rateOfTurn,
           trueWind: { speedKn: state.windSpeed, fromDeg: wrapDegrees(state.windFrom) },
+          rudderDeg: state.rudder,
+          driftDeg: state.courseOffset,
+          crossTrackErrorNm: state.crossTrackError,
           position: state.position,
+        },
+        voyage: {
+          ...SIMULATED_VOYAGE,
+          waypoints: SIMULATED_VOYAGE.waypoints.map((waypoint) => ({ ...waypoint })),
+          distanceToGoNm: state.distanceToGo,
         },
         systems: systemsNow(),
         sea: { significantWaveHeightM: (waveHeight = drift(waveHeight, SIMULATED_WAVE_HEIGHT)) },
