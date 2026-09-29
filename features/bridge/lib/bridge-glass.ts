@@ -10,13 +10,13 @@ import {
   Vector3,
 } from "three/webgpu";
 import {
-  GLASS_FACES,
+  GLASS_MATCH_DISTANCE,
   GLASS_OPACITY,
+  GLASS_TRIANGLE_CENTRES,
   HUD_INTENSITY,
   HUD_TEXTURE_PIXELS_PER_UNIT,
-  HUD_WINDOWS,
+  HUD_WINDOW_CENTRES,
   NIGHT_GLASS_OPACITY,
-  ROOM_FACE_COUNT,
 } from "../bridge-config";
 
 /** The glass: a faint tint by day; by night dark, dimming the view as the bridge's night does. */
@@ -27,8 +27,8 @@ const HUD_RENDER_ORDER = 30;
 /** How far inside its window the HUD sits, in the room's own units: just off the glass. */
 const HUD_OFFSET = 0.0015;
 
-/** A front window carrying the HUD: its canvas, drawn on, and the texture showing it. */
-export type BridgeWindow = { canvas: HTMLCanvasElement; texture: CanvasTexture };
+/** A front window carrying the HUD: its canvas, drawn on, the texture showing it, and the mesh one clicks. */
+export type BridgeWindow = { canvas: HTMLCanvasElement; texture: CanvasTexture; mesh: Mesh };
 
 export type BridgeGlass = {
   windows: BridgeWindow[];
@@ -91,7 +91,29 @@ function hudOver(room: Mesh, faces: readonly number[]) {
   canvasTexture.colorSpace = SRGBColorSpace;
   const mesh = new Mesh(geometry, hudMaterial(canvasTexture));
   mesh.renderOrder = HUD_RENDER_ORDER;
-  return { mesh, window: { canvas, texture: canvasTexture } };
+  return { mesh, window: { canvas, texture: canvasTexture, mesh } };
+}
+
+/** The mesh's triangles whose centres are at these points, in its own space; -1 for a point with none. */
+function facesAt(mesh: Mesh, centres: readonly (readonly number[])[]) {
+  const index = mesh.geometry.index;
+  const position = mesh.geometry.attributes.position;
+  const faceCount = (index?.count ?? position.count) / 3;
+  const corner = (face: number, side: number) => index?.getX(face * 3 + side) ?? face * 3 + side;
+  const faceCentres = Array.from({ length: faceCount }, (_, face) => {
+    let x = 0;
+    let y = 0;
+    let z = 0;
+    for (let side = 0; side < 3; side++) {
+      x += position.getX(corner(face, side)) / 3;
+      y += position.getY(corner(face, side)) / 3;
+      z += position.getZ(corner(face, side)) / 3;
+    }
+    return [x, y, z];
+  });
+  return centres.map(([x, y, z]) =>
+    faceCentres.findIndex((centre) => Math.hypot(centre[0] - x, centre[1] - y, centre[2] - z) < GLASS_MATCH_DISTANCE)
+  );
 }
 
 /**
@@ -100,16 +122,20 @@ function hudOver(room: Mesh, faces: readonly number[]) {
  * for a mesh of glass one sees through — every window, all round — and the
  * two front windows by the centreline carry the HUD.
  *
- * Null when the room is not the one the windows were found in.
+ * Null when the room is not the one the windows were found in: not every
+ * window's triangle is where it was.
  */
 export function buildBridgeGlass(room: Mesh): BridgeGlass | null {
   const index = room.geometry.index;
-  if (!index || index.count / 3 !== ROOM_FACE_COUNT) return null;
+  if (!index) return null;
+  const glassFaces = facesAt(room, GLASS_TRIANGLE_CENTRES);
+  const hudFaces = HUD_WINDOW_CENTRES.map((centres) => facesAt(room, centres));
+  if (glassFaces.includes(-1) || hudFaces.some((faces) => faces.includes(-1))) return null;
 
   const original = Uint32Array.from(index.array as ArrayLike<number>);
   const withoutGlass = Uint32Array.from(original);
   const glassIndex: number[] = [];
-  for (const face of GLASS_FACES) {
+  for (const face of glassFaces) {
     for (let side = 0; side < 3; side++) glassIndex.push(original[face * 3 + side]);
     // Out of the shell: collapsed to its first corner
     withoutGlass[face * 3 + 1] = withoutGlass[face * 3];
@@ -131,7 +157,7 @@ export function buildBridgeGlass(room: Mesh): BridgeGlass | null {
   glass.visible = false;
   room.add(glass);
 
-  const huds = HUD_WINDOWS.map((faces) => hudOver(room, faces));
+  const huds = hudFaces.map((faces) => hudOver(room, faces));
   huds.forEach(({ mesh }) => {
     mesh.visible = false;
     room.add(mesh);

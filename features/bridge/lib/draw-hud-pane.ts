@@ -16,6 +16,9 @@ export type WindowDrawing = {
   cards: CardDrawing[];
 };
 
+/** Where a card was drawn on its window, as shares of the canvas from its top left: to click it. */
+export type CardArea = { system: PaneSystem; left: number; top: number; right: number; bottom: number };
+
 /** Each card's own box, in its drawing's units: scaled to its cell of the window. */
 const CARD_WIDTH = 560;
 const CARD_HEIGHT = 244;
@@ -167,10 +170,10 @@ function systemCard(ctx: Ctx, drawing: CardDrawing, x: number, y: number, width:
  * draws them largest, each scaled to fill its cell, so it reads from across
  * the room. Transparent where nothing is drawn: the sea shows.
  */
-export function drawHudWindow(ctx: Ctx, { cards }: WindowDrawing) {
+export function drawHudWindow(ctx: Ctx, { cards }: WindowDrawing): CardArea[] {
   const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
-  if (cards.length === 0) return;
+  if (cards.length === 0) return [];
 
   // The grid that draws the cards the largest: stacked, side by side, or between
   const margin = height * MARGIN_SHARE;
@@ -182,7 +185,7 @@ export function drawHudWindow(ctx: Ctx, { cards }: WindowDrawing) {
     return { columns, cellWidth, cellHeight, scale: Math.min(cellWidth / CARD_WIDTH, cellHeight / CARD_HEIGHT) };
   });
   const { columns, cellWidth, cellHeight, scale } = layouts.reduce((best, layout) => (layout.scale > best.scale ? layout : best));
-  cards.forEach((card, index) => {
+  return cards.map((card, index) => {
     const column = index % columns;
     const row = Math.floor(index / columns);
     const x = margin + column * (cellWidth + margin) + (cellWidth - CARD_WIDTH * scale) / 2;
@@ -192,5 +195,12 @@ export function drawHudWindow(ctx: Ctx, { cards }: WindowDrawing) {
     ctx.scale(scale, scale);
     systemCard(ctx, card, 0, card.system === "nav" ? 8 : 0, CARD_WIDTH);
     ctx.restore();
+    return {
+      system: card.system,
+      left: x / width,
+      top: y / height,
+      right: (x + CARD_WIDTH * scale) / width,
+      bottom: (y + CARD_HEIGHT * scale) / height,
+    };
   });
 }

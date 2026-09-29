@@ -4,6 +4,7 @@ import { AssistantHighlights } from "@/features/assistant/components/assistant-h
 import { BridgeView } from "@/features/bridge/components/bridge-view";
 import { useBridgeState } from "@/features/bridge/lib/bridge-store";
 import { HighlightProjector } from "@/features/assistant/components/highlight-projector";
+import { useEffect, useRef } from "react";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { CalloutAnchorProjector } from "../callouts/callout-anchor-projector";
 import type { CalloutDefinition } from "../callouts/callout-config";
@@ -68,7 +69,14 @@ export function LiveSceneOverlays({
   onOverview,
 }: OverlayProps) {
   // On the bridge the glass carries the readings: the callouts give way
-  const { isActive: isOnBridge } = useBridgeState();
+  const { isActive: isOnBridge, openRequest } = useBridgeState();
+  // A card clicked on the glass: its component opened, which takes the view off the bridge
+  const handledOpen = useRef<number | null>(openRequest?.count ?? null);
+  useEffect(() => {
+    if (!openRequest || openRequest.count === handledOpen.current) return;
+    handledOpen.current = openRequest.count;
+    onOpenComponent(openRequest.componentLabel);
+  }, [openRequest, onOpenComponent]);
   if (liveSelection) {
     return (
       <>

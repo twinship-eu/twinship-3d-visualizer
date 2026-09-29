@@ -8,11 +8,15 @@ export type BridgeState = {
   isActive: boolean;
   hudMode: HudMode;
   isNight: boolean;
+  /** Whether the mouse is looking about: the pointer taken, as in a game, until Esc. */
+  isMouseLook: boolean;
+  /** A component asked for from the glass — its card clicked — for the page to open; its count tells repeats apart. */
+  openRequest: { componentLabel: string; count: number } | null;
   /** The systems each HUD window shows: the left window first, each in order. */
   windows: PaneSystem[][];
 };
 
-const INITIAL: BridgeState = { isActive: false, hudMode: "full", isNight: false, windows: DEFAULT_WINDOW_SYSTEMS };
+const INITIAL: BridgeState = { isActive: false, hudMode: "full", isNight: false, isMouseLook: false, openRequest: null, windows: DEFAULT_WINDOW_SYSTEMS };
 
 let state = INITIAL;
 const listeners = new Set<() => void>();
@@ -42,6 +46,10 @@ export const getBridgeState = () => state;
 export const setBridgeActive = (isActive: boolean) => update({ isActive });
 export const setHudMode = (hudMode: HudMode) => update({ hudMode });
 export const setNight = (isNight: boolean) => update({ isNight });
+export const setMouseLook = (isMouseLook: boolean) => update({ isMouseLook });
+/** Asks the page to open a component: off the bridge, onto it. */
+export const requestOpen = (componentLabel: string) =>
+  update({ openRequest: { componentLabel, count: (state.openRequest?.count ?? 0) + 1 } });
 
 /** Moves a system to the end of a window; a window keeps at least one. */
 export function moveToWindow(system: PaneSystem, windowIndex: number) {

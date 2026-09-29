@@ -9,25 +9,43 @@ export const CONTROL_ROOM_OBJECT_NAME = "ControlRoom";
 export const CONTROL_ROOM_LABEL = "Control room";
 
 /**
- * The room's windows: their triangles in its mesh, found by their glass in
- * its texture (the lighter blue) — 26 windows of two triangles: the front
- * row, the wings, the sides and the back. For the mesh they were found in,
- * whose triangle count is checked: another export is left as it is.
+ * The room's windows: the centres of their triangles, in its mesh's own
+ * space, found by their glass in its texture (the lighter blue) — 26 windows
+ * of two triangles: the front row, the wings, the sides and the back. By
+ * position, not by index: the model's two builds (WebP and KTX2) order the
+ * room's triangles differently. A triangle is a window's when its centre is
+ * within GLASS_MATCH_DISTANCE of one of these.
  */
-export const ROOM_FACE_COUNT = 1088;
-export const GLASS_FACES = [
-  242, 248, 430, 431, 450, 456, 466, 467, 520, 521, 634, 638, 647, 651, 656, 658, 666, 670, 684, 688, 694, 698, 705, 709, 722, 726,
-  740, 744, 783, 784, 795, 796, 805, 806, 979, 982, 988, 991, 1007, 1010, 1017, 1027, 1028, 1069, 1070, 1077, 1078, 1079, 1080,
-  1081, 1084, 1085,
-] as const;
+export const GLASS_TRIANGLE_CENTRES: readonly (readonly [number, number, number])[] = [
+  [-0.6072, -0.0356, -0.1202], [-0.6656, 0.0258, -0.1165], [0.0834, 0.0258, -0.402], [0.1528, -0.0356, -0.3903],
+  [-0.9436, -0.0368, -0.1994], [-0.9436, 0.0244, -0.2273], [-0.2864, -0.0356, 0.3998], [-0.3457, 0.0258, 0.4113],
+  [-0.9436, 0.0244, -0.3557], [-0.9436, -0.0368, -0.3163], [-0.3969, -0.0356, -0.3903], [-0.3236, 0.0258, -0.402],
+  [-0.4407, -0.0367, 0.2937], [-0.4277, 0.0244, 0.3544], [-0.8144, 0.0258, -0.1358], [-0.875, -0.0356, -0.155],
+  [-0.87, -0.0356, -0.3903], [-0.8047, 0.0258, -0.402], [0.9436, -0.0368, -0.1994], [0.9436, 0.0244, -0.2273],
+  [0.9436, -0.0368, -0.3163], [0.9436, 0.0244, -0.3557], [-0.5158, -0.0367, -0.0466], [-0.5027, 0.0244, 0.0141],
+  [-0.6403, -0.0356, -0.3903], [-0.5693, 0.0258, -0.402], [-0.1528, -0.0356, -0.3903], [-0.0834, 0.0258, -0.402],
+  [0.5693, 0.0258, -0.402], [0.6403, -0.0356, -0.3903], [0.3236, 0.0258, -0.402], [0.3969, -0.0356, -0.3903],
+  [0.8047, 0.0258, -0.402], [0.87, -0.0356, -0.3903], [0.4407, -0.0367, 0.2937], [0.4277, 0.0244, 0.3544],
+  [0.8144, 0.0258, -0.1358], [0.875, -0.0356, -0.155], [0.5158, -0.0367, -0.0466], [0.5027, 0.0244, 0.0141],
+  [0.4782, -0.0367, 0.1235], [0.6072, -0.0356, -0.1202], [0.6656, 0.0258, -0.1165], [0.1357, 0.0258, 0.4113],
+  [0.0753, -0.0356, 0.3998], [0.3457, 0.0258, 0.4113], [0.2864, -0.0356, 0.3998], [0.4653, 0.0244, 0.1843],
+  [-0.4653, 0.0244, 0.1843], [-0.4782, -0.0367, 0.1235], [-0.0753, -0.0356, 0.3998], [-0.1357, 0.0258, 0.4113],
+];
+export const GLASS_MATCH_DISTANCE = 0.003;
 /**
  * The two front windows by the centreline that carry the HUD — left and
- * right as seen from inside, looking over the bow: all the stats on them, so
- * one need not walk round the room to read them.
+ * right as seen from inside, looking over the bow — by their triangles'
+ * centres: all the stats on them, so one need not walk round to read them.
  */
-export const HUD_WINDOWS = [
-  [1069, 1070],
-  [1084, 1085],
+export const HUD_WINDOW_CENTRES = [
+  [
+    [0.1357, 0.0258, 0.4113],
+    [0.0753, -0.0356, 0.3998],
+  ],
+  [
+    [-0.0753, -0.0356, 0.3998],
+    [-0.1357, 0.0258, 0.4113],
+  ],
 ] as const;
 /** The HUD's canvas resolution, in pixels per world unit of window. */
 export const HUD_TEXTURE_PIXELS_PER_UNIT = 1400;
@@ -59,8 +77,8 @@ export const NIGHT_GLASS_OPACITY = 0.72;
 
 /** How far the eye may look up and down, in degrees: round, it turns all the way. */
 export const LOOK_LIMITS = { pitchUp: 20, pitchDown: 30 } as const;
-/** Degrees the view turns per CSS pixel dragged. */
-export const LOOK_SPEED = 0.18;
+/** Degrees the view turns per pixel the mouse moves, while it looks about (the pointer taken). */
+export const MOUSE_LOOK_SPEED = 0.12;
 /** The field of view the wheel zooms between, degrees; the bridge opens at the widest. */
 export const FOV_LIMITS = { narrowest: 26, widest: 56 } as const;
 export const FOV_STEP = 4;

@@ -2,21 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Euler, Mesh, PerspectiveCamera, Quaternion, Vector3 } from "three/webgpu";
+import { Euler, Mesh, PerspectiveCamera, Quaternion, Raycaster, Vector2, Vector3, type Camera } from "three/webgpu";
 import { activeAlarmOn, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import {
   CONTROL_ROOM_OBJECT_NAME,
   EYE_START,
   FOV_STEP,
   HUD_PALETTES,
-  LOOK_SPEED,
+  MOUSE_LOOK_SPEED,
   PANE_SYSTEM_INFO,
   SCENE_FOV,
 } from "../bridge-config";
 import { buildBridgeGlass, type BridgeGlass } from "../lib/bridge-glass";
-import { useBridgeState } from "../lib/bridge-store";
+import { requestOpen, setMouseLook, useBridgeState } from "../lib/bridge-store";
 import { createBridgeWalk } from "../lib/bridge-walk";
-import { drawHudWindow } from "../lib/draw-hud-pane";
+import { drawHudWindow, type CardArea } from "../lib/draw-hud-pane";
 
 /**
  * Where in the frame the camera is put: after the orbit controls (-1) and the
@@ -31,9 +31,30 @@ const FACING_BOW = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.
 type OrbitControlsLike = { enabled: boolean };
 
 /**
+ * The component under a point of the view (NDC; the centre while the mouse
+ * looks about), if the point is on a card of the HUD that stands for one.
+ */
+function componentAt(bridge: BridgeGlass | null, areas: CardArea[][], camera: Camera, point: Vector2) {
+  if (!bridge) return null;
+  const raycaster = new Raycaster();
+  raycaster.setFromCamera(point, camera);
+  const hit = raycaster.intersectObjects(
+    bridge.windows.map((window) => window.mesh),
+    false
+  )[0];
+  if (!hit?.uv) return null;
+  const windowIndex = bridge.windows.findIndex((window) => window.mesh === hit.object);
+  // The canvas's top is the texture's v = 1
+  const x = hit.uv.x;
+  const y = 1 - hit.uv.y;
+  const card = areas[windowIndex]?.find((area) => x >= area.left && x <= area.right && y >= area.top && y <= area.bottom);
+  return card ? PANE_SYSTEM_INFO[card.system].componentLabel : null;
+}
+
+/**
  * Inside the Canvas: the bridge. While it is on, the camera stands in the
- * control room — riding the ship, turned all the way round by dragging,
- * walked about by the keys, zoomed by the wheel, never out of the room —
+ * control room — riding the ship, turned all the way round by the mouse as
+ * in a game, walked about by the keys, zoomed by the wheel, never out of the room —
  * every window is glass, and the two front ones carry the HUD, redrawn with
  * each snapshot.
  */
@@ -45,6 +66,9 @@ export function BridgeView() {
   const glass = useRef<BridgeGlass | null>(null);
   const room = useRef<Mesh | null>(null);
   const walk = useRef(createBridgeWalk());
+  /** Where each window's cards were last drawn: a click on one opens its component. */
+  const cardAreas = useRef<CardArea[][]>([]);
+
 
   // The glass, built on the first visit and kept: the room as modelled while the bridge is off
   useEffect(() => {
@@ -78,23 +102,35 @@ export function BridgeView() {
     };
   }, [isActive, get]);
 
-  // Looking and walking about: drag to turn, the keys to walk, the wheel to zoom, a double click to start over
+  // Looking and walking about, as in a game: a click takes the pointer and the
+  // mouse turns the view, Esc gives it back; the keys walk, the wheel zooms,
+  // a double click starts over
   useEffect(() => {
     if (!isActive) return;
     const element = get().gl.domElement;
     const state = walk.current;
-    let dragFrom: { x: number; y: number } | null = null;
+    const isLooking = () => document.pointerLockElement === element;
     const onDown = (event: PointerEvent) => {
-      if (event.button === 0) dragFrom = { x: event.clientX, y: event.clientY };
+      if (event.button !== 0) return;
+      // A card clicked — at the aim, or under the pointer — opens its component, off the bridge
+      const rect = element.getBoundingClientRect();
+      const point = isLooking()
+        ? new Vector2(0, 0)
+        : new Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+      const componentLabel = componentAt(glass.current, cardAreas.current, get().camera, point);
+      if (componentLabel) {
+        if (isLooking()) document.exitPointerLock();
+        requestOpen(componentLabel);
+        return;
+      }
+      if (isLooking()) return;
+      // Refused by the browser (a sandbox, a too-quick re-lock after Esc): the view simply stays
+      void Promise.resolve(element.requestPointerLock()).catch(() => undefined);
     };
-    const onMove = (event: PointerEvent) => {
-      if (!dragFrom) return;
-      state.turn((event.clientX - dragFrom.x) * LOOK_SPEED, (event.clientY - dragFrom.y) * LOOK_SPEED);
-      dragFrom = { x: event.clientX, y: event.clientY };
+    const onMove = (event: MouseEvent) => {
+      if (isLooking()) state.turn(event.movementX * MOUSE_LOOK_SPEED, event.movementY * MOUSE_LOOK_SPEED);
     };
-    const onUp = () => {
-      dragFrom = null;
-    };
+    const onLockChange = () => setMouseLook(isLooking());
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       state.zoom(Math.sign(event.deltaY) * FOV_STEP);
@@ -107,21 +143,24 @@ export function BridgeView() {
     const onKeyUp = onKey(false);
     const onDoubleClick = () => state.reset();
     element.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("pointerlockchange", onLockChange);
     element.addEventListener("wheel", onWheel, { passive: false });
     element.addEventListener("dblclick", onDoubleClick);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     return () => {
       element.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("pointerlockchange", onLockChange);
       element.removeEventListener("wheel", onWheel);
       element.removeEventListener("dblclick", onDoubleClick);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       state.release();
+      // Off the bridge, the pointer is the user's again
+      if (isLooking()) document.exitPointerLock();
+      setMouseLook(false);
     };
   }, [isActive, get]);
 
@@ -141,7 +180,7 @@ export function BridgeView() {
           return { system, snapshot, history, palette, isAlarmed };
         })
         .filter((card) => hudMode === "full" || (hudMode === "alarms" && card.isAlarmed));
-      drawHudWindow(context, { cards });
+      cardAreas.current[index] = drawHudWindow(context, { cards });
       window.texture.needsUpdate = true;
     });
   }, [isActive, snapshot, history, hudMode, isNight, windows]);
