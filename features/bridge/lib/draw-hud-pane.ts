@@ -1,18 +1,26 @@
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
-import { PANE_SYSTEM_INFO, type HudPalette, type PaneSystem } from "../bridge-config";
+import type { HudPalette, PaneSystem } from "../bridge-config";
 
-/** What a pane is drawn with: its place, what it shows, the data, and how. */
-export type PaneDrawing = {
-  index: number;
+/** What a system's card is drawn with: the system, the data, and how. */
+type CardDrawing = {
   system: PaneSystem;
   snapshot: LiveSnapshot;
   history: LiveSnapshot[];
   palette: HudPalette;
-  /** Its system has an alarm waiting: the pane turns amber. */
+  /** Its system has an alarm waiting: the card turns amber. */
   isAlarmed: boolean;
-  /** Only its tag and frame: the HUD shows alarms only, or clear glass. */
-  isBlank: boolean;
 };
+
+/** What a window's HUD is drawn with: its systems' cards, those shown. */
+export type WindowDrawing = {
+  cards: CardDrawing[];
+};
+
+/** Each card's own box, in its drawing's units: scaled to its cell of the window. */
+const CARD_WIDTH = 560;
+const CARD_HEIGHT = 244;
+/** Room round and between the cards, as a share of the window's height. */
+const MARGIN_SHARE = 0.05;
 
 const SANS = "600 {size}px system-ui, -apple-system, 'Segoe UI', sans-serif";
 const MONO = "600 {size}px ui-monospace, 'SF Mono', Menlo, monospace";
@@ -86,7 +94,7 @@ function sparkline(ctx: Ctx, values: number[], x: number, y: number, width: numb
 }
 
 /** Each system's card, drawn in its box: the design's glass panels. */
-function systemCard(ctx: Ctx, drawing: PaneDrawing, x: number, y: number, width: number) {
+function systemCard(ctx: Ctx, drawing: CardDrawing, x: number, y: number, width: number) {
   const { system, snapshot, history, palette, isAlarmed } = drawing;
   const { energy, windAssist, propulsion, hull, deck } = snapshot.systems;
   const status = isAlarmed ? { label: "WARN", color: palette.warn } : { label: "OK", color: palette.ok };
@@ -155,25 +163,34 @@ function systemCard(ctx: Ctx, drawing: PaneDrawing, x: number, y: number, width:
 }
 
 /**
- * A pane's HUD, drawn on its canvas: its tag (P1 · ENERGY) and its system's
- * card in the upper part of the glass, the lower part left clear to see the
- * sea through. Transparent where nothing is drawn.
+ * A window's HUD, drawn on its canvas: its systems' cards in the grid that
+ * draws them largest, each scaled to fill its cell, so it reads from across
+ * the room. Transparent where nothing is drawn: the sea shows.
  */
-export function drawHudPane(ctx: Ctx, drawing: PaneDrawing) {
+export function drawHudWindow(ctx: Ctx, { cards }: WindowDrawing) {
   const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
-  const { index, system, palette, isAlarmed, isBlank } = drawing;
-  const tag = `P${index + 1} · ${PANE_SYSTEM_INFO[system].title}${isAlarmed ? " ⚠" : ""}`;
+  if (cards.length === 0) return;
 
-  ctx.font = font(MONO, 22);
-  const tagWidth = ctx.measureText(tag).width + 28;
-  ctx.beginPath();
-  ctx.roundRect(24, 20, tagWidth, 38, 8);
-  ctx.fillStyle = isAlarmed ? "rgba(255, 196, 84, 0.25)" : palette.card;
-  ctx.fill();
-  text(ctx, tag, 38, 47, MONO, 22, isAlarmed ? palette.warn : palette.muted);
-  if (isBlank) return;
-
-  const cardWidth = Math.min(width - 60, 560);
-  systemCard(ctx, drawing, (width - cardWidth) / 2, 86, cardWidth);
+  // The grid that draws the cards the largest: stacked, side by side, or between
+  const margin = height * MARGIN_SHARE;
+  const layouts = Array.from({ length: cards.length }, (_, index) => {
+    const columns = index + 1;
+    const rows = Math.ceil(cards.length / columns);
+    const cellWidth = (width - margin * (columns + 1)) / columns;
+    const cellHeight = (height - margin * (rows + 1)) / rows;
+    return { columns, cellWidth, cellHeight, scale: Math.min(cellWidth / CARD_WIDTH, cellHeight / CARD_HEIGHT) };
+  });
+  const { columns, cellWidth, cellHeight, scale } = layouts.reduce((best, layout) => (layout.scale > best.scale ? layout : best));
+  cards.forEach((card, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const x = margin + column * (cellWidth + margin) + (cellWidth - CARD_WIDTH * scale) / 2;
+    const y = margin + row * (cellHeight + margin);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    systemCard(ctx, card, 0, card.system === "nav" ? 8 : 0, CARD_WIDTH);
+    ctx.restore();
+  });
 }

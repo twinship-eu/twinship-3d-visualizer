@@ -38,7 +38,7 @@ export function BridgeControls() {
         Night
       </button>
       </div>
-      <span className="text-[12px] text-white/80 drop-shadow">Camera: control room · drag to look · wheel to zoom · double-click to look ahead</span>
+      <span className="text-[12px] text-white/80 drop-shadow">On the bridge · drag to look round · W A S D or arrows to walk · wheel to zoom · double-click to start over</span>
     </div>
   );
 }

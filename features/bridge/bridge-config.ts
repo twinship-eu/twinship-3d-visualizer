@@ -1,31 +1,52 @@
 /**
- * The bridge view: the camera in the control room, looking ahead through its
- * windows, each window a pane of glass showing one system — the head-up
- * display the cockpit design calls "two layers on the glass".
+ * The bridge view: the camera in the control room, free to walk and look
+ * about in it and out through all its windows; the two front windows carry
+ * the head-up display — the cockpit design's "layers on the glass".
  */
 
-/** The model's control room, whose windows the panes are fitted to, and its label in the tree. */
+/** The model's control room, whose windows turn to glass, and its label in the tree. */
 export const CONTROL_ROOM_OBJECT_NAME = "ControlRoom";
 export const CONTROL_ROOM_LABEL = "Control room";
 
 /**
- * Where the eye is in the control room, as shares of its bounding box: across
- * (x), up (y) and along the ship (z, 0 aft) — standing at the consoles, a
- * few metres from the front windows, looking out over the bow: the room is
- * deep, and from its back the windows were a thin band far off.
+ * The room's windows: their triangles in its mesh, found by their glass in
+ * its texture (the lighter blue) — 26 windows of two triangles: the front
+ * row, the wings, the sides and the back. For the mesh they were found in,
+ * whose triangle count is checked: another export is left as it is.
  */
-export const EYE_IN_ROOM = { x: 0.5, y: 0.5, z: 0.68 } as const;
+export const ROOM_FACE_COUNT = 1088;
+export const GLASS_FACES = [
+  242, 248, 430, 431, 450, 456, 466, 467, 520, 521, 634, 638, 647, 651, 656, 658, 666, 670, 684, 688, 694, 698, 705, 709, 722, 726,
+  740, 744, 783, 784, 795, 796, 805, 806, 979, 982, 988, 991, 1007, 1010, 1017, 1027, 1028, 1069, 1070, 1077, 1078, 1079, 1080,
+  1081, 1084, 1085,
+] as const;
+/**
+ * The two front windows by the centreline that carry the HUD — left and
+ * right as seen from inside, looking over the bow: all the stats on them, so
+ * one need not walk round the room to read them.
+ */
+export const HUD_WINDOWS = [
+  [1069, 1070],
+  [1084, 1085],
+] as const;
+/** The HUD's canvas resolution, in pixels per world unit of window. */
+export const HUD_TEXTURE_PIXELS_PER_UNIT = 1400;
 
-/** The panes across the front windows: how many, and the frames between them, in world units. */
-export const PANE_COUNT = 5;
-export const PANE_MULLION_WIDTH = 0.14;
-/** How far in from the room's front face the glass sits, and how far in from its sides. */
-export const PANE_INSET = { front: 0.25, side: 0.35 } as const;
-/** The panes' share of the room's height: from the sill to the head. */
-export const PANE_HEIGHT_SHARE = { from: 0.1, to: 0.92 } as const;
-
-/** Each pane's HUD texture, in pixels: the pane's own proportions are set from the room. */
-export const PANE_TEXTURE_HEIGHT = 512;
+/**
+ * Where the eye starts, in the room's own space (about -1 to 1 across):
+ * at the windows' mid-height, a few metres back from the front ones.
+ */
+export const EYE_START = { x: 0, y: -0.005, z: 0.1 } as const;
+/**
+ * The floor one may walk, in the room's own space: its wide aft part, between
+ * the wings, and its narrower forward part — inside its walls, off the glass.
+ */
+export const WALKABLE_AREAS = [
+  { x: [-0.86, 0.86], z: [-0.34, -0.17] },
+  { x: [-0.37, 0.37], z: [-0.17, 0.35] },
+] as const;
+/** Walking speed, in the room's own units per second. */
+export const WALK_SPEED = 0.16;
 
 /**
  * How bright the HUD's light is on the glass, over white: past 1, the bloom
@@ -36,8 +57,8 @@ export const HUD_INTENSITY = 3.4;
 export const GLASS_OPACITY = 0.07;
 export const NIGHT_GLASS_OPACITY = 0.72;
 
-/** How far the eye may turn, in degrees: left and right, up and down — inside the room, looking out. */
-export const LOOK_LIMITS = { yaw: 76, pitchUp: 14, pitchDown: 24 } as const;
+/** How far the eye may look up and down, in degrees: round, it turns all the way. */
+export const LOOK_LIMITS = { pitchUp: 20, pitchDown: 30 } as const;
 /** Degrees the view turns per CSS pixel dragged. */
 export const LOOK_SPEED = 0.18;
 /** The field of view the wheel zooms between, degrees; the bridge opens at the widest. */
@@ -46,13 +67,17 @@ export const FOV_STEP = 4;
 /** The scene's own field of view, restored on leaving the bridge. */
 export const SCENE_FOV = 45;
 
-/** What the panes show: every system, only those alarmed, or nothing — clear glass. */
+/** What the HUD shows: every system, only those alarmed, or nothing — clear glass. */
 export const HUD_MODES = ["full", "alarms", "clear"] as const;
 export type HudMode = (typeof HUD_MODES)[number];
 
-/** The systems a pane can show, the design's P1-P5 by default. */
+/** The systems the HUD shows, and the window each is on by default: left, then right. */
 export const PANE_SYSTEMS = ["energy", "wind", "nav", "hull", "propulsion"] as const;
 export type PaneSystem = (typeof PANE_SYSTEMS)[number];
+export const DEFAULT_WINDOW_SYSTEMS: PaneSystem[][] = [
+  ["nav", "hull"],
+  ["energy", "wind", "propulsion"],
+];
 
 export const PANE_SYSTEM_INFO: Record<PaneSystem, { title: string; label: string; componentLabel: string | null }> = {
   energy: { title: "ENERGY", label: "Energy system", componentLabel: "Engine" },

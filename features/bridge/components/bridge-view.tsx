@@ -2,21 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three/webgpu";
+import { Euler, Mesh, PerspectiveCamera, Quaternion, Vector3 } from "three/webgpu";
 import { activeAlarmOn, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import {
   CONTROL_ROOM_OBJECT_NAME,
-  FOV_LIMITS,
+  EYE_START,
   FOV_STEP,
   HUD_PALETTES,
-  LOOK_LIMITS,
   LOOK_SPEED,
   PANE_SYSTEM_INFO,
   SCENE_FOV,
 } from "../bridge-config";
 import { buildBridgeGlass, type BridgeGlass } from "../lib/bridge-glass";
 import { useBridgeState } from "../lib/bridge-store";
-import { drawHudPane } from "../lib/draw-hud-pane";
+import { createBridgeWalk } from "../lib/bridge-walk";
+import { drawHudWindow } from "../lib/draw-hud-pane";
 
 /**
  * Where in the frame the camera is put: after the orbit controls (-1) and the
@@ -32,43 +32,43 @@ type OrbitControlsLike = { enabled: boolean };
 
 /**
  * Inside the Canvas: the bridge. While it is on, the camera stands in the
- * control room — riding the ship, turned by dragging, zoomed by the wheel,
- * never out of the room — and the windows carry the HUD, redrawn with each
- * snapshot.
+ * control room — riding the ship, turned all the way round by dragging,
+ * walked about by the keys, zoomed by the wheel, never out of the room —
+ * every window is glass, and the two front ones carry the HUD, redrawn with
+ * each snapshot.
  */
 export function BridgeView() {
   const get = useThree((state) => state.get);
-  const { isActive, hudMode, isNight, panes: paneSystems } = useBridgeState();
+  const { isActive, hudMode, isNight, windows } = useBridgeState();
   const snapshot = useLiveData();
   const history = useLiveHistory();
   const glass = useRef<BridgeGlass | null>(null);
-  const look = useRef({ yaw: 0, pitch: 0, fov: FOV_LIMITS.widest as number });
+  const room = useRef<Mesh | null>(null);
+  const walk = useRef(createBridgeWalk());
 
-  // The glass, built on the first visit and kept: hidden while the bridge is off
+  // The glass, built on the first visit and kept: the room as modelled while the bridge is off
   useEffect(() => {
     if (!isActive) {
       glass.current?.setShown(false);
       return;
     }
     if (!glass.current) {
-      const room = get().scene.getObjectByName(CONTROL_ROOM_OBJECT_NAME);
-      if (!room) {
-        console.warn(`Bridge: no ${CONTROL_ROOM_OBJECT_NAME} in the model; the bridge view has no room to stand in.`);
-        return;
-      }
-      glass.current = buildBridgeGlass(room);
+      const found = get().scene.getObjectByName(CONTROL_ROOM_OBJECT_NAME);
+      glass.current = found instanceof Mesh ? buildBridgeGlass(found) : null;
+      room.current = found instanceof Mesh ? found : null;
+      if (!glass.current) console.warn(`Bridge: the model's ${CONTROL_ROOM_OBJECT_NAME} is not the one its windows were found in; no bridge.`);
     }
-    glass.current.setShown(true);
+    glass.current?.setShown(true);
   }, [isActive, get]);
   useEffect(() => () => glass.current?.dispose(), []);
 
   // The orbit controls off while on the bridge; the scene's field of view back on leaving
   useEffect(() => {
+    if (!isActive) return;
     const { controls, camera } = get();
     const orbit = controls as OrbitControlsLike | null;
-    if (!isActive) return;
     if (orbit) orbit.enabled = false;
-    look.current = { yaw: 0, pitch: 0, fov: FOV_LIMITS.widest };
+    walk.current.reset();
     return () => {
       if (orbit) orbit.enabled = true;
       if (camera instanceof PerspectiveCamera) {
@@ -78,20 +78,18 @@ export function BridgeView() {
     };
   }, [isActive, get]);
 
-  // Looking about: drag to turn, the wheel to zoom, a double click to look ahead again
+  // Looking and walking about: drag to turn, the keys to walk, the wheel to zoom, a double click to start over
   useEffect(() => {
     if (!isActive) return;
     const element = get().gl.domElement;
+    const state = walk.current;
     let dragFrom: { x: number; y: number } | null = null;
-    const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
     const onDown = (event: PointerEvent) => {
       if (event.button === 0) dragFrom = { x: event.clientX, y: event.clientY };
     };
     const onMove = (event: PointerEvent) => {
       if (!dragFrom) return;
-      const state = look.current;
-      state.yaw = clamp(state.yaw - (event.clientX - dragFrom.x) * LOOK_SPEED, -LOOK_LIMITS.yaw, LOOK_LIMITS.yaw);
-      state.pitch = clamp(state.pitch - (event.clientY - dragFrom.y) * LOOK_SPEED, -LOOK_LIMITS.pitchDown, LOOK_LIMITS.pitchUp);
+      state.turn((event.clientX - dragFrom.x) * LOOK_SPEED, (event.clientY - dragFrom.y) * LOOK_SPEED);
       dragFrom = { x: event.clientX, y: event.clientY };
     };
     const onUp = () => {
@@ -99,22 +97,31 @@ export function BridgeView() {
     };
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      look.current.fov = clamp(look.current.fov + Math.sign(event.deltaY) * FOV_STEP, FOV_LIMITS.narrowest, FOV_LIMITS.widest);
+      state.zoom(Math.sign(event.deltaY) * FOV_STEP);
     };
-    const onDoubleClick = () => {
-      look.current = { yaw: 0, pitch: 0, fov: FOV_LIMITS.widest };
+    const onKey = (isDown: boolean) => (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (state.press(event.code, isDown)) event.preventDefault();
     };
+    const onKeyDown = onKey(true);
+    const onKeyUp = onKey(false);
+    const onDoubleClick = () => state.reset();
     element.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     element.addEventListener("wheel", onWheel, { passive: false });
     element.addEventListener("dblclick", onDoubleClick);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
     return () => {
       element.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       element.removeEventListener("wheel", onWheel);
       element.removeEventListener("dblclick", onDoubleClick);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      state.release();
     };
   }, [isActive, get]);
 
@@ -124,34 +131,39 @@ export function BridgeView() {
     if (!isActive || !bridge || !snapshot) return;
     const palette = isNight ? HUD_PALETTES.night : HUD_PALETTES.day;
     bridge.setNight(isNight);
-    bridge.panes.forEach((pane, index) => {
-      const context = pane.canvas.getContext("2d");
-      const system = paneSystems[index];
-      if (!context || !system) return;
-      const componentLabel = PANE_SYSTEM_INFO[system].componentLabel;
-      const isAlarmed = componentLabel !== null && activeAlarmOn(snapshot, componentLabel) !== null;
-      const isBlank = hudMode === "clear" || (hudMode === "alarms" && !isAlarmed);
-      drawHudPane(context, { index, system, snapshot, history, palette, isAlarmed, isBlank });
-      pane.texture.needsUpdate = true;
+    bridge.windows.forEach((window, index) => {
+      const context = window.canvas.getContext("2d");
+      if (!context) return;
+      const cards = (windows[index] ?? [])
+        .map((system) => {
+          const componentLabel = PANE_SYSTEM_INFO[system].componentLabel;
+          const isAlarmed = componentLabel !== null && activeAlarmOn(snapshot, componentLabel) !== null;
+          return { system, snapshot, history, palette, isAlarmed };
+        })
+        .filter((card) => hudMode === "full" || (hudMode === "alarms" && card.isAlarmed));
+      drawHudWindow(context, { cards });
+      window.texture.needsUpdate = true;
     });
-  }, [isActive, snapshot, history, hudMode, isNight, paneSystems]);
+  }, [isActive, snapshot, history, hudMode, isNight, windows]);
 
-  const pose = useRef({ position: new Vector3(), rotation: new Quaternion(), turn: new Quaternion(), euler: new Euler(0, 0, 0, "YXZ") });
-  useFrame(() => {
+  const pose = useRef({ eye: new Vector3(), rotation: new Quaternion(), turn: new Quaternion(), euler: new Euler(0, 0, 0, "YXZ") });
+  useFrame((_, delta) => {
     const bridge = glass.current;
-    if (!isActive || !bridge) return;
+    const shell = room.current;
+    if (!isActive || !bridge || !shell) return;
     const { camera } = get();
-    const { position, rotation, turn, euler } = pose.current;
-    // At the eye, as the ship carries it; facing the bow, turned as the operator looks
-    bridge.rig.updateWorldMatrix(true, false);
-    bridge.rig.localToWorld(position.copy(bridge.eye));
-    bridge.rig.getWorldQuaternion(rotation);
-    euler.set(look.current.pitch * RADIANS_PER_DEGREE, look.current.yaw * RADIANS_PER_DEGREE, 0, "YXZ");
+    const { eye, rotation, turn, euler } = pose.current;
+    const state = walk.current.step(delta);
+    // At the eye, as the ship carries the room; facing the bow, turned as the operator looks
+    shell.updateWorldMatrix(true, false);
+    shell.localToWorld(eye.set(state.x, EYE_START.y, state.z));
+    shell.getWorldQuaternion(rotation);
+    euler.set(state.pitch * RADIANS_PER_DEGREE, state.yaw * RADIANS_PER_DEGREE, 0, "YXZ");
     turn.setFromEuler(euler);
-    camera.position.copy(position);
+    camera.position.copy(eye);
     camera.quaternion.copy(rotation).multiply(FACING_BOW).multiply(turn);
-    if (camera instanceof PerspectiveCamera && camera.fov !== look.current.fov) {
-      camera.fov = look.current.fov;
+    if (camera instanceof PerspectiveCamera && camera.fov !== state.fov) {
+      camera.fov = state.fov;
       camera.updateProjectionMatrix();
     }
     camera.updateMatrixWorld();
@@ -159,3 +171,4 @@ export function BridgeView() {
 
   return null;
 }
+

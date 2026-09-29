@@ -69,7 +69,8 @@ export function ShipScene({ model, selectedNode, hoveredNode, onHover, onSelectB
           hiddenNodeIds={model.hiddenNodeIds}
           onModelTreeLoaded={model.handleModelTreeLoaded}
           tree={model.tree}
-          onHover={onHover}
+          // On the bridge nothing but the bridge: no part lights up under the pointer
+          onHover={(node) => onHover(getBridgeState().isActive ? null : node)}
           // On the bridge a click is the operator looking about, not picking a part
           onSelectByClick={(node) => {
             if (!getBridgeState().isActive) onSelectByClick(node);
