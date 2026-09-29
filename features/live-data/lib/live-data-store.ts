@@ -1,5 +1,5 @@
 import { LIVE_HISTORY_LENGTH, PLAYBACK_HISTORY_LENGTH } from "../live-data-config";
-import type { LiveDataSource, LiveSnapshot } from "../live-data-types";
+import type { LiveDataSource, LiveSnapshot, OperatorAction } from "../live-data-types";
 import { createRecordedSource } from "./recorded-source";
 
 /** Where the viewer is in time: live, or a moment of the kept history. */
@@ -43,6 +43,8 @@ function createLiveDataStore(source: LiveDataSource) {
    * The operator's, not the ship's — kept here, not in the snapshots.
    */
   let silences: Record<string, number> = {};
+  /** What the operator did from the cockpit, oldest first: for the event log. */
+  let operatorActions: OperatorAction[] = [];
 
   function refresh() {
     const index = viewedAt === null ? history.length - 1 : indexAt(history, viewedAt);
@@ -61,10 +63,17 @@ function createLiveDataStore(source: LiveDataSource) {
 
   function subscribe(listener: () => void) {
     listeners.add(listener);
-    stop ??= source.start((snapshot) => {
-      history = [...history.slice(-(PLAYBACK_HISTORY_LENGTH - 1)), snapshot];
-      refresh();
-    });
+    stop ??= source.start(
+      (snapshot) => {
+        history = [...history.slice(-(PLAYBACK_HISTORY_LENGTH - 1)), snapshot];
+        refresh();
+      },
+      // A recording's past, kept as if it had been received
+      (past) => {
+        history = [...past, ...history].slice(-PLAYBACK_HISTORY_LENGTH);
+        refresh();
+      }
+    );
 
     return () => {
       listeners.delete(listener);
@@ -92,12 +101,23 @@ function createLiveDataStore(source: LiveDataSource) {
   /** Silences an alarm until a moment: it stays active, without drawing the eye. */
   function silenceAlarm(alarmId: string, until: number) {
     silences = { ...silences, [alarmId]: until };
+    recordAction({ kind: "silenced", alarmId, at: latestMoment(), until });
     listeners.forEach((notify) => notify());
+  }
+
+  /** The latest moment of the data: the operator acts on the ship as it is now. */
+  function latestMoment() {
+    return history[history.length - 1]?.timestamp ?? Date.now();
+  }
+
+  function recordAction(action: OperatorAction) {
+    operatorActions = [...operatorActions, action];
   }
 
   /** Acknowledges an alarm, and shows it at once rather than with the next snapshot. */
   function acknowledgeAlarm(alarmId: string) {
     source.acknowledgeAlarm(alarmId);
+    recordAction({ kind: "acknowledged", alarmId, at: latestMoment() });
     const latest = history[history.length - 1];
     if (!latest) return;
     const acknowledged = {
@@ -114,6 +134,9 @@ function createLiveDataStore(source: LiveDataSource) {
     getHistory: () => viewedHistory,
     getPlayback: () => playback,
     getSilences: () => silences,
+    /** Every snapshot kept, oldest first — the whole PLAYBACK_WINDOW, not only the viewed minute. */
+    getKeptHistory: () => history,
+    getOperatorActions: () => operatorActions,
     viewAt,
     acknowledgeAlarm,
     silenceAlarm,

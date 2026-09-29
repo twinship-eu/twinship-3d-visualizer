@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { liveDataStore, type Playback } from "../lib/live-data-store";
-import type { Alarm, LiveSnapshot } from "../live-data-types";
+import type { Alarm, LiveSnapshot, OperatorAction } from "../live-data-types";
 
 const getServerSnapshot = () => null;
 const NO_HISTORY: LiveSnapshot[] = [];
@@ -11,6 +11,8 @@ const NO_PLAYBACK: Playback = { viewedAt: null, oldest: null, latest: null };
 const getServerPlayback = () => NO_PLAYBACK;
 const NO_SILENCES: Record<string, number> = {};
 const getServerSilences = () => NO_SILENCES;
+const NO_ACTIONS: OperatorAction[] = [];
+const getServerActions = () => NO_ACTIONS;
 
 /**
  * The ship's snapshot at the moment viewed — the latest while live, updated
@@ -23,6 +25,19 @@ export function useLiveData(): LiveSnapshot | null {
 /** The minute of snapshots up to the moment viewed, oldest first: for the trends. Empty on the server. */
 export function useLiveHistory(): LiveSnapshot[] {
   return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getHistory, getServerHistory);
+}
+
+/**
+ * Every snapshot kept, oldest first — the timeline's whole window: for the
+ * event log and the readings. Re-renders with each snapshot.
+ */
+export function useKeptHistory(): LiveSnapshot[] {
+  return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getKeptHistory, getServerHistory);
+}
+
+/** What the operator did from the cockpit, oldest first. */
+export function useOperatorActions(): OperatorAction[] {
+  return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getOperatorActions, getServerActions);
 }
 
 /** Alarms and warnings not yet acknowledged: what the badges count. */

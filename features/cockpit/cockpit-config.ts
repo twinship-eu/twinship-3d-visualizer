@@ -53,3 +53,10 @@ export const AUTONOMY_LEVELS: Record<string, string> = {
   L3: "Conditional autonomy: the ship sails itself; the crew or the shore centre monitors and takes over when asked",
   L4: "High autonomy: the ship sails itself for the whole leg; people are on call",
 };
+
+/** The panels Live data can open beside or over the scene: the event log, the ship assistant. */
+export const COCKPIT_PANELS = ["log", "assistant"] as const;
+export type CockpitPanel = (typeof COCKPIT_PANELS)[number];
+export const PANEL_PARAM = "panel";
+/** The event log's system filter, by the tree section's id. */
+export const LOG_SYSTEM_PARAM = "logSystem";

@@ -59,7 +59,14 @@ export type Alarm = {
   recommendedActions?: { title: string; prediction: string }[];
   /** Other sensors to watch with it, by id. */
   relatedSensorIds?: string[];
+  /** When it cleared — its reading back within limits — ms since the epoch; absent while it lasts. */
+  clearedAt?: number;
 };
+
+/** What the operator did about an alarm from the cockpit, and when (ms since the epoch). */
+export type OperatorAction =
+  | { kind: "acknowledged"; alarmId: string; at: number }
+  | { kind: "silenced"; alarmId: string; at: number; until: number };
 
 /** The readings of each of the ship's systems. */
 export type ShipSystems = {
@@ -198,7 +205,8 @@ export type Recording = {
 export type LiveDataSource = {
   origin: LiveDataOrigin;
   rateHz: number;
-  start: (onSnapshot: (snapshot: LiveSnapshot) => void) => () => void;
+  /** `onHistory`, when the source has a past (a recording), gets it once, oldest first, before the first snapshot. */
+  start: (onSnapshot: (snapshot: LiveSnapshot) => void, onHistory?: (snapshots: LiveSnapshot[]) => void) => () => void;
   /** Tells the ship an alarm has been seen: it stays in the log, no longer active. */
   acknowledgeAlarm: (alarmId: string) => void;
 };

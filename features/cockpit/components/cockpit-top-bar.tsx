@@ -1,10 +1,11 @@
 "use client";
 
-import { Ship, TriangleAlert } from "lucide-react";
+import { List, MessageCircle, Ship, TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { getActiveAlarms, useLiveData, usePlayback } from "@/features/live-data/hooks/use-live-data";
 import { formatElapsed, formatUtcTime } from "@/features/live-data/lib/format-readings";
 import type { Alarm, LiveSnapshot } from "@/features/live-data/live-data-types";
-import { AUTONOMY_LEVELS, COCKPIT_BRAND, type ViewerMode } from "../cockpit-config";
+import { AUTONOMY_LEVELS, COCKPIT_BRAND, type CockpitPanel, type ViewerMode } from "../cockpit-config";
 import { NavigationReadouts } from "./navigation-readouts";
 import { ThemeToggle } from "./theme-toggle";
 import { ViewerModeSwitch } from "./viewer-mode-switch";
@@ -14,7 +15,15 @@ type Props = {
   onModeChange: (mode: ViewerMode) => void;
   /** Opens an active warning: the badge's action, on the first of them. */
   onOpenAlarm: (alarm: Alarm) => void;
+  /** The panel open in Live data, and what opens or closes one. */
+  panel: CockpitPanel | null;
+  onPanelChange: (panel: CockpitPanel | null) => void;
 };
+
+const PANEL_BUTTONS: { panel: CockpitPanel; label: string; Icon: typeof List }[] = [
+  { panel: "log", label: "Event log", Icon: List },
+  { panel: "assistant", label: "Ship assistant", Icon: MessageCircle },
+];
 
 /** The autonomy badge's explanation: the level, and what it means. */
 function autonomyDescription(level: string) {
@@ -35,7 +44,7 @@ function sourceLabel(snapshot: LiveSnapshot) {
  *
  * Reads the live data itself, so its once-a-second updates re-render only the bar.
  */
-export function CockpitTopBar({ mode, onModeChange, onOpenAlarm }: Props) {
+export function CockpitTopBar({ mode, onModeChange, onOpenAlarm, panel, onPanelChange }: Props) {
   const snapshot = useLiveData();
   const playback = usePlayback();
   const isReplaying = playback.viewedAt !== null && playback.latest !== null;
@@ -63,6 +72,24 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm }: Props) {
       )}
 
       <div className="grow" />
+
+      {isLive &&
+        PANEL_BUTTONS.map(({ panel: option, label, Icon }) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onPanelChange(panel === option ? null : option)}
+            aria-label={label}
+            aria-pressed={panel === option}
+            title={label}
+            className={cn(
+              "flex size-[38px] shrink-0 cursor-pointer items-center justify-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              panel === option ? "border-accent-line bg-accent-soft text-accent-ink" : "border-line text-ink-2 hover:border-line-strong"
+            )}
+          >
+            <Icon className="size-[18px]" aria-hidden />
+          </button>
+        ))}
 
       {activeAlarms[0] && (
         <button

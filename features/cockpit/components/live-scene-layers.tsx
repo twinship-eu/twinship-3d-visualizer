@@ -1,5 +1,7 @@
 "use client";
 
+import { AssistantHighlights } from "@/features/assistant/components/assistant-highlights";
+import { HighlightProjector } from "@/features/assistant/components/highlight-projector";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { CalloutAnchorProjector } from "../callouts/callout-anchor-projector";
 import type { CalloutDefinition } from "../callouts/callout-config";
@@ -28,6 +30,7 @@ export function LiveSceneProjectors({ callouts, view, liveSelection }: Projector
   return (
     <>
       <ComponentAlarmGlow />
+      <HighlightProjector />
       {callouts && <CalloutAnchorProjector key={view} callouts={callouts} />}
       {/* A fresh projector for each component: it finds its part anew */}
       {liveSelection && <SensorAnchorProjector key={liveSelection.id} componentLabel={liveSelection.label} />}
@@ -74,6 +77,7 @@ export function LiveSceneOverlays({
   return (
     <>
       <AlarmBadges onOpenComponent={onOpenComponent} />
+      <AssistantHighlights onOpenComponent={onOpenComponent} />
       {callouts && <LiveCallouts key={view} callouts={callouts} onOpenComponent={onOpenComponent} />}
       <LiveViewControls
         view={view}

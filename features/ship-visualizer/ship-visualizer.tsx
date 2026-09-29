@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { CockpitTopBar } from "@/features/cockpit/components/cockpit-top-bar";
 import { LiveSceneOverlays } from "@/features/cockpit/components/live-scene-layers";
 import { SidebarFooter, sidebarReadingFor } from "@/features/cockpit/components/sidebar-live-content";
+import { useCockpitPanels } from "@/features/cockpit/hooks/use-cockpit-panels";
 import { useLiveLayout } from "@/features/cockpit/hooks/use-live-layout";
 import { ComponentLivePanel } from "@/features/cockpit/component-live/component-live-panel";
 import { useLiveView } from "@/features/cockpit/hooks/use-live-view";
@@ -128,6 +129,14 @@ export function ShipVisualizer() {
     setIsDetailsExpanded(false);
     setIsShowingMobileAlarm(false);
   };
+  const liveReading = sidebarReadingFor({ isOntologyMode, isVoyageView });
+  // The event log over the scene, the assistant beside it: in Live data
+  const panels = useCockpitPanels({
+    isOntologyMode,
+    onOpenComponent: handleSelectConnectedComponent,
+    onClearSelection: clearSelection,
+    renderReading: liveReading,
+  });
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
@@ -135,6 +144,8 @@ export function ShipVisualizer() {
         mode={mode}
         onModeChange={(next) => void setMode(next)}
         onOpenAlarm={handleOpenAlarm}
+        panel={panels.panel}
+        onPanelChange={panels.changePanel}
       />
       {liveSelection === null && <MobileHeader />}
       <div className="relative flex min-h-0 w-full flex-1 gap-0">
@@ -148,16 +159,14 @@ export function ShipVisualizer() {
           isLoading={!isModelReady}
           visibleNodeIds={model.visibleNodeIds}
           onToggleSectionVisible={model.setSectionVisible}
-          onSelect={handleSelectNode}
+          onSelect={panels.sidebar?.onSelect ?? handleSelectNode}
           selectedNodeId={selectedStructureNode?.id ?? null}
           footer={
-            <SidebarFooter
-              isOntologyMode={isOntologyMode}
-              isVoyageView={isVoyageView}
-              onOpenAlarm={handleOpenAlarm}
-            />
+            panels.sidebar?.footer ?? (
+              <SidebarFooter isOntologyMode={isOntologyMode} isVoyageView={isVoyageView} onOpenAlarm={handleOpenAlarm} />
+            )
           }
-          renderReading={sidebarReadingFor({ isOntologyMode, isVoyageView })}
+          renderReading={panels.sidebar?.renderReading ?? liveReading}
         />
         <div
           className={sceneColumnClass({
@@ -180,7 +189,7 @@ export function ShipVisualizer() {
               live={
                 isOntologyMode
                   ? null
-                  : { view: liveView.view, isVoyageView, callouts, liveSelection }
+                  : { view: liveView.view, isVoyageView, callouts: panels.hidesCallouts ? null : callouts, liveSelection }
               }
               // No zoom controls on the phone's card, nor under a component's sheet
               isCompactBelowLg={
@@ -189,7 +198,7 @@ export function ShipVisualizer() {
             />
             {!isOntologyMode && (
               <LiveSceneOverlays
-                callouts={callouts}
+                callouts={panels.hidesCallouts ? null : callouts}
                 view={liveView.view}
                 liveSelection={liveSelection}
                 sectionLabel={liveSelectionSection?.label}
@@ -242,14 +251,18 @@ export function ShipVisualizer() {
               }}
             />
           )}
-          <SceneBottomStrip
-            isOntologyMode={isOntologyMode}
-            isVoyageView={isVoyageView}
-            selectedNode={selectedStructureNode}
-            onSelectRelated={handleSelectConnectedComponent}
-            onShowLiveData={() => void setMode("live")}
-          />
+          {panels.evidenceStrip ?? (
+            <SceneBottomStrip
+              isOntologyMode={isOntologyMode}
+              isVoyageView={isVoyageView}
+              selectedNode={selectedStructureNode}
+              onSelectRelated={handleSelectConnectedComponent}
+              onShowLiveData={() => void setMode("live")}
+            />
+          )}
+          {panels.logView}
         </div>
+        {!liveSelection && panels.assistantPanel}
         {liveSelection && (
           <ComponentLivePanel
             key={`panel-${liveSelection.id}`}

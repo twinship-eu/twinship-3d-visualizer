@@ -44,7 +44,12 @@ function createPlayback(recording: Recording, startedAt: number) {
     );
   }
 
-  return { at, alarmsAt };
+  return {
+    at,
+    alarmsAt,
+    /** The viewer's moment of the recording's start: before it, the recording has no past to give. */
+    recordedSince: startedAt - (opensAt - first),
+  };
 }
 
 /**
@@ -58,7 +63,7 @@ export function createRecordedSource(): LiveDataSource {
   const simulated = createSimulatedSource();
   const acknowledged = new Set<string>();
 
-  function start(onSnapshot: (snapshot: LiveSnapshot) => void) {
+  function start(onSnapshot: (snapshot: LiveSnapshot) => void, onHistory?: (snapshots: LiveSnapshot[]) => void) {
     /** Undefined while it loads; null when there is none. */
     let recording: Recording | null | undefined;
     let playback: ReturnType<typeof createPlayback> | null = null;
@@ -71,19 +76,41 @@ export function createRecordedSource(): LiveDataSource {
       });
 
     function play(snapshot: LiveSnapshot, played: Recording) {
-      playback ??= createPlayback(played, snapshot.timestamp);
-      const { moment, index } = playback.at(snapshot.timestamp);
-      const alarms = playback
+      const current = (playback ??= createPlayback(played, snapshot.timestamp));
+      const { moment, index } = current.at(snapshot.timestamp);
+      const alarms = current
         .alarmsAt(snapshot.timestamp, moment, index)
         .map((alarm) => (acknowledged.has(alarm.id) ? { ...alarm, isAcknowledged: true } : alarm))
         .sort(byUrgency);
       return { ...withRecordedReadings(snapshot, readRecordingAt(played, moment)), alarms };
     }
 
+    /**
+     * The recording's past before playback opened, a snapshot a second, up to
+     * the timeline's window: what a ship's stream would have kept. On the
+     * first snapshot's simulated values, for what the recording lacks.
+     */
+    function pastOf(first: LiveSnapshot, played: Recording) {
+      const since = Math.max(playback?.recordedSince ?? first.timestamp, first.timestamp - PLAYBACK_WINDOW_MS);
+      const intervalMs = 1000 / first.rateHz;
+      const past: LiveSnapshot[] = [];
+      for (let moment = since; moment < first.timestamp; moment += intervalMs) {
+        past.push(play({ ...first, timestamp: moment }, played));
+      }
+      return past;
+    }
+
+    let hasSentPast = false;
     return simulated.start((snapshot) => {
       // Nothing until the recording is known to be there or not: no simulated second before it
       if (recording === undefined) return;
-      onSnapshot(recording ? play(snapshot, recording) : snapshot);
+      if (!recording) return onSnapshot(snapshot);
+      const now = play(snapshot, recording);
+      if (!hasSentPast) {
+        hasSentPast = true;
+        onHistory?.(pastOf(snapshot, recording));
+      }
+      onSnapshot(now);
     });
   }
 

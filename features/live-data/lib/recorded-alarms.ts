@@ -97,6 +97,7 @@ function toAlarm(recording: Recording, episode: AlarmEpisode, moment: number, lo
     detail: `${part} · ${column.component} · ${isLow ? "under" : "over"} ${limit?.value ?? ""}${isActive ? "" : " · back to normal"}`,
     severity: isActive ? (state === "alarm" ? "alarm" : "warning") : "resolved",
     raisedAt: loop.toViewerTime(episode.from),
+    ...(isActive ? {} : { clearedAt: loop.toViewerTime(episode.until) }),
     isAcknowledged: !isActive,
     sensorId,
     ...(sensorId ? ALARM_ADVICE[sensorId] : {}),
