@@ -14,7 +14,7 @@ type Props = {
 /** Over the scene's top left, in Live data: Systems or Voyage, and the callouts on or off. */
 export function LiveViewControls({ view, onViewChange, isShowingCallouts, onShowCalloutsChange }: Props) {
   return (
-    <div className="pointer-events-none absolute top-4 left-4 z-20 hidden gap-3 lg:flex">
+    <div data-callout-avoid className="pointer-events-none absolute top-4 left-4 z-20 hidden gap-3 lg:flex">
       <SegmentedControl
         label="Live view"
         value={view}

@@ -49,14 +49,14 @@ export function VoyageSceneOverlay() {
   return (
     <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
       <CompassTape headingDeg={snapshot.navigation.headingDeg} courseDeg={snapshot.navigation.courseOverGroundDeg} />
-      <div className="absolute top-[64px] left-4">
+      <div data-callout-avoid className="absolute top-[64px] left-4">
         <MotionCard snapshot={snapshot} />
       </div>
-      <div className="absolute top-4 right-4 flex flex-col gap-3">
+      <div data-callout-avoid className="absolute top-4 right-4 flex flex-col gap-3">
         <AttitudeCard snapshot={snapshot} />
         <RelativeWindCard snapshot={snapshot} />
       </div>
-      <div className="absolute bottom-4 left-4">
+      <div data-callout-avoid className="absolute bottom-4 left-4">
         <SegmentedControl
           label="Camera"
           value={cameraMode}
@@ -69,7 +69,7 @@ export function VoyageSceneOverlay() {
         />
       </div>
       {/* Clear of the zoom controls in the scene's bottom right corner */}
-      <div className="absolute right-[68px] bottom-4">
+      <div data-callout-avoid className="absolute right-[68px] bottom-4">
         <RouteProgress snapshot={snapshot} />
       </div>
     </div>

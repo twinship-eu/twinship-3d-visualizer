@@ -159,6 +159,7 @@ export function ZoomControlsOverlay({ isHiddenBelowLg = false }: { isHiddenBelow
         isHiddenBelowLg && "max-lg:hidden"
       )}
       aria-label="Zoom controls"
+      data-callout-avoid
     >
       <div className="pointer-events-auto flex flex-col items-center gap-0.5 rounded-lg border border-glass-line bg-glass p-[3px] text-ink backdrop-blur">
         <button

@@ -16,6 +16,8 @@ export type LiveReadingRow = {
   barClass?: string;
   /** Whether it shows its last minute beside the value. */
   hasTrend?: boolean;
+  /** The ontology parameter it measures, by name: linked to its definition. */
+  ontologyParameter?: string;
 };
 
 /** A row of the lifecycle bars: how far through, and a note after the share. */

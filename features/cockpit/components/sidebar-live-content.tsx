@@ -9,7 +9,7 @@ import { LiveWarningCard } from "./live-warning-card";
 
 /** A tree row's live reading, in Live data. */
 const renderLiveReading = (node: ShipTreeNode) => <LiveNodeReading label={node.label} />;
-/** A section's reading, in the Voyage view's tree of sections. */
+/** In the Voyage view: a section's voyage reading, a component's own live one. */
 const renderVoyageReading = (node: ShipTreeNode) => <LiveNodeReading label={node.label} isVoyage />;
 
 type View = { isOntologyMode: boolean; isVoyageView: boolean };
@@ -20,9 +20,19 @@ export function sidebarReadingFor({ isOntologyMode, isVoyageView }: View) {
   return isVoyageView ? renderVoyageReading : renderLiveReading;
 }
 
-/** Under the tree: the live warning in Ontology, the voyage in Voyage, the alarms in Systems. */
+/**
+ * Under the tree: the live warning in Ontology; the alarms in Live data —
+ * under way too, in Voyage, above the voyage's summary.
+ */
 export function SidebarFooter({ isOntologyMode, isVoyageView, onOpenAlarm }: View & { onOpenAlarm: (alarm: Alarm) => void }) {
   if (isOntologyMode) return <LiveWarningCard onOpen={onOpenAlarm} />;
-  if (isVoyageView) return <VoyageSummary />;
+  if (isVoyageView) {
+    return (
+      <>
+        <AlarmsEventsList onOpen={onOpenAlarm} maxHeightClass="max-h-[30vh]" />
+        <VoyageSummary />
+      </>
+    );
+  }
   return <AlarmsEventsList onOpen={onOpenAlarm} />;
 }

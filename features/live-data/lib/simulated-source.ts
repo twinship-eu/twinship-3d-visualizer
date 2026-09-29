@@ -15,6 +15,8 @@ import {
 } from "../live-data-config";
 import { createMockAlarms } from "../live-data-mock";
 import { SENSORS } from "../live-data-sensors";
+import { shipMotion } from "@/features/3d-scene/lib/seascape-ship-motion";
+import { sceneSeaState } from "@/features/3d-scene/lib/live-scene-overrides";
 import type { Alarm, GeoPosition, LiveDataSource, LiveSnapshot, ShipSystems } from "../live-data-types";
 
 type Drifting = { value: number; spread: number };
@@ -38,6 +40,19 @@ type SystemsReading = keyof typeof SIMULATION_SYSTEMS_BASELINE;
 
 /** A little apart, so the two rotors do not read the same. */
 const ROTOR_OFFSET_RPM = 5;
+
+const DEGREES_PER_RADIAN = 180 / Math.PI;
+/** Share of the heave's peak kept each tick: the amplitude reported fades over some tens of seconds. */
+const HEAVE_PEAK_KEPT = 0.96;
+
+/**
+ * The ship's attitude as the scene has it — how it rides the waves the wind
+ * raised there: what the simulation reports, so the instruments and the ship
+ * seen agree. Roll starboard down positive, pitch bow up positive.
+ */
+function attitudeFromScene() {
+  return { rollDeg: shipMotion.roll * DEGREES_PER_RADIAN, pitchDeg: -shipMotion.pitch * DEGREES_PER_RADIAN };
+}
 
 /** Sensors fitted per component, from the catalogue. */
 const SENSOR_COUNTS = SENSORS.reduce<Record<string, number>>((counts, sensor) => {
@@ -85,6 +100,7 @@ export function createSimulatedSource(): LiveDataSource {
     alarms = createMockAlarms(startedAt);
     const sensors = Object.fromEntries(SENSORS.map((sensor) => [sensor.id, sensor.simulated.value]));
     let waveHeight: number = SIMULATED_WAVE_HEIGHT.value;
+    let heavePeak = 0;
     const state: SimulatedState = {
       heading: base.headingDeg.value,
       courseOffset: base.courseOffsetDeg.value,
@@ -136,15 +152,14 @@ export function createSimulatedSource(): LiveDataSource {
           rotorRpm: [rotors[0], rotors[1]],
         },
         hull: {
-          rollDeg: readings.rollDeg,
-          pitchDeg: readings.pitchDeg,
+          ...attitudeFromScene(),
           meanDraftM: (readings.draftForeM + readings.draftAftM) / 2,
           draftForeM: readings.draftForeM,
           draftAftM: readings.draftAftM,
           trimM: readings.draftAftM - readings.draftForeM,
           slammingPerHour: readings.slammingPerHour,
           ballastPct: readings.ballastPct,
-          heaveM: readings.heaveM,
+          heaveM: (heavePeak = Math.max(Math.abs(shipMotion.heave), heavePeak * HEAVE_PEAK_KEPT)),
           rollPeriodS: readings.rollPeriodS,
         },
         deck: {
@@ -199,7 +214,11 @@ export function createSimulatedSource(): LiveDataSource {
           distanceToGoNm: state.distanceToGo,
         },
         systems: systemsNow(),
-        sea: { significantWaveHeightM: (waveHeight = drift(waveHeight, SIMULATED_WAVE_HEIGHT)) },
+        // The sea the scene's wind raised, once it has drawn one
+        sea: {
+          significantWaveHeightM:
+            sceneSeaState.significantWaveHeightM ?? (waveHeight = drift(waveHeight, SIMULATED_WAVE_HEIGHT)),
+        },
         sensors: sensorsNow(),
         alarms,
         sensorCounts: SENSOR_COUNTS,

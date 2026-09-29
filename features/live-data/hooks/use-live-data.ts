@@ -1,22 +1,26 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { liveDataStore } from "../lib/live-data-store";
+import { liveDataStore, type Playback } from "../lib/live-data-store";
 import type { Alarm, LiveSnapshot } from "../live-data-types";
 
 const getServerSnapshot = () => null;
 const NO_HISTORY: LiveSnapshot[] = [];
 const getServerHistory = () => NO_HISTORY;
+const NO_PLAYBACK: Playback = { viewedAt: null, oldest: null, latest: null };
+const getServerPlayback = () => NO_PLAYBACK;
+const NO_SILENCES: Record<string, number> = {};
+const getServerSilences = () => NO_SILENCES;
 
 /**
- * The ship's latest snapshot, updated as the source sends them; null before
- * the first one (and on the server).
+ * The ship's snapshot at the moment viewed — the latest while live, updated
+ * as the source sends them; null before the first one (and on the server).
  */
 export function useLiveData(): LiveSnapshot | null {
   return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getSnapshot, getServerSnapshot);
 }
 
-/** The last minute of snapshots, oldest first: for the trends. Empty on the server. */
+/** The minute of snapshots up to the moment viewed, oldest first: for the trends. Empty on the server. */
 export function useLiveHistory(): LiveSnapshot[] {
   return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getHistory, getServerHistory);
 }
@@ -26,6 +30,26 @@ export function getActiveAlarms(snapshot: LiveSnapshot | null): Alarm[] {
   return (snapshot?.alarms ?? []).filter(
     (alarm) => !alarm.isAcknowledged && (alarm.severity === "alarm" || alarm.severity === "warning")
   );
+}
+
+/** Where the viewer is in time, and how far back the history reaches: for the timeline. */
+export function usePlayback(): Playback {
+  return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getPlayback, getServerPlayback);
+}
+
+/** Views a moment of the kept history, or the live data again with null. */
+export function viewLiveDataAt(moment: number | null) {
+  liveDataStore.viewAt(moment);
+}
+
+/** The alarms silenced from the cockpit, by id: until when, ms since the epoch. */
+export function useAlarmSilences(): Record<string, number> {
+  return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getSilences, getServerSilences);
+}
+
+/** Silences an alarm until a moment, ms since the epoch: still active, no longer highlighted. */
+export function silenceAlarm(alarmId: string, until: number) {
+  liveDataStore.silenceAlarm(alarmId, until);
 }
 
 /** Acknowledges an alarm: it leaves the active ones, and stays in the log. */

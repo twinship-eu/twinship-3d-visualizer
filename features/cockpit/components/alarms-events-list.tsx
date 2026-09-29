@@ -9,6 +9,8 @@ import type { Alarm, AlarmSeverity } from "@/features/live-data/live-data-types"
 type Props = {
   /** Opens an alarm's component. */
   onOpen: (alarm: Alarm) => void;
+  /** Its height, when it shares the panel's foot with more: the list scrolls within it. */
+  maxHeightClass?: string;
 };
 
 const SEVERITY_ICONS: Record<AlarmSeverity, typeof Info> = {
@@ -29,7 +31,7 @@ const SEVERITY_ICON_CLASSES: Record<AlarmSeverity, string> = {
  * Under the tree, in Live data: the alarms and the ship's logged events,
  * the active ones first and highlighted. Each opens its component.
  */
-export function AlarmsEventsList({ onOpen }: Props) {
+export function AlarmsEventsList({ onOpen, maxHeightClass = "max-h-[45vh]" }: Props) {
   const snapshot = useLiveData();
   const alarms = snapshot?.alarms ?? [];
   const active = new Set(getActiveAlarms(snapshot).map((alarm) => alarm.id));
@@ -39,7 +41,7 @@ export function AlarmsEventsList({ onOpen }: Props) {
   );
 
   return (
-    <section aria-label="Alarms and events" className="flex max-h-[45vh] min-h-0 flex-col border-t border-line">
+    <section aria-label="Alarms and events" className={cn("flex min-h-0 flex-col border-t border-line", maxHeightClass)}>
       <div className="flex shrink-0 items-center justify-between px-3.5 pt-3.5 pb-2.5">
         <h2 className="text-[11px] font-semibold tracking-[0.12em] text-muted">ALARMS &amp; EVENTS</h2>
         {active.size > 0 && (

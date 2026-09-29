@@ -115,7 +115,6 @@ export function ShipVisualizer() {
     isVoyageView,
     liveSelectionSection,
     callouts,
-    sidebarTree,
     isMobileCard,
   } = useLiveLayout({
     mode,
@@ -123,7 +122,6 @@ export function ShipVisualizer() {
     isShowingCallouts: liveView.isShowingCallouts,
     selectedNode: selectedStructureNode,
     isModelReady,
-    tree,
   });
   const clearSelection = () => {
     setSelectedStructureNode(null);
@@ -146,7 +144,7 @@ export function ShipVisualizer() {
           hasToggle={isOntologyMode}
           onOpen={() => setIsSidebarOpen(true)}
           onClose={() => setIsSidebarOpen(false)}
-          tree={sidebarTree}
+          tree={tree}
           isLoading={!isModelReady}
           visibleNodeIds={model.visibleNodeIds}
           onToggleSectionVisible={model.setSectionVisible}
@@ -257,6 +255,8 @@ export function ShipVisualizer() {
             key={`panel-${liveSelection.id}`}
             node={liveSelection}
             onClose={clearSelection}
+            onSelectRelated={handleSelectConnectedComponent}
+            onOpenInOntology={() => void setMode("ontology")}
           />
         )}
         {liveSelection && (
@@ -266,6 +266,7 @@ export function ShipVisualizer() {
             sectionLabel={liveSelectionSection?.label}
             isShowingAlarm={isShowingMobileAlarm}
             onShowAlarm={setIsShowingMobileAlarm}
+            onSelectRelated={handleSelectConnectedComponent}
           />
         )}
       </div>

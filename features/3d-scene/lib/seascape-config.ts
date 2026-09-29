@@ -129,6 +129,12 @@ export const SEASCAPE_WIND = {
 export const SEASCAPE_SHIP_HULL = {
   halfLength: 50,
   halfBeam: 8.3,
+  /**
+   * How far the hull reaches below the sea's mean level, in world units,
+   * with room for its heave: a camera above that and within its plan is
+   * inside the hull, not in the sea.
+   */
+  depthBelowWater: 9,
 } as const;
 
 /** Limits of the Inspector's wind sliders. 35 m/s is a hurricane, Beaufort 12. */

@@ -8,7 +8,10 @@ import { SelectionSceneHeader } from "../component-live/selection-scene-header";
 import { SensorAnchorProjector } from "../component-live/sensor-anchor-projector";
 import { SensorOverlay } from "../component-live/sensor-overlay";
 import type { LiveView } from "../cockpit-config";
+import { AlarmBadges } from "./alarm-badges";
+import { ComponentAlarmGlow } from "./component-alarm-glow";
 import { LiveViewControls } from "./live-view-controls";
+import { PlaybackTimeline } from "./playback-timeline";
 
 type ProjectorProps = {
   callouts: CalloutDefinition[] | null;
@@ -17,10 +20,14 @@ type ProjectorProps = {
   liveSelection: ShipTreeNode | null;
 };
 
-/** Inside the Canvas, in Live data: what projects the callouts' and the sensors' parts onto the screen. */
+/**
+ * Inside the Canvas, in Live data: what projects the callouts' and the
+ * sensors' parts onto the screen, and the glow on the parts in warning.
+ */
 export function LiveSceneProjectors({ callouts, view, liveSelection }: ProjectorProps) {
   return (
     <>
+      <ComponentAlarmGlow />
       {callouts && <CalloutAnchorProjector key={view} callouts={callouts} />}
       {/* A fresh projector for each component: it finds its part anew */}
       {liveSelection && <SensorAnchorProjector key={liveSelection.id} componentLabel={liveSelection.label} />}
@@ -40,7 +47,8 @@ type OverlayProps = ProjectorProps & {
 
 /**
  * Over the scene, in Live data: the view's callouts and controls — or, with
- * a component selected, its breadcrumb, alarm banner and sensors.
+ * a component selected, its breadcrumb, alarm banner and sensors — and a
+ * "!" on each part glowing for an alarm.
  */
 export function LiveSceneOverlays({
   callouts,
@@ -58,12 +66,14 @@ export function LiveSceneOverlays({
       <>
         <SelectionSceneHeader componentLabel={liveSelection.label} sectionLabel={sectionLabel} onOverview={onOverview} />
         <SensorOverlay key={liveSelection.id} componentLabel={liveSelection.label} />
+        <AlarmBadges onOpenComponent={onOpenComponent} />
       </>
     );
   }
 
   return (
     <>
+      <AlarmBadges onOpenComponent={onOpenComponent} />
       {callouts && <LiveCallouts key={view} callouts={callouts} onOpenComponent={onOpenComponent} />}
       <LiveViewControls
         view={view}
@@ -71,6 +81,7 @@ export function LiveSceneOverlays({
         isShowingCallouts={isShowingCallouts}
         onShowCalloutsChange={onShowCalloutsChange}
       />
+      {view === "systems" && <PlaybackTimeline />}
     </>
   );
 }

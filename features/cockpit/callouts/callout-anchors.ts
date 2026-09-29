@@ -9,3 +9,22 @@ export type CalloutAnchor = { x: number; y: number; isVisible: boolean };
  * React state — sixty renders a second would be wasted on it.
  */
 export const calloutAnchors: Partial<Record<CalloutId, CalloutAnchor>> = {};
+
+const anchorListeners = new Set<() => void>();
+
+/**
+ * Calls `listener` each time the projectors have written the anchors — in
+ * the same frame, just before it is drawn, so the lines never trail the
+ * scene by a frame. Returns what unsubscribes it.
+ */
+export function subscribeToAnchors(listener: () => void) {
+  anchorListeners.add(listener);
+  return () => {
+    anchorListeners.delete(listener);
+  };
+}
+
+/** Tells the overlays the anchors are written: the projectors' last step each frame. */
+export function publishAnchors() {
+  anchorListeners.forEach((listener) => listener());
+}

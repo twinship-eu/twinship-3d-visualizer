@@ -60,7 +60,7 @@ import type { ContactFoam } from "./seascape-contact-foam";
 import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
 import { valueNoise } from "./seascape-noise";
-import { surfaceFromBelow } from "./seascape-underwater";
+import { surfaceFromBelow, underwater } from "./seascape-underwater";
 import { rainRingsSlope } from "./seascape-rain-rings";
 import { overcast, weather } from "./seascape-weather";
 import {
@@ -770,6 +770,8 @@ export function createSeascapeSurfaceNodes({
     If(frontFacing, () => {
       seen.assign(mix(water.rgb, shared.foamColor, shared.foam));
     }).Else(() => {
+      // From inside the hull there is no sea to see from below: none drawn
+      Discard(underwater.isCameraInsideHull.greaterThan(0.5));
       // ...with its foam, seen from underneath: darker, lit through the water
       seen.assign(
         mix(surfaceFromBelow(shared.normal, shared.viewDirection), shared.foamColor.mul(FOAM_FROM_BELOW), shared.foam)

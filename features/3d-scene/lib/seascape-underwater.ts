@@ -68,6 +68,12 @@ export const underwater = {
   submerged: uniform(0),
   /** How far below the surface the camera is, in world units (0 above it). */
   depth: uniform(0),
+  /**
+   * 1 while the camera is inside the hull — dry, below the waterline (the
+   * engine room, with a part there focused): the sea's underside is not
+   * drawn, so the part stands out clear rather than against it.
+   */
+  isCameraInsideHull: uniform(0),
 };
 
 /** The water's colour looking in `direction`, at the camera's depth. */

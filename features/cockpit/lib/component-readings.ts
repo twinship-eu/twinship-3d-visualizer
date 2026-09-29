@@ -22,7 +22,7 @@ const READINGS: Record<string, (snapshot: LiveSnapshot) => ComponentReading> = {
   Container: (snapshot) => ({ text: `${snapshot.systems.deck.reeferTempC.toFixed(1)} °C`, tone: "value" }),
   Crane: (snapshot) => ({ text: snapshot.systems.deck.craneState, tone: "value" }),
   Propellers: (snapshot) => ({ text: `${snapshot.systems.propulsion.shaftRpm.toFixed(0)} rpm`, tone: "value" }),
-  Engine: (snapshot) => ({ text: `${snapshot.systems.energy.engineLoadPct.toFixed(0)}% · Normal`, tone: "value" }),
+  Engine: (snapshot) => ({ text: `${snapshot.systems.energy.engineLoadPct.toFixed(0)}% load`, tone: "value" }),
   WAPS: (snapshot) => ({ text: `${snapshot.systems.windAssist.thrustKn.toFixed(0)} kN`, tone: "value" }),
 };
 

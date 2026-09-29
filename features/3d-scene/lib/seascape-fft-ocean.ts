@@ -170,6 +170,9 @@ function createOceanGpu(seconds: FloatUniform) {
   return { spectrum, tileSizes, fft, passes: [evolve, ...fft.passes, store], textures, cells };
 }
 
+/** How far the tiles' fitting size may drift from theirs, as a ratio either way, before they are resized. */
+const TILE_REUSE_RATIO = 1.5;
+
 /**
  * The FFT ocean: its cascades' textures, and the calls that keep them current.
  */
@@ -178,11 +181,19 @@ export function createFftOcean(wind: Wind) {
   const gpu = createOceanGpu(seconds);
   const cascades: FftCascade[] = gpu.textures.map((texture) => ({ tileSize: 1, texture }));
 
-  /** Recomputes the spectrum for a wind: on the CPU, a few tens of milliseconds. */
+  /**
+   * Recomputes the spectrum for a wind: on the CPU, a few tens of milliseconds.
+   * The tiles keep their sizes while they still fit the new sea: with the same
+   * seed, the same waves then carry on, only higher or lower — new tiles would
+   * be a new sea, jumping into place.
+   */
   function setWind(nextWind: Wind) {
     const { peakFrequency } = jonswapParameters(nextWind);
     const peakWavelength = (2 * Math.PI * GRAVITY) / (peakFrequency * peakFrequency);
-    const tileSizes = cascadeTileSizes(peakWavelength);
+    const fitting = cascadeTileSizes(peakWavelength);
+    const current = cascades[0].tileSize;
+    const stillFits = current > 1 && Math.abs(Math.log(fitting[0] / current)) < Math.log(TILE_REUSE_RATIO);
+    const tileSizes = stillFits ? cascades.map((cascade) => cascade.tileSize) : fitting;
     const bands = cascadeBands(tileSizes);
     const random = seededRandom(SPECTRUM_SEED);
 

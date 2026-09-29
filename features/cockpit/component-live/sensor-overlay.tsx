@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { activeAlarmOn, useLiveData } from "@/features/live-data/hooks/use-live-data";
 import { sensorsOf, sensorState, type SensorDefinition, type SensorState } from "@/features/live-data/live-data-sensors";
+import { subscribeToAnchors } from "../callouts/callout-anchors";
 import { sensorAnchors } from "./sensor-anchor-projector";
 
 const DOT_CLASSES: Record<SensorState, string> = {
@@ -38,9 +39,7 @@ export function SensorOverlay({ componentLabel }: { componentLabel: string }) {
   const focusId = focus?.id;
 
   useEffect(() => {
-    let frame = 0;
     const follow = () => {
-      frame = requestAnimationFrame(follow);
       for (const [id, dot] of Object.entries(dotRefs.current)) {
         const anchor = sensorAnchors[id];
         if (!dot) continue;
@@ -63,8 +62,7 @@ export function SensorOverlay({ componentLabel }: { componentLabel: string }) {
       line.setAttribute("x2", String(left + card.offsetWidth / 2));
       line.setAttribute("y2", String(top));
     };
-    follow();
-    return () => cancelAnimationFrame(frame);
+    return subscribeToAnchors(follow);
   }, [focusId]);
 
   if (!snapshot || sensors.length === 0) return null;

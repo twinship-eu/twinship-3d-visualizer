@@ -18,7 +18,7 @@ type Props = {
 export function SelectedComponentStrip({ componentLabel, dotClass }: Props) {
   const snapshot = useLiveData();
   const alarm = activeAlarmOn(snapshot, componentLabel);
-  const alarmContext = alarm ? ALARM_CONTEXT_TRENDS[alarm.id] : undefined;
+  const alarmContext = alarm?.sensorId ? ALARM_CONTEXT_TRENDS[alarm.sensorId] : undefined;
 
   if (alarmContext) {
     return (

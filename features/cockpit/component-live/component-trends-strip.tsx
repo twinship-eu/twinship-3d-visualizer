@@ -37,7 +37,7 @@ function TrendCardView({ card, history, isHighlighted }: { card: TrendCard; hist
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-2 rounded-[10px] border bg-card px-3.5 py-3",
+        "flex min-w-0 flex-col gap-2 overflow-hidden rounded-[10px] border bg-card px-3.5 py-3",
         isHighlighted ? "border-warn-line" : "border-line"
       )}
     >
@@ -57,11 +57,18 @@ function TrendCardView({ card, history, isHighlighted }: { card: TrendCard; hist
           {latest ? card.format(card.series.map((series) => series.value(latest))) : "—"}
         </span>
       </div>
-      <TrendChart
-        lines={card.series.map((series) => ({ values: history.map(series.value), strokeClass: series.strokeClass }))}
-        limits={card.limits}
-        className="min-h-0 w-full grow"
-      />
+      {/*
+        The chart fills the room left in the card, sized by this box rather
+        than by itself: an SVG left to size itself in a flex column falls back
+        to its intrinsic 150px in some browsers, and ran out of the card
+      */}
+      <div className="relative min-h-0 grow">
+        <TrendChart
+          lines={card.series.map((series) => ({ values: history.map(series.value), strokeClass: series.strokeClass }))}
+          limits={card.limits}
+          className="absolute inset-0 size-full"
+        />
+      </div>
     </div>
   );
 }

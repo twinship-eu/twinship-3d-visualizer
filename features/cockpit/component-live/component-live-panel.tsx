@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { activeAlarmOn, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import { formatUtcTime } from "@/features/live-data/lib/format-readings";
@@ -12,6 +12,7 @@ import { COMPONENT_LIVE } from "./component-live-config";
 import { AlarmFocus } from "./alarm-focus";
 import { LiveTab } from "./live-tab";
 import { componentState, STATE_CHIPS } from "./component-state";
+import { OntologyDescription, OntologyParameters } from "./ontology-sections";
 
 type Tab = "live" | "description" | "parameters";
 const TABS: { id: Tab; label: string }[] = [
@@ -23,14 +24,19 @@ const TABS: { id: Tab; label: string }[] = [
 type Props = {
   node: ShipTreeNode;
   onClose: () => void;
+  /** Opens a related component, by its label. */
+  onSelectRelated: (label: string) => void;
+  /** Opens this component in the Ontology. */
+  onOpenInOntology: () => void;
 };
 
 /**
  * Beside the scene, in Live data, with a component selected: its live
- * readings, description and parameters in tabs — or, while it has an active
- * alarm, the alarm in focus instead.
+ * readings, and what the ontology says of it — its description, relations
+ * and parameters, the measured ones with their live readings — in tabs; or,
+ * while it has an active alarm, the alarm in focus instead.
  */
-export function ComponentLivePanel({ node, onClose }: Props) {
+export function ComponentLivePanel({ node, onClose, onSelectRelated, onOpenInOntology }: Props) {
   const [tab, setTab] = useState<Tab>("live");
   const snapshot = useLiveData();
   const history = useLiveHistory();
@@ -47,7 +53,22 @@ export function ComponentLivePanel({ node, onClose }: Props) {
       <header className="flex shrink-0 flex-col gap-3 border-b border-line px-6 pt-5 pb-4">
         <div className="flex items-center gap-3">
           <span className={cn("size-2.5 shrink-0 rounded-full", getSectionDotClass(getSectionIdOf(node)))} aria-hidden />
-          <h2 className="min-w-0 grow truncate text-2xl font-bold">{details.title ?? node.label}</h2>
+          <h2 className="min-w-0 grow truncate text-2xl font-bold">
+            {details.titleHref ? (
+              <a
+                href={details.titleHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-w-0 items-center gap-2 hover:text-accent-ink"
+                aria-label={`${details.title ?? node.label} in the ontology (opens in new tab)`}
+              >
+                <span className="truncate">{details.title ?? node.label}</span>
+                <ExternalLink className="size-4 shrink-0 text-muted" aria-hidden />
+              </a>
+            ) : (
+              (details.title ?? node.label)
+            )}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -95,22 +116,14 @@ export function ComponentLivePanel({ node, onClose }: Props) {
           <div className="min-h-0 grow overflow-y-auto">
             {tab === "live" &&
               (definition && snapshot ? (
-                <LiveTab definition={definition} snapshot={snapshot} history={history} />
+                <LiveTab componentLabel={node.label} definition={definition} snapshot={snapshot} history={history} />
               ) : (
                 <p className="px-6 py-5 text-sm text-muted">No live readings for this component yet.</p>
               ))}
-            {tab === "description" && <p className="px-6 py-5 text-sm leading-[1.5] text-ink-2">{details.description}</p>}
-            {tab === "parameters" && (
-              <dl className="px-6 py-3 text-sm">
-                {details.parameters.length === 0 && <p className="py-2 text-muted">No parameters in the ontology yet.</p>}
-                {details.parameters.map((parameter) => (
-                  <div key={parameter.name} className="flex justify-between gap-4 border-b border-line py-2.5 last:border-0">
-                    <dt className="min-w-0 text-ink-2">{parameter.name}</dt>
-                    <dd className="text-right font-semibold">{parameter.value || "—"}</dd>
-                  </div>
-                ))}
-              </dl>
+            {tab === "description" && (
+              <OntologyDescription node={node} onSelectRelated={onSelectRelated} onOpenInOntology={onOpenInOntology} />
             )}
+            {tab === "parameters" && <OntologyParameters node={node} snapshot={snapshot} />}
           </div>
         </>
       )}

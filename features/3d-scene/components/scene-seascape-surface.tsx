@@ -31,7 +31,8 @@ import {
 } from "../lib/seascape-config";
 import { float } from "three/tsl";
 import { createContactFoam } from "../lib/seascape-contact-foam";
-import { shipSpeedOverride, useShipVoyage } from "./ship-voyage-context";
+import { useShipVoyage } from "./ship-voyage-context";
+import { liveSceneOverrides, sceneSeaState } from "../lib/live-scene-overrides";
 import { createWake } from "../lib/seascape-wake";
 import { createSeaFrame, headOnTurn } from "../lib/seascape-sea-frame";
 import { apparentWind, weatherState } from "../lib/seascape-weather";
@@ -217,6 +218,26 @@ function windAt(speed: number, fromDegrees: number) {
 /** The wind the sea starts with. */
 const INITIAL_WIND = windAt(SEASCAPE_WIND.speed, SEASCAPE_WIND.fromDegrees);
 
+/**
+ * How far the data's wind, averaged, must move from the one the sea was
+ * raised by before it raises a new one, in m/s. A new wind rebuilds the
+ * spectrum on the CPU (a frame's hitch) and changes the waves' heights at
+ * once: not for the gusts the data drifts by.
+ */
+const LIVE_WIND_STEP_MS = 1;
+/**
+ * The time constant the data's wind is averaged over for the sea, in seconds:
+ * a sea answers the wind of the last minutes, not of the last second.
+ */
+const LIVE_WIND_AVERAGING_S = 60;
+/**
+ * How slowly the sea turns to follow the side the data's wind comes from, in
+ * seconds (the time constant): the wind drifts by a few degrees, and the
+ * whole sea turning with it at once read as the ship yawing.
+ */
+const WIND_SIDE_SMOOTHING_S = 20;
+const RADIANS_PER_DEGREE = Math.PI / 180;
+
 /** Identifies a wind, to notice when it changes. */
 function windKey(wind: { speed: number; fromDegrees: number; fetch: number }) {
   return `${wind.speed}|${wind.fromDegrees}|${wind.fetch}`;
@@ -330,6 +351,14 @@ function createSeaSurface(canUseCompute: boolean) {
     contactFoamDistance: NaN,
     /** The wind the FFT spectrum was last built for, to rebuild it only on a change. */
     oceanWindKey: windKey(INITIAL_WIND),
+    /**
+     * The side the waves come from, radians off the bow, starboard positive:
+     * following the data's wind, slowly. Null until it gives one.
+     */
+    windSide: null as number | null,
+    /** The data's wind speed averaged (LIVE_WIND_AVERAGING_S), and the one the sea was raised by, m/s: null until it gives one. */
+    liveWindAverage: null as number | null,
+    liveWindRaised: null as number | null,
   };
 }
 
@@ -412,7 +441,8 @@ export function SceneSeascapeSurface() {
     if (inspector === null) return;
 
     const panel = inspector.createParameters("Seascape");
-    panel.add(SEASCAPE_TUNING, "windSpeed", 0, SEASCAPE_WIND_LIMITS.maxSpeed, 0.1);
+    // Speed and wind follow the live data while it gives them (see useFrame): shown as they are
+    panel.add(SEASCAPE_TUNING, "windSpeed", 0, SEASCAPE_WIND_LIMITS.maxSpeed, 0.1).listen();
     panel.add(SEASCAPE_TUNING, "windFromDegrees", 0, 360, 1);
     panel.add(SEASCAPE_TUNING, "antiAliasing");
     panel.add(SEASCAPE_TUNING, "reflectivity", 0, 1, 0.01);
@@ -431,7 +461,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "scatterStrength", 0, 2, 0.01);
     panel.add(SEASCAPE_TUNING, "shininess", 10, 2000, 1);
     panel.add(SEASCAPE_TUNING, "gridSegments", [...SEASCAPE_SURFACE_GRID_SEGMENT_OPTIONS]);
-    panel.add(SEASCAPE_TUNING, "shipSpeedKnots", 0, MAX_SHIP_SPEED_KNOTS, 0.5);
+    panel.add(SEASCAPE_TUNING, "shipSpeedKnots", 0, MAX_SHIP_SPEED_KNOTS, 0.5).listen();
     panel.add(SEASCAPE_TUNING, "contactFoamDistance", 0.1, MAX_CONTACT_FOAM_DISTANCE, 0.1);
     panel.add(SEASCAPE_TUNING, "wireframe");
   }, [gl]);
@@ -457,26 +487,64 @@ export function SceneSeascapeSurface() {
     // The ship sails on: the sea flows past it, bow (+z) to stern
     // Under way it gathers speed, and stopped it slows down, over a few
     // seconds: the wake and the ship's waves build up and die away with it
-    // The ship's live speed when Live data gives one; else the panel's, or the default
+    // The ship's live speed when the data gives one; else the panel's, or the default
     const speedKnots =
-      shipSpeedOverride.knots ?? (IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.shipSpeedKnots : SHIP_SPEED_KNOTS);
+      liveSceneOverrides.shipSpeedKnots ??
+      (IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.shipSpeedKnots : SHIP_SPEED_KNOTS);
+    // The panel shows the speed sailed: the data's, while it gives one
+    if (IS_SCENE_INSPECTOR_ENABLED) SEASCAPE_TUNING.shipSpeedKnots = speedKnots;
     const targetSpeed = isTravelingRef.current ? speedKnots * METRES_PER_SECOND_PER_KNOT : 0;
     sea.speed += (targetSpeed - sea.speed) * (1 - Math.exp(-delta / SPEED_CHANGE_TIME));
     const speed = sea.speed;
     sea.seaFrame.sail(speed * delta);
     sea.sailed += speed * delta;
 
-    // The sea always lies with its waves coming at the bow — what makes the
-    // ship read as sailing when under way. Always, not only under way: turned
-    // as the ship gathered speed, the whole sea was seen swinging round it
-    const travel = sea.uniforms.windSea.travel.value;
-    sea.seaFrame.turnTo(headOnTurn(travel.x, travel.y));
+    // The wind: the data's when it gives one, averaged and stepped (see LIVE_WIND_STEP_MS);
+    // else the panel's, or the default. A new one raises a new sea
+    const liveWind = liveSceneOverrides.wind;
+    if (liveWind) {
+      sea.liveWindAverage =
+        sea.liveWindAverage === null
+          ? liveWind.speedMs
+          : sea.liveWindAverage + (liveWind.speedMs - sea.liveWindAverage) * (1 - Math.exp(-delta / LIVE_WIND_AVERAGING_S));
+      if (sea.liveWindRaised === null || Math.abs(sea.liveWindAverage - sea.liveWindRaised) >= LIVE_WIND_STEP_MS) {
+        sea.liveWindRaised = Math.max(LIVE_WIND_STEP_MS, Math.round(sea.liveWindAverage / LIVE_WIND_STEP_MS) * LIVE_WIND_STEP_MS);
+      }
+    }
+    const windSpeed = liveWind
+      ? (sea.liveWindRaised ?? liveWind.speedMs)
+      : IS_SCENE_INSPECTOR_ENABLED
+        ? SEASCAPE_TUNING.windSpeed
+        : SEASCAPE_WIND.speed;
+    if (IS_SCENE_INSPECTOR_ENABLED) SEASCAPE_TUNING.windSpeed = windSpeed;
+    const windFrom = IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.windFromDegrees : SEASCAPE_WIND.fromDegrees;
+    const wind = windAt(windSpeed, windFrom);
+    const key = windKey(wind);
+    if (key !== sea.oceanWindKey) {
+      if (sea.ocean && sea.fft) {
+        sea.ocean.setWind(wind);
+        sea.fft.syncTileSizes();
+      }
+      applyWindSeaState(sea.uniforms, wind, IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.foamAmount : SEASCAPE_SURFACE_DEFAULTS.foamAmount);
+      sea.oceanWindKey = key;
+    }
+    sceneSeaState.significantWaveHeightM = sea.uniforms.windSea.travel.value.w;
 
-    // The wind round the ship: the sea is turned so the wind blows from the
-    // bow, and sailing adds the ship's own way through the air to it
-    const windSpeed = IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.windSpeed : SEASCAPE_WIND.speed;
-    apparentWind.x = 0;
-    apparentWind.z = -(windSpeed + speed);
+    // The sea lies with its waves coming from the side the wind blows from —
+    // the data's, off the bow; head-on without it, which reads as sailing.
+    // Set at once the first time, then followed slowly: never seen turning
+    const targetSide = (liveWind?.fromRelativeDeg ?? 0) * RADIANS_PER_DEGREE;
+    sea.windSide =
+      sea.windSide === null
+        ? targetSide
+        : sea.windSide + (targetSide - sea.windSide) * (1 - Math.exp(-delta / WIND_SIDE_SMOOTHING_S));
+    const travel = sea.uniforms.windSea.travel.value;
+    sea.seaFrame.turnTo(headOnTurn(travel.x, travel.y) - sea.windSide);
+
+    // The wind round the ship: the true wind, from its side, less the ship's
+    // own way through the air (the bow is +z, starboard -x)
+    apparentWind.x = windSpeed * Math.sin(sea.windSide);
+    apparentWind.z = -(windSpeed * Math.cos(sea.windSide) + speed);
     sea.precipitation.update(apparentWind, delta);
     sea.uniforms.shipSpeed.value = speed;
     shipMotionState.speed = speed;
@@ -492,9 +560,17 @@ export function SceneSeascapeSurface() {
 
     // Under the water or above it: the water's height right over the camera
     const waterAbove = SEASCAPE_SURFACE_LEVEL_Y + (heights?.[shipProbes + buoyProbes] ?? 0);
-    const underBy = waterAbove - camera.position.y;
+    // Inside the hull the camera is dry, whatever the sea outside: seen from
+    // there — the engine room, with a part focused — the underwater view only
+    // washed the ship out. The ship stays at the origin, bow to +z
+    const isInsideHull =
+      Math.abs(camera.position.x) < SEASCAPE_SHIP_HULL.halfBeam &&
+      Math.abs(camera.position.z) < SEASCAPE_SHIP_HULL.halfLength &&
+      camera.position.y > SEASCAPE_SURFACE_LEVEL_Y - SEASCAPE_SHIP_HULL.depthBelowWater;
+    const underBy = isInsideHull ? -Infinity : waterAbove - camera.position.y;
     underwater.submerged.value = Math.min(Math.max(underBy / WATERLINE_BLEND + 0.5, 0), 1);
     underwater.depth.value = Math.max(underBy, 0);
+    underwater.isCameraInsideHull.value = isInsideHull && waterAbove > camera.position.y ? 1 : 0;
 
     // The buoys stay where they are moored in the sea, so they fall behind
     sea.buoys.update(sailed, heights ? heights.subarray(shipProbes, shipProbes + buoyProbes) : null, delta);
@@ -545,15 +621,6 @@ export function SceneSeascapeSurface() {
     // does: a few assignments, and it cannot drift out of sync with the panel.
     if (!IS_SCENE_INSPECTOR_ENABLED) return;
 
-    // A new wind means a new spectrum, rebuilt on the CPU: only on a change
-    const wind = windAt(SEASCAPE_TUNING.windSpeed, SEASCAPE_TUNING.windFromDegrees);
-    const key = windKey(wind);
-    if (sea.ocean && sea.fft && key !== sea.oceanWindKey) {
-      sea.ocean.setWind(wind);
-      sea.fft.syncTileSizes();
-      sea.oceanWindKey = key;
-    }
-
     // A new density means a new grid, and the shader must know its cell size
     // (the select hands back the option as it was given, a number)
     const segments = Number(SEASCAPE_TUNING.gridSegments);
@@ -565,11 +632,8 @@ export function SceneSeascapeSurface() {
       mesh.geometry = sea.geometry;
     }
 
-    applyWindSeaState(
-      sea.uniforms,
-      windAt(SEASCAPE_TUNING.windSpeed, SEASCAPE_TUNING.windFromDegrees),
-      SEASCAPE_TUNING.foamAmount
-    );
+    // The panel's foam amount on the sea the wind raised (the wind is applied above)
+    applyWindSeaState(sea.uniforms, wind, SEASCAPE_TUNING.foamAmount);
     sea.uniforms.antiAliasing.value = SEASCAPE_TUNING.antiAliasing ? 1.0 : 0.0;
     sea.uniforms.reflectivity.value = SEASCAPE_TUNING.reflectivity;
     sea.uniforms.deepColor.value.set(SEASCAPE_TUNING.deepColor);

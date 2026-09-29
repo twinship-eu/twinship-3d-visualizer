@@ -6,12 +6,12 @@
 /** Snapshots per second: the design's 1 Hz. */
 export const SIMULATION_RATE_HZ = 1;
 
-/** Where the simulated values sit, and how far each wanders from it. */
+/** Where the simulated values sit, and how far each wanders from it: at about the design speed, as the sample recording. */
 export const SIMULATION_BASELINE = {
   headingDeg: { value: 87, spread: 1.2 },
   courseOffsetDeg: { value: 2, spread: 0.8 },
-  speedOverGroundKn: { value: 11.4, spread: 0.25 },
-  speedThroughWaterKn: { value: 12.0, spread: 0.2 },
+  speedOverGroundKn: { value: 18.0, spread: 0.25 },
+  speedThroughWaterKn: { value: 18.6, spread: 0.2 },
   rateOfTurnDegPerMin: { value: 0.2, spread: 0.3 },
   trueWindSpeedKn: { value: 17.6, spread: 0.8 },
   trueWindFromDeg: { value: 40, spread: 3 },
@@ -36,37 +36,38 @@ export const SIMULATED_VOYAGE = {
 
 /** The systems' simulated readings: value and spread, as for the navigation. */
 export const SIMULATION_SYSTEMS_BASELINE = {
-  shaftRpm: { value: 119, spread: 2 },
-  shaftPowerMw: { value: 4.12, spread: 0.05 },
-  pitchPct: { value: 73, spread: 0.6 },
+  shaftRpm: { value: 140, spread: 2 },
+  shaftPowerMw: { value: 9.6, spread: 0.1 },
+  pitchPct: { value: 96, spread: 0.4 },
   slipPct: { value: 6, spread: 0.3 },
-  fuelTph: { value: 1.42, spread: 0.03 },
-  engineLoadPct: { value: 67, spread: 1.5 },
-  engineRpm: { value: 615, spread: 4 },
+  fuelTph: { value: 1.94, spread: 0.03 },
+  engineLoadPct: { value: 82, spread: 1.5 },
+  engineRpm: { value: 720, spread: 2 },
   exhaustTempC: { value: 397, spread: 3 },
   coolantTempC: { value: 78, spread: 0.6 },
   batteryPct: { value: 81, spread: 0.2 },
   windThrustKn: { value: 37, spread: 1.2 },
-  fuelSavingPct: { value: 14, spread: 0.4 },
+  fuelSavingPct: { value: 10, spread: 0.4 },
   rotorRpm: { value: 210, spread: 3 },
-  rollDeg: { value: -0.8, spread: 1.2 },
-  pitchDeg: { value: 0.3, spread: 0.3 },
+  // (Roll, pitch and heave come from the scene: how the ship rides its waves)
   draftForeM: { value: 7.37, spread: 0.02 },
   draftAftM: { value: 7.49, spread: 0.02 },
   slammingPerHour: { value: 2.2, spread: 0.1 },
   ballastPct: { value: 48, spread: 0.1 },
-  heaveM: { value: 0.9, spread: 0.05 },
   rollPeriodS: { value: 11.8, spread: 0.1 },
   reeferTempC: { value: 4.1, spread: 0.1 },
   craneHydraulicBar: { value: 179, spread: 0.8 },
 } as const;
 export const SIMULATED_CRANE_STATE = "Stowed";
-/** The sea's significant wave height, m: head seas, as in the design's alarm. */
+/** The sea's significant wave height, m, until the scene has raised its own sea. */
 export const SIMULATED_WAVE_HEIGHT = { value: 3.0, spread: 0.08 } as const;
 export const SIMULATED_BRIDGE = { vhfChannel: 16, radar: "Active", ais: "TX" } as const;
 
-/** Snapshots kept for the trends: a minute at 1 Hz. */
+/** Snapshots the trends show: a minute at 1 Hz. */
 export const LIVE_HISTORY_LENGTH = 60;
+/** How far back the timeline reaches, in minutes, and the snapshots that keeps at 1 Hz. */
+export const PLAYBACK_WINDOW_MINUTES = 30;
+export const PLAYBACK_HISTORY_LENGTH = PLAYBACK_WINDOW_MINUTES * 60 * SIMULATION_RATE_HZ;
 
 /** Where the simulated voyage starts: the North Sea, off Denmark. */
 export const SIMULATION_START_POSITION = { latitude: 56.12, longitude: 7.45 } as const;

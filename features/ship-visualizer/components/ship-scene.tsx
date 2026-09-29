@@ -5,7 +5,7 @@ import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
 import type { CalloutDefinition } from "@/features/cockpit/callouts/callout-config";
 import type { LiveView } from "@/features/cockpit/cockpit-config";
 import { LiveSceneProjectors } from "@/features/cockpit/components/live-scene-layers";
-import { LiveShipSpeed } from "@/features/cockpit/voyage/live-ship-speed";
+import { LiveSceneSync } from "@/features/cockpit/voyage/live-scene-sync";
 import { VoyageSceneOverlay } from "@/features/cockpit/voyage/voyage-scene-overlay";
 import type { useShipModel } from "../hooks/use-ship-model";
 import type { ShipTreeNode } from "../ship-visualizer-types";
@@ -31,8 +31,8 @@ type Props = {
 
 /**
  * The 3D scene with the ship: its model, the loading ring while it
- * assembles, and in Live data what projects the callouts and sensors and
- * sails the ship at its live speed.
+ * assembles, the environment the ship's data describes, and in Live data
+ * what projects the callouts and sensors.
  */
 export function ShipScene({ model, selectedNode, hoveredNode, onHover, onSelectByClick, live, isCompactBelowLg }: Props) {
   const { loading } = model;
@@ -49,17 +49,16 @@ export function ShipScene({ model, selectedNode, hoveredNode, onHover, onSelectB
       }
     >
       <Scene
-        // The gesture hints give way to the details, and to the Voyage view's
-        // own controls along the scene's bottom
-        isDetailsOpen={selectedNode !== null || !!live?.isVoyageView}
+        // The gesture hints give way to the details, and in Live data to its
+        // own controls along the scene's bottom: the timeline, the voyage's
+        isDetailsOpen={selectedNode !== null || live !== null}
         isCompactBelowLg={isCompactBelowLg}
         overlay={
-          live && (
-            <>
-              <LiveShipSpeed />
-              {live.isVoyageView && <VoyageSceneOverlay />}
-            </>
-          )
+          <>
+            {/* The environment is the data's in either mode: the ship's speed, its propellers, the wind */}
+            <LiveSceneSync />
+            {live?.isVoyageView && <VoyageSceneOverlay />}
+          </>
         }
       >
         <Ship

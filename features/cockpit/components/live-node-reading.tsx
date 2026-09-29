@@ -19,7 +19,9 @@ export function LiveNodeReading({ label, isVoyage = false }: { label: string; is
   if (!snapshot) return null;
 
   const hasActiveAlarm = getActiveAlarms(snapshot).some((alarm) => alarm.componentLabel === label);
-  const reading = isVoyage ? voyageSectionReading(label, snapshot) : componentReading(label, snapshot, hasActiveAlarm);
+  // In Voyage, a section reads as the voyage sees it; its components as in Systems
+  const reading =
+    (isVoyage ? voyageSectionReading(label, snapshot) : null) ?? componentReading(label, snapshot, hasActiveAlarm);
   if (!reading) return null;
 
   return (

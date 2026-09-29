@@ -140,8 +140,8 @@ export type VoyageState = {
   designSpeedKn: number;
 };
 
-/** Where the snapshot comes from: the simulation, or the ship's own stream. */
-export type LiveDataOrigin = "simulated" | "stream";
+/** Where the snapshot comes from: the simulation, a recording of the ship played back, or the ship's own stream. */
+export type LiveDataOrigin = "simulated" | "recorded" | "stream";
 
 /** Everything the ship reports at one moment. */
 export type LiveSnapshot = {
@@ -163,6 +163,32 @@ export type LiveSnapshot = {
   alarms: Alarm[];
   /** Sensors fitted per component, by the component's label. */
   sensorCounts: Record<string, number>;
+};
+
+/** A limit of a recorded reading: from `value` up ("high"), or from it down ("low"). */
+export type RecordingLimit = { value: number; direction: "high" | "low" };
+
+/** A column of a recording: `<COMPONENT-ID>.<PARAMETER>`, its component in the knowledge graph, its limits. */
+export type RecordingColumn = {
+  name: string;
+  component: string;
+  parameter: string;
+  warning: RecordingLimit | null;
+  alarm: RecordingLimit | null;
+};
+
+/**
+ * A stretch of the ship's readings, recorded, as `scripts/convert-timeseries.py`
+ * writes it from the time-series workbook: column by column.
+ */
+export type Recording = {
+  /** The workbook it was converted from. */
+  source: string;
+  columns: RecordingColumn[];
+  /** Each row's moment, ms since the epoch, increasing. */
+  times: number[];
+  /** Each column's readings, one per row: null for no reading. */
+  values: Record<string, (number | string | null)[]>;
 };
 
 /**

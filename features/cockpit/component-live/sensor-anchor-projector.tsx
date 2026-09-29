@@ -2,9 +2,10 @@
 
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { BEFORE_RENDER_PRIORITY } from "@/features/3d-scene/components/scene-render-pipeline";
 import { Box3, Vector3, type Object3D } from "three/webgpu";
 import { sensorsOf } from "@/features/live-data/live-data-sensors";
-import type { CalloutAnchor } from "../callouts/callout-anchors";
+import { publishAnchors, type CalloutAnchor } from "../callouts/callout-anchors";
 import { COMPONENT_OBJECT_NAMES } from "../cockpit-systems";
 
 /** Where each sensor of the selected component is on screen, by sensor id: written every frame. */
@@ -26,7 +27,11 @@ export function SensorAnchorProjector({ componentLabel }: { componentLabel: stri
   const framesSinceSearch = useRef(RETRY_FRAMES);
   const point = useRef(new Vector3());
 
+  // Just before the render, with the camera and the ship where they will be
+  // drawn: projected earlier, the dots trailed the ship's motion and, riding
+  // with it, bobbed with the camera's tilt
   useFrame(({ scene, camera, size }) => {
+    camera.updateMatrixWorld();
     const sensors = sensorsOf(componentLabel);
     const objectName = COMPONENT_OBJECT_NAMES[componentLabel];
     if (tracked.current && !tracked.current.object.parent) tracked.current = null;
@@ -50,6 +55,7 @@ export function SensorAnchorProjector({ componentLabel }: { componentLabel: stri
       }
     }
 
+    tracked.current?.object.updateWorldMatrix(true, false);
     for (const sensor of sensors) {
       const local = tracked.current?.localPoints[sensor.id];
       if (!tracked.current || !local) {
@@ -63,7 +69,8 @@ export function SensorAnchorProjector({ componentLabel }: { componentLabel: stri
         isVisible: projected.z < 1,
       };
     }
-  });
+    publishAnchors();
+  }, BEFORE_RENDER_PRIORITY);
 
   return null;
 }

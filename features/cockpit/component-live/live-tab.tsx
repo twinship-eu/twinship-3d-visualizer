@@ -1,4 +1,6 @@
+import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getObjectDetailsForNode } from "@/features/ship-visualizer/selection-details";
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { Sparkline } from "../components/sparkline";
 import type { ComponentLiveDefinition } from "./component-live-types";
@@ -15,14 +17,22 @@ export function ProgressBar({ share, barClass }: { share: number; barClass: stri
 }
 
 type Props = {
+  /** The component, by its label: for its ontology parameters' links. */
+  componentLabel: string;
   definition: ComponentLiveDefinition;
   snapshot: LiveSnapshot;
   history: LiveSnapshot[];
 };
 
 /** A component's Live tab: its health, its readings now and their minute, its lifecycle. */
-export function LiveTab({ definition, snapshot, history }: Props) {
+export function LiveTab({ componentLabel, definition, snapshot, history }: Props) {
   const { health, readings, lifecycle } = definition;
+  // Each ontology parameter's definition, by name, for the readings that measure one
+  const ontologyLinks = new Map(
+    getObjectDetailsForNode({ id: componentLabel, label: componentLabel }).parameters
+      .filter((parameter) => parameter.href)
+      .map((parameter) => [parameter.name, parameter.href!])
+  );
 
   return (
     <div className="flex flex-col gap-5 px-6 py-5 text-sm">
@@ -45,9 +55,23 @@ export function LiveTab({ definition, snapshot, history }: Props) {
         {readings.map((reading) => (
           <div key={reading.label} className="flex flex-col gap-2 border-b border-line py-3 last:border-0">
             <div className="flex items-center gap-3">
-              <span className="min-w-0 grow truncate text-ink">
-                {reading.label}
-                {reading.detail && <span className="text-muted"> · {reading.detail}</span>}
+              <span className="flex min-w-0 grow items-center gap-1.5 text-ink">
+                <span className="truncate">
+                  {reading.label}
+                  {reading.detail && <span className="text-muted"> · {reading.detail}</span>}
+                </span>
+                {reading.ontologyParameter && ontologyLinks.has(reading.ontologyParameter) && (
+                  <a
+                    href={ontologyLinks.get(reading.ontologyParameter)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`In the ontology: ${reading.ontologyParameter}`}
+                    aria-label={`${reading.ontologyParameter} in the ontology (opens in new tab)`}
+                    className="shrink-0 text-accent-ink hover:text-accent"
+                  >
+                    <ExternalLink className="size-3" aria-hidden />
+                  </a>
+                )}
               </span>
               {reading.hasTrend && (
                 <Sparkline

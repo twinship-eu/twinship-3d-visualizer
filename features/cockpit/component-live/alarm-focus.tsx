@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BellOff, BookOpen, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { acknowledgeAlarm } from "@/features/live-data/hooks/use-live-data";
+import { acknowledgeAlarm, silenceAlarm, useAlarmSilences } from "@/features/live-data/hooks/use-live-data";
 import { formatElapsed, formatUtcTime } from "@/features/live-data/lib/format-readings";
 import { findSensor, sensorState } from "@/features/live-data/live-data-sensors";
 import type { Alarm, LiveSnapshot } from "@/features/live-data/live-data-types";
@@ -29,10 +29,11 @@ type Props = {
  */
 export function AlarmFocus({ alarm, snapshot, history, isCompact = false }: Props) {
   const [proposed, setProposed] = useState<Set<string>>(new Set());
-  const [silencedUntil, setSilencedUntil] = useState<number | null>(null);
+  const silencedUntil = useAlarmSilences()[alarm.id] ?? null;
   const sensor = alarm.sensorId ? findSensor(alarm.sensorId) : undefined;
   const reading = sensor ? snapshot.sensors[sensor.id] : undefined;
   const isSilenced = silencedUntil !== null && silencedUntil > snapshot.timestamp;
+  const relatedReadings = (alarm.sensorId && ALARM_RELATED_READINGS[alarm.sensorId]) || [];
 
   return (
     <div className="flex min-h-0 grow flex-col">
@@ -106,7 +107,7 @@ export function AlarmFocus({ alarm, snapshot, history, isCompact = false }: Prop
           </section>
         )}
 
-        {(alarm.relatedSensorIds?.length || ALARM_RELATED_READINGS[alarm.id]) && (
+        {(alarm.relatedSensorIds?.length || relatedReadings.length > 0) && (
           <section className="flex flex-col">
             <h3 className={cn(SECTION_LABEL_CLASS, "mb-1")}>RELATED SENSORS</h3>
             {(alarm.relatedSensorIds ?? []).map((sensorId) => {
@@ -124,7 +125,7 @@ export function AlarmFocus({ alarm, snapshot, history, isCompact = false }: Prop
                 </div>
               );
             })}
-            {(ALARM_RELATED_READINGS[alarm.id] ?? []).map((related) => (
+            {relatedReadings.map((related) => (
               <div key={related.label} className="flex justify-between gap-3 border-b border-line py-3 last:border-0">
                 <span>{related.label}</span>
                 <span className="font-mono font-semibold">{related.value(snapshot)}</span>
@@ -144,7 +145,7 @@ export function AlarmFocus({ alarm, snapshot, history, isCompact = false }: Prop
         </button>
         <button
           type="button"
-          onClick={() => setSilencedUntil(snapshot.timestamp + SILENCE_MS)}
+          onClick={() => silenceAlarm(alarm.id, snapshot.timestamp + SILENCE_MS)}
           disabled={isSilenced}
           aria-label={isCompact ? (isSilenced ? "Silenced" : "Silence 5 min") : undefined}
           className="flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-line-strong px-3.5 text-sm font-semibold disabled:cursor-default disabled:text-muted"

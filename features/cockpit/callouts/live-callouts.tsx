@@ -2,11 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
+import { activeAlarmOn, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
+import { componentState, STATE_CHIPS } from "../component-live/component-state";
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { Sparkline } from "../components/sparkline";
 import type { CalloutDefinition, CalloutId } from "./callout-config";
-import { calloutAnchors } from "./callout-anchors";
+import { calloutAnchors, subscribeToAnchors } from "./callout-anchors";
+import { glideShare, layoutCards, type LayoutRect } from "./callout-layout";
 
 type Props = {
   callouts: CalloutDefinition[];
@@ -23,8 +25,20 @@ function Reading({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusOk() {
-  return <span className="text-[11px] font-semibold text-ok">OK</span>;
+/**
+ * A callout's status, as its component stands now: OK or Normal while its
+ * sensors are within their limits, else the warning or the alarm.
+ */
+function CalloutStatus({ callout, snapshot }: { callout: CalloutDefinition; snapshot: LiveSnapshot }) {
+  const state = componentState(callout.componentLabel, snapshot, activeAlarmOn(snapshot, callout.componentLabel));
+  if (state !== "normal") {
+    const chip = STATE_CHIPS[state];
+    return <span className={cn("rounded-full px-2 py-px text-[11px] font-semibold", chip.className)}>{chip.label}</span>;
+  }
+  if (callout.status === "normal") {
+    return <span className="rounded-full bg-ok-soft px-2 py-px text-[11px] font-semibold text-ok">Normal</span>;
+  }
+  return callout.status === "ok" ? <span className="text-[11px] font-semibold text-ok">OK</span> : null;
 }
 
 /** What each card shows: the design's readings for its part. */
@@ -122,14 +136,12 @@ function CalloutBody({ id, snapshot, history }: { id: CalloutId; snapshot: LiveS
   }
 }
 
-/** Where a card sits over the scene, from its slot. */
-function slotStyle({ slot, widthPx }: CalloutDefinition): React.CSSProperties {
-  return {
-    width: widthPx,
-    top: `${slot.topPct}%`,
-    ...(slot.leftPct !== undefined ? { left: `${slot.leftPct}%` } : { right: `${slot.rightPct}%` }),
-  };
-}
+/** How quickly a card glides to its new place, in seconds (the time constant). */
+const GLIDE_TIME_CONSTANT_S = 0.15;
+/** How often the panels the cards keep clear of are measured again, in ms: they seldom move. */
+const AVOID_REFRESH_MS = 500;
+/** The panels over the scene that the cards keep clear of. */
+const AVOID_SELECTOR = "[data-callout-avoid]";
 
 /** The point of a rectangle nearest a point: where a card's line leaves it. */
 function nearestOnRect(x: number, y: number, rect: DOMRect) {
@@ -141,12 +153,13 @@ function nearestOnRect(x: number, y: number, rect: DOMRect) {
 
 /**
  * The Live data callouts, over the scene: a card for each part of the
- * ship with its live readings, and a line from the card to the part, which
- * follows it as the camera moves and the ship rides the waves.
+ * ship with its live readings, and a line from the card to the part. The
+ * cards keep beside their parts as the camera turns and the ship rides the
+ * waves — gliding, clear of the panels over the scene and of each other.
  *
- * The lines and dots are moved every frame outside React, from the
- * projector's anchors (`CalloutAnchorProjector`); the cards re-render only
- * with the live data, once a second.
+ * Cards, lines and dots are moved every frame outside React, as soon as the
+ * projector has written its anchors (`CalloutAnchorProjector`); the cards
+ * re-render only with the live data, once a second.
  */
 export function LiveCallouts({ callouts, onOpenComponent }: Props) {
   const snapshot = useLiveData();
@@ -157,26 +170,65 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
   const dotRefs = useRef<Partial<Record<CalloutId, HTMLSpanElement | null>>>({});
 
   useEffect(() => {
-    let frame = 0;
+    /** Where each card is now, gliding towards where the layout puts it. */
+    const positions: Partial<Record<CalloutId, { x: number; y: number }>> = {};
+    let avoid: LayoutRect[] = [];
+    let avoidMeasuredAt = -Infinity;
+    let lastFrame = performance.now();
+
     const follow = () => {
-      frame = requestAnimationFrame(follow);
       const container = containerRef.current;
       if (!container) return;
+      const now = performance.now();
+      const share = glideShare((now - lastFrame) / 1000, GLIDE_TIME_CONSTANT_S);
+      lastFrame = now;
       const origin = container.getBoundingClientRect();
+      const bounds = { width: origin.width, height: origin.height };
+      if (now - avoidMeasuredAt > AVOID_REFRESH_MS) {
+        avoidMeasuredAt = now;
+        // The panels over the scene: they live in several layers of it, so looked up in the page
+        avoid = [...document.querySelectorAll<HTMLElement>(AVOID_SELECTOR)].flatMap((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0
+            ? [{ x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }]
+            : [];
+        });
+      }
+
+      // The cards whose parts are in view, beside them
+      const shown = callouts.filter(({ id }) => calloutAnchors[id]?.isVisible && cardRefs.current[id]);
+      const layout = layoutCards(
+        shown.map(({ id, placement }) => {
+          const card = cardRefs.current[id] as HTMLElement;
+          const anchor = calloutAnchors[id] as { x: number; y: number };
+          return { width: card.offsetWidth, height: card.offsetHeight, anchor, placement };
+        }),
+        avoid,
+        bounds
+      );
+
       for (const { id } of callouts) {
         const anchor = calloutAnchors[id];
         const card = cardRefs.current[id];
         const line = lineRefs.current[id];
         const dot = dotRefs.current[id];
         if (!card || !line || !dot) continue;
-        const isShown = !!anchor?.isVisible;
+        const target = layout[shown.findIndex((callout) => callout.id === id)];
+        const isShown = !!anchor?.isVisible && target !== undefined;
+        // A card whose part is out of view waits where it was, hidden
+        card.style.visibility = isShown ? "visible" : "hidden";
         line.style.visibility = isShown ? "visible" : "hidden";
         dot.style.visibility = isShown ? "visible" : "hidden";
         if (!anchor || !isShown) continue;
 
-        const cardRect = card.getBoundingClientRect();
-        const local = new DOMRect(cardRect.left - origin.left, cardRect.top - origin.top, cardRect.width, cardRect.height);
-        const from = nearestOnRect(anchor.x, anchor.y, local);
+        const current = positions[id];
+        const position = (positions[id] = current
+          ? { x: current.x + (target.x - current.x) * share, y: current.y + (target.y - current.y) * share }
+          : { x: target.x, y: target.y });
+        card.style.transform = `translate(${position.x.toFixed(1)}px, ${position.y.toFixed(1)}px)`;
+
+        const rect = new DOMRect(position.x, position.y, target.width, target.height);
+        const from = nearestOnRect(anchor.x, anchor.y, rect);
         line.setAttribute("x1", from.x.toFixed(1));
         line.setAttribute("y1", from.y.toFixed(1));
         line.setAttribute("x2", anchor.x.toFixed(1));
@@ -184,8 +236,7 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
         dot.style.transform = `translate(${anchor.x}px, ${anchor.y}px) translate(-50%, -50%)`;
       }
     };
-    follow();
-    return () => cancelAnimationFrame(frame);
+    return subscribeToAnchors(follow);
   }, [callouts]);
 
   if (!snapshot) return null;
@@ -222,16 +273,13 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
           ref={(element) => {
             cardRefs.current[callout.id] = element;
           }}
-          style={slotStyle(callout)}
-          className="pointer-events-auto absolute flex flex-col gap-2 rounded-[10px] border border-glass-line bg-glass px-3.5 py-3 text-xs text-ink backdrop-blur"
+          style={{ width: callout.widthPx, visibility: "hidden" }}
+          className="pointer-events-auto absolute top-0 left-0 flex flex-col gap-2 rounded-[10px] border border-glass-line bg-glass px-3.5 py-3 text-xs text-ink backdrop-blur"
         >
           <header className="flex items-center gap-2">
             <span className={cn("size-[7px] shrink-0 rounded-full", callout.dotClass)} aria-hidden />
             <h3 className="grow truncate text-[13px] font-semibold">{callout.title}</h3>
-            {callout.status === "normal" && (
-              <span className="rounded-full bg-ok-soft px-2 py-px text-[11px] font-semibold text-ok">Normal</span>
-            )}
-            {callout.status === "ok" && <StatusOk />}
+            <CalloutStatus callout={callout} snapshot={snapshot} />
           </header>
           <CalloutBody id={callout.id} snapshot={snapshot} history={history} />
           {callout.hasDetailsLink && (

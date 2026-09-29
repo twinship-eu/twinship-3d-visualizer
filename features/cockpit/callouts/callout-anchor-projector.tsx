@@ -2,9 +2,10 @@
 
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { BEFORE_RENDER_PRIORITY } from "@/features/3d-scene/components/scene-render-pipeline";
 import { Box3, Vector3, type Object3D } from "three/webgpu";
 import type { CalloutDefinition, CalloutId } from "./callout-config";
-import { calloutAnchors } from "./callout-anchors";
+import { calloutAnchors, publishAnchors } from "./callout-anchors";
 
 /** Frames between looking again for a part not found yet: the ship loads after the scene. */
 const RETRY_FRAMES = 30;
@@ -22,7 +23,11 @@ export function CalloutAnchorProjector({ callouts }: { callouts: CalloutDefiniti
   const framesSinceSearch = useRef(RETRY_FRAMES);
   const point = useRef(new Vector3());
 
+  // Just before the render, with the camera and the ship where they will be
+  // drawn: projected earlier, the dots trailed the ship's motion and, riding
+  // with it, bobbed with the camera's tilt
   useFrame(({ scene, camera, size }) => {
+    camera.updateMatrixWorld();
     framesSinceSearch.current++;
     for (const callout of callouts) {
       let part = tracked.current[callout.id];
@@ -40,6 +45,7 @@ export function CalloutAnchorProjector({ callouts }: { callouts: CalloutDefiniti
         continue;
       }
 
+      part.object.updateWorldMatrix(true, false);
       const projected = part.object.localToWorld(point.current.copy(part.localCentre)).project(camera);
       calloutAnchors[callout.id] = {
         x: ((projected.x + 1) / 2) * size.width,
@@ -49,7 +55,8 @@ export function CalloutAnchorProjector({ callouts }: { callouts: CalloutDefiniti
       };
     }
     if (framesSinceSearch.current >= RETRY_FRAMES) framesSinceSearch.current = 0;
-  });
+    publishAnchors();
+  }, BEFORE_RENDER_PRIORITY);
 
   return null;
 }

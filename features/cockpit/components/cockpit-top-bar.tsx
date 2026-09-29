@@ -1,10 +1,10 @@
 "use client";
 
 import { Ship, TriangleAlert } from "lucide-react";
-import { getActiveAlarms, useLiveData } from "@/features/live-data/hooks/use-live-data";
-import { formatUtcTime } from "@/features/live-data/lib/format-readings";
+import { getActiveAlarms, useLiveData, usePlayback } from "@/features/live-data/hooks/use-live-data";
+import { formatElapsed, formatUtcTime } from "@/features/live-data/lib/format-readings";
 import type { Alarm, LiveSnapshot } from "@/features/live-data/live-data-types";
-import { COCKPIT_BRAND, type ViewerMode } from "../cockpit-config";
+import { AUTONOMY_LEVELS, COCKPIT_BRAND, type ViewerMode } from "../cockpit-config";
 import { NavigationReadouts } from "./navigation-readouts";
 import { ThemeToggle } from "./theme-toggle";
 import { ViewerModeSwitch } from "./viewer-mode-switch";
@@ -16,9 +16,16 @@ type Props = {
   onOpenAlarm: (alarm: Alarm) => void;
 };
 
-/** Whether the snapshot comes from the simulation or the ship, and how often. */
+/** The autonomy badge's explanation: the level, and what it means. */
+function autonomyDescription(level: string) {
+  return `Autonomy level ${level}${AUTONOMY_LEVELS[level] ? ` · ${AUTONOMY_LEVELS[level]}` : ""}`;
+}
+
+const ORIGIN_LABELS: Record<LiveSnapshot["origin"], string> = { simulated: "SIM", recorded: "REC", stream: "STREAM" };
+
+/** Whether the snapshot comes from the simulation, a recording or the ship, and how often. */
 function sourceLabel(snapshot: LiveSnapshot) {
-  return `${snapshot.origin === "simulated" ? "SIM" : "STREAM"} · ${snapshot.rateHz} Hz`;
+  return `${ORIGIN_LABELS[snapshot.origin]} · ${snapshot.rateHz} Hz`;
 }
 
 /**
@@ -30,6 +37,8 @@ function sourceLabel(snapshot: LiveSnapshot) {
  */
 export function CockpitTopBar({ mode, onModeChange, onOpenAlarm }: Props) {
   const snapshot = useLiveData();
+  const playback = usePlayback();
+  const isReplaying = playback.viewedAt !== null && playback.latest !== null;
   const activeAlarms = getActiveAlarms(snapshot);
   const activeAlarmCount = activeAlarms.length;
   const isLive = mode === "live";
@@ -69,12 +78,27 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm }: Props) {
 
       {isLive && snapshot && (
         <>
-          <span className="hidden h-[30px] shrink-0 items-center rounded-md border border-accent-line px-2.5 text-xs font-semibold tracking-[0.08em] text-accent-ink lg:flex">
+          <span
+            title={autonomyDescription(snapshot.autonomyLevel)}
+            aria-label={autonomyDescription(snapshot.autonomyLevel)}
+            className="hidden h-[30px] shrink-0 cursor-help items-center rounded-md border border-accent-line px-2.5 text-xs font-semibold tracking-[0.08em] text-accent-ink lg:flex"
+          >
             AUTO · {snapshot.autonomyLevel}
           </span>
           <div className="hidden shrink-0 items-center gap-2 lg:flex">
-            <span className="size-2 rounded-full bg-ok shadow-[0_0_0_3px_var(--color-ok-soft)]" aria-hidden />
-            <span className="text-xs font-bold tracking-[0.1em]">LIVE</span>
+            {isReplaying ? (
+              <>
+                <span className="size-2 rounded-full bg-warn" aria-hidden />
+                <span className="text-xs font-bold tracking-[0.1em] text-warn">
+                  REPLAY −{formatElapsed(playback.viewedAt!, playback.latest!)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="size-2 rounded-full bg-ok shadow-[0_0_0_3px_var(--color-ok-soft)]" aria-hidden />
+                <span className="text-xs font-bold tracking-[0.1em]">LIVE</span>
+              </>
+            )}
             <span className="hidden font-mono text-[11px] text-muted 2xl:inline">{sourceLabel(snapshot)}</span>
           </div>
           <div className="hidden h-[38px] shrink-0 items-center gap-1.5 border-l border-line pl-4 xl:flex">

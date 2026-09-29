@@ -31,9 +31,9 @@ const ZOOM_CONTROLS_CLEARANCE = "220px";
 
 /**
  * The selected component's card: what it is, its parameters from the
- * ontology, and the way to its live data. At lg a card over the scene's top
- * right, its relations in the strip under the scene (`OntologyRelationsStrip`);
- * below lg a bottom sheet holding them too.
+ * ontology, its connected components, and the way to its live data. At lg a
+ * card over the scene's top right (its relations also in the strip under the
+ * scene, `OntologyRelationsStrip`); below lg a bottom sheet.
  */
 export function SelectionDetailsModal({
   selectedNode,
@@ -170,9 +170,9 @@ export function SelectionDetailsModal({
           </button>
         )}
 
-        {/* At lg the relations are in the strip under the scene */}
+        {/* At lg the strip under the scene shows them too, with their relations */}
         {connectedComponents.length > 0 && (
-          <section className="lg:hidden">
+          <section>
             <h3 className={cn(SECTION_HEADER_CLASS, "mb-2")}>
               CONNECTED COMPONENTS ({connectedComponents.length})
             </h3>

@@ -40,3 +40,16 @@ export const DEFAULT_LIVE_VIEW: LiveView = "systems";
 export const LIVE_VIEW_PARAM = "live";
 /** Whether the Systems view shows its callouts over the scene (`?callouts=false` for a clean view). */
 export const CALLOUTS_PARAM = "callouts";
+
+/**
+ * What each level of autonomy the ship reports means, for the top bar's
+ * badge. A working reading of the L0–L4 scale, in the spirit of IMO's degrees
+ * of autonomy for MASS, until the ontology defines it (`draft_time_mode.ttl`).
+ */
+export const AUTONOMY_LEVELS: Record<string, string> = {
+  L0: "Manual: the crew steers and runs the ship",
+  L1: "Decision support: the systems advise, the crew decides and acts",
+  L2: "Partial autonomy: the systems act on some functions, the crew supervises throughout",
+  L3: "Conditional autonomy: the ship sails itself; the crew or the shore centre monitors and takes over when asked",
+  L4: "High autonomy: the ship sails itself for the whole leg; people are on call",
+};

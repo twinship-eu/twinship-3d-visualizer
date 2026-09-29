@@ -2,15 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import { useLiveData } from "@/features/live-data/hooks/use-live-data";
-import { getObjectDetailsForNode } from "../selection-details";
+import { relationsOf } from "../lib/ontology-relations";
 import { getSectionDotClass, getSectionIdOf } from "../lib/section-colors";
-import { SHIP_TREE_SECTIONS } from "../ship-visualizer-config";
 import type { ShipTreeNode } from "../ship-visualizer-types";
-
-/** A connection with no relation of its own named in the ontology. */
-const DEFAULT_RELATION = "connectedTo";
-
-type Relation = { relation: string; label: string; sectionId: string };
 
 type Props = {
   selectedNode: ShipTreeNode;
@@ -19,22 +13,6 @@ type Props = {
   /** Opens the component's sensors in Live data. */
   onShowSensors: () => void;
 };
-
-/** The node's relations: the section it is part of, then its connections. */
-function relationsOf(node: ShipTreeNode): Relation[] {
-  const sectionId = getSectionIdOf(node);
-  const section = SHIP_TREE_SECTIONS.find((candidate) => candidate.id === sectionId);
-  // A section is part of nothing: only its components are
-  const partOf: Relation[] =
-    section && section.id !== node.id ? [{ relation: "partOf", label: section.label, sectionId: section.id }] : [];
-  const connections = getObjectDetailsForNode(node).connectedComponents.map((component) => ({
-    relation: component.relation ?? DEFAULT_RELATION,
-    label: component.label,
-    sectionId: getSectionIdOf({ id: component.id, label: component.label }),
-  }));
-
-  return [...partOf, ...connections];
-}
 
 const CARD_CLASS =
   "flex min-w-[180px] flex-col justify-center gap-1.5 rounded-[10px] bg-card px-3.5 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";

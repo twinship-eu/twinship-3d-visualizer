@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { Group } from "three/webgpu";
 import { shipMotion } from "../../3d-scene/lib/seascape-ship-motion";
+import { liveSceneOverrides } from "../../3d-scene/lib/live-scene-overrides";
 import {
   PROPELLER_ANGULAR_SPEED_RAD_S,
   PROPELLER_SPIN_DIRECTIONS,
@@ -12,6 +13,7 @@ import {
  */
 const FULL_SPEED = 9.26;
 const UNDER_WAY_SPIN = 4;
+const RADIANS_PER_SECOND_PER_RPM = (2 * Math.PI) / 60;
 
 /**
  * Turns each propeller shaft about its own axis. The groups come from
@@ -20,7 +22,13 @@ const UNDER_WAY_SPIN = 4;
 export default function SpinningPropellers({ spinners }: { spinners: Group[] }) {
   useFrame((_, delta) => {
     const underWay = Math.min(Math.max(shipMotion.speed / FULL_SPEED, 0), 1);
-    const spin = PROPELLER_ANGULAR_SPEED_RAD_S * (1 + (UNDER_WAY_SPIN - 1) * underWay);
+    // The shafts' own speed when the data gives it, from idle as the ship
+    // gathers way; else the default's quickening
+    const liveRpm = liveSceneOverrides.propellerRpm;
+    const spin =
+      liveRpm === null
+        ? PROPELLER_ANGULAR_SPEED_RAD_S * (1 + (UNDER_WAY_SPIN - 1) * underWay)
+        : PROPELLER_ANGULAR_SPEED_RAD_S + (liveRpm * RADIANS_PER_SECOND_PER_RPM - PROPELLER_ANGULAR_SPEED_RAD_S) * underWay;
     for (let i = 0; i < spinners.length; i++) {
       const direction = PROPELLER_SPIN_DIRECTIONS[i] ?? 1;
       // rotateZ turns it about its own z, as `rotation.z +=` did, and does not

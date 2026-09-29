@@ -115,6 +115,7 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
         value: (snapshot) => snapshot.systems.energy.fuelTph,
         format: twoDecimals("t/h"),
         hasTrend: true,
+        ontologyParameter: "twinship fuel consumption rate in MT per hr",
       },
       {
         label: "Exhaust · Cyl 4",
@@ -125,7 +126,12 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
         barClass: "bg-warn",
         hasTrend: true,
       },
-      { label: "Coolant", value: (snapshot) => snapshot.systems.energy.coolantTempC, format: (value) => `${value.toFixed(0)} °C` },
+      {
+        label: "Coolant",
+        value: (snapshot) => snapshot.systems.energy.coolantTempC,
+        format: (value) => `${value.toFixed(0)} °C`,
+        ontologyParameter: "twinship ME cooling water temperature in degrees C",
+      },
     ],
     lifecycle: [
       { label: "Running hours to overhaul", pct: 72, note: "[hours]", barClass: "bg-system-hull" },
@@ -212,6 +218,7 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
         label: "Fuel saving",
         value: (snapshot) => snapshot.systems.windAssist.fuelSavingPct,
         format: percent,
+        ontologyParameter: "twinship WASP power reduction efficiency percentage",
         bar: (snapshot) => snapshot.systems.windAssist.fuelSavingPct / 100,
         barClass: "bg-ok",
       },
@@ -242,9 +249,32 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
   },
 };
 
-/** The trends shown while an alarm is in focus: the reading, and what drives it. By alarm id. */
+/** The trends shown while an alarm is in focus: the reading, and what drives it. By the alarm's sensor id. */
 export const ALARM_CONTEXT_TRENDS: Record<string, TrendCard[]> = {
-  "hull-bending-stress": [
+  "EX-4": [
+    {
+      title: "Exhaust · Cyl 4",
+      series: [{ label: "", value: (snapshot) => snapshot.sensors["EX-4"] ?? 0, strokeClass: "stroke-warn" }],
+      format: ([temperature]) => `${temperature.toFixed(0)} °C`,
+      limits: [
+        { value: 400, tone: "warn" },
+        { value: 420, tone: "alarm" },
+      ],
+    },
+    {
+      title: "Engine load",
+      note: "advised 60%",
+      series: [{ label: "", value: (snapshot) => snapshot.systems.energy.engineLoadPct, strokeClass: "stroke-system-energy" }],
+      format: ([load]) => `${load.toFixed(0)}%`,
+      limits: [{ value: 60, tone: "advised" }],
+    },
+    {
+      title: "Coolant",
+      series: [{ label: "", value: (snapshot) => snapshot.systems.energy.coolantTempC, strokeClass: "stroke-accent" }],
+      format: ([temperature]) => `${temperature.toFixed(0)} °C`,
+    },
+  ],
+  "SG-03": [
     BENDING_STRESS_TREND,
     {
       title: "Significant wave height",
@@ -261,9 +291,13 @@ export const ALARM_CONTEXT_TRENDS: Record<string, TrendCard[]> = {
   ],
 };
 
-/** More readings to watch with an alarm, beside its related sensors. By alarm id. */
+/** More readings to watch with an alarm, beside its related sensors. By the alarm's sensor id. */
 export const ALARM_RELATED_READINGS: Record<string, { label: string; value: (snapshot: LiveSnapshot) => string }[]> = {
-  "hull-bending-stress": [
+  "EX-4": [
+    { label: "Engine load", value: (snapshot) => `${snapshot.systems.energy.engineLoadPct.toFixed(0)}%` },
+    { label: "Fuel", value: (snapshot) => `${snapshot.systems.energy.fuelTph.toFixed(2)} t/h` },
+  ],
+  "SG-03": [
     { label: "Slamming events", value: (snapshot) => `${snapshot.systems.hull.slammingPerHour.toFixed(1)} /h` },
     { label: "Pitch", value: (snapshot) => `${snapshot.systems.hull.pitchDeg.toFixed(1)}°` },
   ],

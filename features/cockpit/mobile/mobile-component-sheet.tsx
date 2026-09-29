@@ -11,6 +11,7 @@ import { COMPONENT_LIVE } from "../component-live/component-live-config";
 import { componentState, STATE_CHIPS } from "../component-live/component-state";
 import { LiveTab } from "../component-live/live-tab";
 import { TrendChart } from "../component-live/trend-chart";
+import { OntologyDescription, OntologyParameters } from "../component-live/ontology-sections";
 
 type Props = {
   node: ShipTreeNode;
@@ -19,6 +20,8 @@ type Props = {
   /** Whether its alarm is shown rather than its live readings. */
   isShowingAlarm: boolean;
   onShowAlarm: (isShowing: boolean) => void;
+  /** Opens a related component, by its label. */
+  onSelectRelated: (label: string) => void;
 };
 
 /**
@@ -26,7 +29,7 @@ type Props = {
  * of the screen — its readings (the first as a trend, with the way to its
  * alarm) and details in two tabs, or its alarm with acknowledge.
  */
-export function MobileComponentSheet({ node, sectionLabel, isShowingAlarm, onShowAlarm }: Props) {
+export function MobileComponentSheet({ node, sectionLabel, isShowingAlarm, onShowAlarm, onSelectRelated }: Props) {
   const [tab, setTab] = useState<"live" | "details">("live");
   const snapshot = useLiveData();
   const history = useLiveHistory();
@@ -117,24 +120,17 @@ export function MobileComponentSheet({ node, sectionLabel, isShowingAlarm, onSho
                   </section>
                 )}
                 {definition && snapshot ? (
-                  <LiveTab definition={definition} snapshot={snapshot} history={history} />
+                  <LiveTab componentLabel={node.label} definition={definition} snapshot={snapshot} history={history} />
                 ) : (
                   <p className="px-5 py-5 text-sm text-muted">No live readings for this component yet.</p>
                 )}
               </>
             )}
             {tab === "details" && (
-              <div className="flex flex-col gap-4 px-5 py-4 text-sm">
-                <p className="leading-[1.5] text-ink-2">{details.description}</p>
-                <dl>
-                  {details.parameters.map((parameter) => (
-                    <div key={parameter.name} className="flex justify-between gap-4 border-b border-line py-2.5 last:border-0">
-                      <dt className="min-w-0 text-ink-2">{parameter.name}</dt>
-                      <dd className="text-right font-semibold">{parameter.value || "—"}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
+              <>
+                <OntologyDescription node={node} onSelectRelated={onSelectRelated} />
+                <OntologyParameters node={node} snapshot={snapshot} />
+              </>
             )}
           </div>
         </>

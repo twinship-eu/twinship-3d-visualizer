@@ -26,6 +26,12 @@ const BLOOM = {
 
 /** After R3F's default (0): a positive priority makes this the frame's only render. */
 const RENDER_PRIORITY = 1;
+/**
+ * For what must see the frame as it will be drawn — the camera with its
+ * ride-with-the-ship tilt, the ship where the waves put it: after everything
+ * at the default priority, just before the render.
+ */
+export const BEFORE_RENDER_PRIORITY = RENDER_PRIORITY - 0.5;
 
 /** Live values behind the Inspector's Bloom panel. */
 const BLOOM_TUNING = {

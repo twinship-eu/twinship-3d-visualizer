@@ -44,8 +44,9 @@ const strainGauge = (index: number, frame: number, z: number, value: number): Se
 export const SENSORS: SensorDefinition[] = [
   strainGauge(1, 40, 0.16, 54),
   strainGauge(2, 76, 0.33, 58),
-  strainGauge(3, 112, 0.5, 88),
-  strainGauge(4, 140, 0.66, 77),
+  // Frame 112 the highest: back under the 80% warning since its alarm
+  strainGauge(3, 112, 0.5, 72),
+  strainGauge(4, 140, 0.66, 66),
   strainGauge(5, 176, 0.83, 49),
   {
     id: "EX-4",
@@ -57,7 +58,8 @@ export const SENSORS: SensorDefinition[] = [
     warnAt: 400,
     alarmAt: 420,
     position: [0.5, 0.8, 0.4],
-    simulated: { value: 396, spread: 3 },
+    // Over the 400 °C warning: the simulation's active alarm
+    simulated: { value: 406, spread: 2 },
   },
   {
     id: "CW-1",
@@ -113,7 +115,7 @@ export const SENSORS: SensorDefinition[] = [
     quantity: "Shaft torque",
     unit: "kNm",
     position: [0.25, 0.5, 0.5],
-    simulated: { value: 165, spread: 3 },
+    simulated: { value: 330, spread: 4 },
   },
   {
     id: "PS-2",
@@ -123,7 +125,7 @@ export const SENSORS: SensorDefinition[] = [
     quantity: "Shaft torque",
     unit: "kNm",
     position: [0.75, 0.5, 0.5],
-    simulated: { value: 163, spread: 3 },
+    simulated: { value: 327, spread: 4 },
   },
   {
     id: "SB-1",

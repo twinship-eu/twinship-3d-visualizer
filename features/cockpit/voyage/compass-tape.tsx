@@ -23,7 +23,7 @@ export function CompassTape({ headingDeg, courseDeg }: Props) {
   const courseOffset = wrapSigned(courseDeg - headingDeg);
 
   return (
-    <div className="pointer-events-none absolute top-4 left-1/2 z-20 hidden -translate-x-1/2 flex-col items-center gap-1.5 lg:flex">
+    <div data-callout-avoid className="pointer-events-none absolute top-4 left-1/2 z-20 hidden -translate-x-1/2 flex-col items-center gap-1.5 lg:flex">
       <div
         className="relative h-[58px] overflow-hidden rounded-[10px] border border-glass-line bg-glass backdrop-blur"
         style={{ width: WIDTH_PX }}
