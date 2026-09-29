@@ -7,7 +7,7 @@ import { componentState, STATE_CHIPS } from "../component-live/component-state";
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { Sparkline } from "../components/sparkline";
 import type { CalloutDefinition, CalloutId } from "./callout-config";
-import { calloutAnchors, subscribeToAnchors } from "./callout-anchors";
+import { calloutAnchors, shipOutline, subscribeToAnchors } from "./callout-anchors";
 import { glideShare, layoutCards, type LayoutRect } from "./callout-layout";
 
 type Props = {
@@ -74,8 +74,8 @@ function CalloutBody({ id, snapshot, history }: { id: CalloutId; snapshot: LiveS
             <span className="font-semibold text-ok">−{systems.windAssist.fuelSavingPct.toFixed(0)}% fuel</span>
           </div>
           <div className="flex justify-between gap-2">
-            <Reading label="Rotor 1" value={`${systems.windAssist.rotorRpm[0].toFixed(0)} rpm`} />
-            <Reading label="Rotor 2" value={`${systems.windAssist.rotorRpm[1].toFixed(0)} rpm`} />
+            <Reading label="Fan 1" value={`${systems.windAssist.fanRpm[0].toFixed(0)} rpm`} />
+            <Reading label="Fan 2" value={`${systems.windAssist.fanRpm[1].toFixed(0)} rpm`} />
           </div>
         </div>
       );
@@ -93,7 +93,7 @@ function CalloutBody({ id, snapshot, history }: { id: CalloutId; snapshot: LiveS
           </span>
         </div>
       );
-    case "voyageRotors":
+    case "voyageSails":
       return (
         <span className="text-muted">
           <b className="font-mono font-semibold text-ink">{systems.windAssist.thrustKn.toFixed(0)} kN</b> · auto-trim
@@ -154,8 +154,9 @@ function nearestOnRect(x: number, y: number, rect: DOMRect) {
 /**
  * The Live data callouts, over the scene: a card for each part of the
  * ship with its live readings, and a line from the card to the part. The
- * cards keep beside their parts as the camera turns and the ship rides the
- * waves — gliding, clear of the panels over the scene and of each other.
+ * cards keep out beside the ship, at their parts' height, as the camera
+ * turns and the ship rides the waves — gliding, clear of the ship, of the
+ * panels over the scene and of each other.
  *
  * Cards, lines and dots are moved every frame outside React, as soon as the
  * projector has written its anchors (`CalloutAnchorProjector`); the cards
@@ -172,6 +173,10 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
   useEffect(() => {
     /** Where each card is now, gliding towards where the layout puts it. */
     const positions: Partial<Record<CalloutId, { x: number; y: number }>> = {};
+    /** The side of the ship each card was on last frame: kept, so a part near the middle does not flip it. */
+    const sides: Partial<Record<CalloutId, "left" | "right">> = {};
+    /** Where each card's place was last frame, for its order in the stack. */
+    const targetYs: Partial<Record<CalloutId, number>> = {};
     let avoid: LayoutRect[] = [];
     let avoidMeasuredAt = -Infinity;
     let lastFrame = performance.now();
@@ -201,10 +206,18 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
         shown.map(({ id, placement }) => {
           const card = cardRefs.current[id] as HTMLElement;
           const anchor = calloutAnchors[id] as { x: number; y: number };
-          return { width: card.offsetWidth, height: card.offsetHeight, anchor, placement };
+          return {
+            width: card.offsetWidth,
+            height: card.offsetHeight,
+            anchor,
+            placement,
+            previousSide: sides[id],
+            previousY: targetYs[id],
+          };
         }),
         avoid,
-        bounds
+        bounds,
+        shipOutline.slices
       );
 
       for (const { id } of callouts) {
@@ -214,6 +227,10 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
         const dot = dotRefs.current[id];
         if (!card || !line || !dot) continue;
         const target = layout[shown.findIndex((callout) => callout.id === id)];
+        if (target) {
+          sides[id] = target.side;
+          targetYs[id] = target.y;
+        }
         const isShown = !!anchor?.isVisible && target !== undefined;
         // A card whose part is out of view waits where it was, hidden
         card.style.visibility = isShown ? "visible" : "hidden";

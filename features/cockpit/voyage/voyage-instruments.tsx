@@ -96,7 +96,7 @@ export function AttitudeCard({ snapshot }: { snapshot: LiveSnapshot }) {
   );
 }
 
-/** The wind as the ship feels it, off the bow, and what the rotor sails make of it. */
+/** The wind as the ship feels it, off the bow, and what the suction sails make of it. */
 export function RelativeWindCard({ snapshot }: { snapshot: LiveSnapshot }) {
   const wind = relativeWind(snapshot.navigation);
 
@@ -120,7 +120,7 @@ export function RelativeWindCard({ snapshot }: { snapshot: LiveSnapshot }) {
             · {Math.abs(wind.angleDeg).toFixed(0)}° {wind.angleDeg >= 0 ? "stbd" : "port"}
           </span>
         </span>
-        <Reading label="Rotor thrust" value={`${snapshot.systems.windAssist.thrustKn.toFixed(0)} kN`} />
+        <Reading label="Sail thrust" value={`${snapshot.systems.windAssist.thrustKn.toFixed(0)} kN`} />
       </div>
     </section>
   );

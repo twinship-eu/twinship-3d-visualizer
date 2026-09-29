@@ -27,11 +27,11 @@ type Props = {
 /** A component's Live tab: its health, its readings now and their minute, its lifecycle. */
 export function LiveTab({ componentLabel, definition, snapshot, history }: Props) {
   const { health, readings, lifecycle } = definition;
-  // Each ontology parameter's definition, by name, for the readings that measure one
+  // Each ontology property's definition, by its local name (or name), for the readings that measure one
   const ontologyLinks = new Map(
     getObjectDetailsForNode({ id: componentLabel, label: componentLabel }).parameters
       .filter((parameter) => parameter.href)
-      .map((parameter) => [parameter.name, parameter.href!])
+      .map((parameter) => [parameter.property ?? parameter.name, parameter.href!])
   );
 
   return (

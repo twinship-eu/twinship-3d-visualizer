@@ -115,7 +115,6 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
         value: (snapshot) => snapshot.systems.energy.fuelTph,
         format: twoDecimals("t/h"),
         hasTrend: true,
-        ontologyParameter: "twinship fuel consumption rate in MT per hr",
       },
       {
         label: "Exhaust · Cyl 4",
@@ -130,7 +129,6 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
         label: "Coolant",
         value: (snapshot) => snapshot.systems.energy.coolantTempC,
         format: (value) => `${value.toFixed(0)} °C`,
-        ontologyParameter: "twinship ME cooling water temperature in degrees C",
       },
     ],
     lifecycle: [
@@ -206,7 +204,7 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
     ],
   },
   WAPS: {
-    health: { score: 97, caption: "Combined from rotor speed and thrust sensors" },
+    health: { score: 97, caption: "Combined from fan speed and thrust sensors" },
     readings: [
       {
         label: "Thrust",
@@ -218,14 +216,14 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
         label: "Fuel saving",
         value: (snapshot) => snapshot.systems.windAssist.fuelSavingPct,
         format: percent,
-        ontologyParameter: "twinship WASP power reduction efficiency percentage",
+        ontologyParameter: "twWASPPowerReductionEfficiencyPercentage",
         bar: (snapshot) => snapshot.systems.windAssist.fuelSavingPct / 100,
         barClass: "bg-ok",
       },
-      { label: "Rotor 1", value: (snapshot) => snapshot.systems.windAssist.rotorRpm[0], format: (value) => `${value.toFixed(0)} rpm` },
-      { label: "Rotor 2", value: (snapshot) => snapshot.systems.windAssist.rotorRpm[1], format: (value) => `${value.toFixed(0)} rpm` },
+      { label: "Fan 1", value: (snapshot) => snapshot.systems.windAssist.fanRpm[0], format: (value) => `${value.toFixed(0)} rpm` },
+      { label: "Fan 2", value: (snapshot) => snapshot.systems.windAssist.fanRpm[1], format: (value) => `${value.toFixed(0)} rpm` },
     ],
-    lifecycle: [{ label: "Rotor bearing life used", pct: 18, barClass: "bg-system-hull" }],
+    lifecycle: [{ label: "Fan bearing life used", pct: 18, barClass: "bg-system-hull" }],
     trends: [
       {
         title: "Thrust",
@@ -233,10 +231,10 @@ export const COMPONENT_LIVE: Record<string, ComponentLiveDefinition> = {
         format: ([thrust]) => `${thrust.toFixed(0)} kN`,
       },
       {
-        title: "Rotors",
+        title: "Suction fans",
         series: [
-          { label: "1", value: (snapshot) => snapshot.systems.windAssist.rotorRpm[0], strokeClass: "stroke-system-hull" },
-          { label: "2", value: (snapshot) => snapshot.systems.windAssist.rotorRpm[1], strokeClass: "stroke-accent" },
+          { label: "1", value: (snapshot) => snapshot.systems.windAssist.fanRpm[0], strokeClass: "stroke-system-hull" },
+          { label: "2", value: (snapshot) => snapshot.systems.windAssist.fanRpm[1], strokeClass: "stroke-accent" },
         ],
         format: pair(0, " rpm"),
       },

@@ -82,7 +82,7 @@ export function withRecordedReadings(snapshot: LiveSnapshot, read: RecordingRead
       windAssist: {
         thrustKn: sum(COLUMNS.sailThrust, systems.windAssist.thrustKn),
         fuelSavingPct: sum(COLUMNS.sailSaving, systems.windAssist.fuelSavingPct),
-        rotorRpm: [fan1 ?? systems.windAssist.rotorRpm[0], fan2 ?? systems.windAssist.rotorRpm[1]],
+        fanRpm: [fan1 ?? systems.windAssist.fanRpm[0], fan2 ?? systems.windAssist.fanRpm[1]],
       },
       hull: {
         ...systems.hull,

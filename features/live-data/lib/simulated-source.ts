@@ -38,8 +38,8 @@ type SimulatedState = {
 
 type SystemsReading = keyof typeof SIMULATION_SYSTEMS_BASELINE;
 
-/** A little apart, so the two rotors do not read the same. */
-const ROTOR_OFFSET_RPM = 5;
+/** A little apart, so the two fans do not read the same. */
+const FAN_OFFSET_RPM = 5;
 
 const DEGREES_PER_RADIAN = 180 / Math.PI;
 /** Share of the heave's peak kept each tick: the amplitude reported fades over some tens of seconds. */
@@ -117,9 +117,9 @@ export function createSimulatedSource(): LiveDataSource {
     const readings = Object.fromEntries(
       Object.entries(SIMULATION_SYSTEMS_BASELINE).map(([name, { value }]) => [name, value])
     ) as Record<SystemsReading, number>;
-    const rotors: [number, number] = [
-      SIMULATION_SYSTEMS_BASELINE.rotorRpm.value + ROTOR_OFFSET_RPM,
-      SIMULATION_SYSTEMS_BASELINE.rotorRpm.value - ROTOR_OFFSET_RPM,
+    const fans: [number, number] = [
+      SIMULATION_SYSTEMS_BASELINE.fanRpm.value + FAN_OFFSET_RPM,
+      SIMULATION_SYSTEMS_BASELINE.fanRpm.value - FAN_OFFSET_RPM,
     ];
     const intervalSeconds = 1 / SIMULATION_RATE_HZ;
 
@@ -127,9 +127,9 @@ export function createSimulatedSource(): LiveDataSource {
       for (const name of Object.keys(readings) as SystemsReading[]) {
         readings[name] = drift(readings[name], SIMULATION_SYSTEMS_BASELINE[name]);
       }
-      const rotorBaseline = SIMULATION_SYSTEMS_BASELINE.rotorRpm;
-      rotors[0] = drift(rotors[0], { value: rotorBaseline.value + ROTOR_OFFSET_RPM, spread: rotorBaseline.spread });
-      rotors[1] = drift(rotors[1], { value: rotorBaseline.value - ROTOR_OFFSET_RPM, spread: rotorBaseline.spread });
+      const fanBaseline = SIMULATION_SYSTEMS_BASELINE.fanRpm;
+      fans[0] = drift(fans[0], { value: fanBaseline.value + FAN_OFFSET_RPM, spread: fanBaseline.spread });
+      fans[1] = drift(fans[1], { value: fanBaseline.value - FAN_OFFSET_RPM, spread: fanBaseline.spread });
 
       return {
         propulsion: {
@@ -149,7 +149,7 @@ export function createSimulatedSource(): LiveDataSource {
         windAssist: {
           thrustKn: readings.windThrustKn,
           fuelSavingPct: readings.fuelSavingPct,
-          rotorRpm: [rotors[0], rotors[1]],
+          fanRpm: [fans[0], fans[1]],
         },
         hull: {
           ...attitudeFromScene(),

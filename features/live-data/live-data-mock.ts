@@ -52,9 +52,9 @@ const MOCK_ALARMS: (Omit<Alarm, "raisedAt"> & { minutesAgo: number })[] = [
     ...ALARM_ADVICE["SG-03"],
   },
   {
-    id: "rotor-sails-auto-trim",
+    id: "suction-sails-auto-trim",
     componentLabel: "WAPS",
-    title: "Rotor sails auto-trim",
+    title: "Suction sails auto-trim",
     detail: "WAPS · wind shifted to 040°",
     severity: "info",
     minutesAgo: 11,

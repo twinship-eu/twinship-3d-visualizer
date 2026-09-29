@@ -16,7 +16,11 @@ export type LiveReadingRow = {
   barClass?: string;
   /** Whether it shows its last minute beside the value. */
   hasTrend?: boolean;
-  /** The ontology parameter it measures, by name: linked to its definition. */
+  /**
+   * The ontology property it measures — the same quantity, not a limit of
+   * it — by its local name (twWASPPowerReductionEfficiencyPercentage): linked
+   * to its definition.
+   */
   ontologyParameter?: string;
 };
 

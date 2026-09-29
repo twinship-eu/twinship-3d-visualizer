@@ -10,10 +10,20 @@ export type CalloutId =
   | "waps"
   | "propellers"
   | "engine"
-  | "voyageRotors"
+  | "voyageSails"
   | "voyagePropellers";
 
-/** Which side of its part a card keeps to: left or right of it, above or below. */
+/**
+ * The model's objects whose outline is the ship's on screen — hull, towers,
+ * sails, bridge: the cards keep outside it, so the ship stays in view.
+ */
+export const SHIP_OUTLINE_OBJECT_NAMES = ["Base", "Base_Top", "WindTurbines", "ControlRoom"] as const;
+
+/**
+ * Whether a card sits a little above or below its part's height, and which
+ * side it keeps to before the ship's outline is known (then it is the side
+ * nearer its part).
+ */
 export type CalloutPlacement = { side: "left" | "right"; vertical: "above" | "below" };
 
 export type CalloutDefinition = {
@@ -57,7 +67,7 @@ export const SYSTEMS_CALLOUTS: CalloutDefinition[] = [
   },
   {
     id: "waps",
-    title: "WAPS · 2 rotor sails",
+    title: "WAPS · 2 suction sails",
     objectName: "WindTurbines",
     componentLabel: "WAPS",
     dotClass: "bg-system-hull",
@@ -76,7 +86,7 @@ export const SYSTEMS_CALLOUTS: CalloutDefinition[] = [
   },
   {
     id: "engine",
-    title: "Engine · Main",
+    title: "Engine · Gensets",
     objectName: "Engine",
     componentLabel: "Engine",
     dotClass: "bg-system-energy",
@@ -90,8 +100,8 @@ export const SYSTEMS_CALLOUTS: CalloutDefinition[] = [
 /** The Voyage view's callouts: fewer, smaller, round the instruments. */
 export const VOYAGE_CALLOUTS: CalloutDefinition[] = [
   {
-    id: "voyageRotors",
-    title: "Rotor sails",
+    id: "voyageSails",
+    title: "Suction sails",
     objectName: "WindTurbines",
     componentLabel: "WAPS",
     dotClass: "bg-system-hull",

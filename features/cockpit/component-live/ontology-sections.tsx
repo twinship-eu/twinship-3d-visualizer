@@ -4,7 +4,7 @@ import { ExternalLink, Network } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { relationsOf } from "@/features/ship-visualizer/lib/ontology-relations";
-import { getSectionDotClass } from "@/features/ship-visualizer/lib/section-colors";
+import { RelationTarget, relationKey } from "@/features/ship-visualizer/components/relation-target";
 import { getObjectDetailsForNode } from "@/features/ship-visualizer/selection-details";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { ONTOLOGY_LIVE_VALUES } from "./ontology-live-values";
@@ -33,19 +33,33 @@ export function OntologyDescription({ node, onSelectRelated, onOpenInOntology }:
       <p className="leading-[1.5] text-ink-2">{description}</p>
       {relations.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h3 className={SECTION_LABEL_CLASS}>RELATIONS IN THE ONTOLOGY</h3>
-          {relations.map(({ relation, label, sectionId }) => (
-            <button
-              key={`${relation}-${label}`}
-              type="button"
-              onClick={() => onSelectRelated(label)}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-card px-3.5 py-2.5 text-left hover:border-accent-line"
-            >
-              <span className="w-28 shrink-0 font-mono text-[11px] text-muted">{relation} →</span>
-              <span className={cn("size-[7px] shrink-0 rounded-full", getSectionDotClass(sectionId))} aria-hidden />
-              <span className="truncate font-semibold">{label}</span>
-            </button>
-          ))}
+          <h3 className={SECTION_LABEL_CLASS}>RELATIONS IN THE KNOWLEDGE GRAPH</h3>
+          {relations.map((relation) => {
+            const { partLabel } = relation;
+            const content = (
+              <>
+                <span className="w-32 shrink-0 font-mono text-[11px] text-muted" title={relation.predicate}>
+                  {relation.relation} →
+                </span>
+                <RelationTarget relation={relation} />
+              </>
+            );
+            const rowClass = "flex items-center gap-3 rounded-lg border border-line bg-card px-3.5 py-2.5 text-left";
+            return partLabel ? (
+              <button
+                key={relationKey(relation)}
+                type="button"
+                onClick={() => onSelectRelated(partLabel)}
+                className={cn(rowClass, "cursor-pointer hover:border-accent-line")}
+              >
+                {content}
+              </button>
+            ) : (
+              <div key={relationKey(relation)} className={rowClass}>
+                {content}
+              </div>
+            );
+          })}
         </section>
       )}
       {onOpenInOntology && (
@@ -77,9 +91,9 @@ export function OntologyParameters({ node, snapshot }: ParametersProps) {
   return (
     <dl className="px-6 py-3 text-sm">
       {parameters.map((parameter) => {
-        const live = liveValues[parameter.name];
+        const live = liveValues[parameter.property ?? parameter.name];
         return (
-          <div key={parameter.name} className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 last:border-0">
+          <div key={parameter.property ?? parameter.name} className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 last:border-0">
             <dt className="min-w-0 text-ink-2">
               {parameter.href ? (
                 <a

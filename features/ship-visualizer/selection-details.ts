@@ -1,12 +1,26 @@
 import type { ShipTreeNode } from "./ship-visualizer-types";
 import type { ObjectDetails } from "./components/selection-details-modal-types";
+import {
+  classLabel,
+  classOf,
+  instancesOfPart,
+  KNOWLEDGE_GRAPH,
+  ontologyPageOf,
+  partParametersOf,
+} from "./lib/knowledge-graph";
+import { getSectionIdOf } from "./lib/section-colors";
+import { SHIP_TREE_SECTIONS } from "./ship-visualizer-config";
 
 const DEFAULT_DETAILS: ObjectDetails = {
   description: "Details for this component will be available in a future version.",
   parameters: [],
-  connectedComponents: [],
 };
 
+/**
+ * The parts the knowledge graph does not have yet, as written from the
+ * vessel's specification: the hull's general particulars, the control room…
+ * The parts it has (see `PART_INSTANCES`) are described from it instead.
+ */
 const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
   "Base Hull": {
     title: "Base Hull",
@@ -35,26 +49,13 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
       { name: "Electrical power system", value: "AC and DC low loss design" },
       { name: "Shore power", value: "For recharge battery and zero emission in port" },
     ],
-    connectedComponents: [
-      { id: "Hull top towers", label: "Hull top towers", category: "Hull" },
-      { id: "Control room", label: "Control room", category: "Hull" },
-      { id: "WAPS", label: "WAPS", category: "Wind assisted propulsion system" },
-      { id: "Engine", label: "Engine", category: "Energy system" },
-      { id: "Container", label: "Container", category: "Deck equipment" },
-      { id: "Crane", label: "Crane", category: "Deck equipment" },
-    ],
   },
   "Hull top towers": {
     title: "Hull top towers",
     tags: ["Hull"],
     description:
       "Upper hull tower structures used for supporting equipment and providing visibility. Part of the RoRo vessel.",
-    parameters: [
-     
-    ],
-    connectedComponents: [
-      { id: "Base Hull", label: "Base Hull", category: "Hull" },
-    ],
+    parameters: [],
   },
   "Control room": {
     title: "Control room",
@@ -62,10 +63,6 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
     description:
       "The main operational control space housing navigation, monitoring, and communication systems.",
     parameters: [],
-    connectedComponents: [
-      { id: "Base Hull", label: "Base Hull", category: "Hull" },
-      { id: "Radio", label: "Radio", category: "Hull" },
-    ],
   },
   Radio: {
     title: "Radio",
@@ -73,183 +70,51 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
     description:
       "Radio and antenna systems used for ship-to-ship and ship-to-shore communication.",
     parameters: [],
-    connectedComponents: [
-      { id: "Control room", label: "Control room", category: "Hull" },
-    ],
   },
   Container: {
     title: "Container",
     tags: ["Deck equipment"],
     description: "On-deck container used for cargo and equipment storage.",
     parameters: [],
-    connectedComponents: [{ id: "Base Hull", label: "Base Hull", category: "Hull" }],
   },
   Crane: {
     title: "Crane",
     tags: ["Deck equipment"],
     description: "Deck crane used for handling cargo and equipment on board.",
     parameters: [],
-    connectedComponents: [{ id: "Base Hull", label: "Base Hull", category: "Hull" }],
-  },
-  Propellers: {
-    title: "Propellers",
-    titleHref: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#PropellerSystem",
-    tags: ["Propeller system"],
-    description:
-      "A rotating device with blades that converts rotational motion into thrust. CPP (Controllable Pitch Propeller) and FPP (Fixed Pitch Propeller). Below are the parameters for the propeller system.",
-    parameters: [
-      { name: "twinship propeller blades", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerBlades" },
-      { name: "twinship propeller diameter mm", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerDiameterMm" },
-      { name: "twinship propeller efficiency", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerEfficiency" },
-      { name: "twinship propeller expanded area ratio percentage", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerExpandedAreaRatioPercentage" },
-      { name: "twinship propeller hub ratio", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerHubRatio" },
-      { name: "twinship propeller pitch diameter ratio", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerPitchDiameterRatio" },
-      { name: "twinship propeller pitch max in percentage", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerPitchMaxInPercentage" },
-      { name: "twinship propeller skew angle degree", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPropellerSkewAngleDegree" },
-      { name: "twinship rudder angle degree", value: "", href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twRudderAngleDegree" },
-    ],
-    connectedComponents: [
-      { id: "Engine", label: "Engine", category: "Energy system", relation: "drivenBy" },
-    ],
-  },
-  Engine: {
-    title: "Engine",
-    titleHref:
-      "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#MainEngineSystem",
-    tags: ["Energy system"],
-    description:
-      "Main propulsion engine system. Includes shaft-related properties (power, torque, speed) as the main engine drives the propeller shaft. Below are the parameters for the main engine system.",
-    parameters: [
-      {
-        name: "twinship common DO mode",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twCommonDOMode",
-      },
-      {
-        name: "twinship common fuel mode",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twCommonFuelMode",
-      },
-      {
-        name: "twinship flowrate max in kg per hr",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twFlowrateMaxInKgPerHr",
-      },
-      {
-        name: "twinship fuel consumption rate in MT per hr",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twFuelConsumptionRateInMTPerHr",
-      },
-      {
-        name: "twinship fuel consumption total in MT",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twFuelConsumptionTotalInMT",
-      },
-      {
-        name: "twinship fuel flow temperature max in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twFuelFlowTemperatureMaxInDegC",
-      },
-      {
-        name: "twinship inlet air pressure max in hPa",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twInletAirPressureMaxInHPa",
-      },
-      {
-        name: "twinship inlet air temperature in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twInletAirTemperatureInDegC",
-      },
-      {
-        name: "twinship inlet air temperature max in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twInletAirTemperatureMaxInDegC",
-      },
-      {
-        name: "twinship LT cooling seawater 1 temperature max in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twLtCoolingSeawater1TemperatureMaxInDegC",
-      },
-      {
-        name: "twinship LT cooling seawater 2 temperature max in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twLtCoolingSeawater2TemperatureMaxInDegC",
-      },
-      {
-        name: "twinship ME cooling water temperature in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twMeCoolingWaterTemperatureInDegC",
-      },
-      {
-        name: "twinship ME cooling water temperature max in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twMeCoolingWaterTemperatureMaxInDegC",
-      },
-      {
-        name: "twinship power propulsion total in kW",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twPowerPropulsionTotalInKw",
-      },
-      {
-        name: "twinship scavenger air rec temperature in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twScavengerAirRecTemperatureInDegC",
-      },
-      {
-        name: "twinship scavenger air rec temperature max in degrees C",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twScavengerAirRecTemperatureMaxInDegC",
-      },
-      {
-        name: "twinship shaft power max in kW",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twShaftPowerMaxInKW",
-      },
-      {
-        name: "twinship shaft speed max in rev per min",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twShaftSpeedMaxInRevPerMin",
-      },
-      {
-        name: "twinship shaft torque max in kNm",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twShaftTorqueMaxInKnm",
-      },
-    ],
-    connectedComponents: [
-      { id: "Propellers", label: "Propellers", category: "Propeller system", relation: "drives" },
-      { id: "WAPS", label: "WAPS", category: "Wind assisted propulsion system" },
-      { id: "Base Hull", label: "Base Hull", category: "Hull", relation: "locatedIn" },
-    ],
-  },
-  WAPS: {
-    title: "WAPS",
-    titleHref:
-      "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#WindAssistedPropulsionSystem",
-    tags: ["Wind assisted propulsion system"],
-    description:
-      "Wind-assisted propulsion system (WASP) such as suction sails or rotor sails that harness wind energy to supplement vessel propulsion. Below are the parameters for the wind assisted propulsion system.",
-    parameters: [
-      {
-        name: "twinship WASP power in kW",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twWASPPowerInKW",
-      },
-      {
-        name: "twinship WASP power reduction efficiency percentage",
-        value: "",
-        href: "https://ontology.twin-ship.eu/index-en.html#https://twin-ship.eu/twinship#twWASPPowerReductionEfficiencyPercentage",
-      },
-    ],
-    connectedComponents: [
-      { id: "Base Hull", label: "Base Hull", category: "Hull" },
-      { id: "Engine", label: "Engine", category: "Energy system" },
-    ],
   },
 };
 
+/**
+ * A part the knowledge graph has, as it says: its instances' class — linked
+ * to the ontology — and its definition, and their values.
+ */
+function knowledgeGraphDetails(node: ShipTreeNode): ObjectDetails {
+  const instanceIds = instancesOfPart(node.label);
+  const className = classOf(instanceIds[0]);
+  const term = KNOWLEDGE_GRAPH.classes[className];
+  const section = SHIP_TREE_SECTIONS.find((candidate) => candidate.id === getSectionIdOf(node));
+  const kinds = [...new Set(instanceIds.flatMap((id) => KNOWLEDGE_GRAPH.instances[id]?.types ?? []))]
+    .filter((type) => type !== className)
+    .map(classLabel);
+
+  return {
+    title: node.label,
+    titleHref: ontologyPageOf(term),
+    // The section, and the class unless it is the section by another spelling
+    tags: [
+      ...(section ? [section.label] : []),
+      ...(section?.label.toLowerCase() === classLabel(className).toLowerCase() ? [] : [classLabel(className)]),
+    ],
+    description: [
+      term?.comment ?? classLabel(className),
+      `In the knowledge graph: ${instanceIds.join(", ")}${kinds.length ? ` — ${kinds.join(", ")}` : ""}.`,
+    ].join(" "),
+    parameters: partParametersOf(node.label),
+  };
+}
+
 export function getObjectDetailsForNode(node: ShipTreeNode): ObjectDetails {
-  const details = OBJECT_DETAILS_BY_LABEL[node.label];
-  if (details) return details;
-  return DEFAULT_DETAILS;
+  if (instancesOfPart(node.label).length > 0) return knowledgeGraphDetails(node);
+  return OBJECT_DETAILS_BY_LABEL[node.label] ?? DEFAULT_DETAILS;
 }

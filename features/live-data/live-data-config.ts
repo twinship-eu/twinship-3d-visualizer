@@ -48,7 +48,8 @@ export const SIMULATION_SYSTEMS_BASELINE = {
   batteryPct: { value: 81, spread: 0.2 },
   windThrustKn: { value: 37, spread: 1.2 },
   fuelSavingPct: { value: 10, spread: 0.4 },
-  rotorRpm: { value: 210, spread: 3 },
+  // The suction sails' fans, as in the sample recording
+  fanRpm: { value: 1480, spread: 15 },
   // (Roll, pitch and heave come from the scene: how the ship rides its waves)
   draftForeM: { value: 7.37, spread: 0.02 },
   draftAftM: { value: 7.49, spread: 0.02 },

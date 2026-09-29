@@ -10,6 +10,12 @@ export type CalloutAnchor = { x: number; y: number; isVisible: boolean };
  */
 export const calloutAnchors: Partial<Record<CalloutId, CalloutAnchor>> = {};
 
+/**
+ * Where the ship is on screen: its outline, as the rectangles round slices of
+ * it, in CSS pixels; empty before it is found.
+ */
+export const shipOutline: { slices: { x: number; y: number; width: number; height: number }[] } = { slices: [] };
+
 const anchorListeners = new Set<() => void>();
 
 /**

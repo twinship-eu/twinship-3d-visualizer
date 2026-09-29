@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import type { ShipTreeNode } from "../ship-visualizer-types";
 import { getObjectDetailsForNode } from "../selection-details";
 import { getSectionDotClass, getSectionIdOf } from "../lib/section-colors";
-import type { ConnectedComponent } from "./selection-details-modal-types";
+import { relationsOf, type OntologyRelation } from "../lib/ontology-relations";
+import { RelationTarget, relationKey } from "./relation-target";
 
 const SECTION_HEADER_CLASS = "text-[11px] font-semibold tracking-[0.12em] text-accent-ink";
 
@@ -47,7 +48,8 @@ export function SelectionDetailsModal({
   if (selectedNode === null) return null;
 
   const details = getObjectDetailsForNode(selectedNode);
-  const { title, titleHref, tags, description, parameters, connectedComponents } = details;
+  const { title, titleHref, tags, description, parameters } = details;
+  const relations = relationsOf(selectedNode);
   const displayTitle = title ?? selectedNode.label;
   const dotClass = getSectionDotClass(getSectionIdOf(selectedNode));
 
@@ -170,19 +172,13 @@ export function SelectionDetailsModal({
           </button>
         )}
 
-        {/* At lg the strip under the scene shows them too, with their relations */}
-        {connectedComponents.length > 0 && (
+        {/* From the knowledge graph; at lg the strip under the scene shows them too */}
+        {relations.length > 0 && (
           <section>
-            <h3 className={cn(SECTION_HEADER_CLASS, "mb-2")}>
-              CONNECTED COMPONENTS ({connectedComponents.length})
-            </h3>
+            <h3 className={cn(SECTION_HEADER_CLASS, "mb-2")}>CONNECTED COMPONENTS ({relations.length})</h3>
             <ul className="space-y-2">
-              {connectedComponents.map((component) => (
-                <ConnectedComponentRow
-                  key={component.id}
-                  component={component}
-                  onSelect={onSelectConnectedComponent}
-                />
+              {relations.map((relation) => (
+                <ConnectedComponentRow key={relationKey(relation)} relation={relation} onSelect={onSelectConnectedComponent} />
               ))}
             </ul>
           </section>
@@ -193,36 +189,42 @@ export function SelectionDetailsModal({
 }
 
 type ConnectedComponentRowProps = {
-  component: ConnectedComponent;
+  relation: OntologyRelation;
   onSelect?: (targetLabel: string) => void;
 };
 
-function ConnectedComponentRow({ component, onSelect }: ConnectedComponentRowProps) {
+/** A relation of the knowledge graph: a 3D part to jump to, or what the model has no part for. */
+function ConnectedComponentRow({ relation, onSelect }: ConnectedComponentRowProps) {
+  const { partLabel } = relation;
+  const rowClass = "flex w-full items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left";
+  const content = (
+    <>
+      <RelationTarget relation={relation} className="min-w-0 flex-1" />
+      <span className="shrink-0 font-mono text-[11px] text-muted" title={relation.predicate}>
+        {relation.relation}
+      </span>
+    </>
+  );
+
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => onSelect?.(component.id)}
-        className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left transition-colors hover:border-accent-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        <span
-          className={cn("size-2 shrink-0 rounded-full", getSectionDotClass(getSectionIdOf({ id: component.id, label: component.label })))}
-          aria-hidden
-        />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium text-ink">
-            {component.label}
-          </span>
-          {component.category && (
-            <span className="block truncate text-xs text-muted">
-              {component.category}
-            </span>
+      {partLabel ? (
+        <button
+          type="button"
+          onClick={() => onSelect?.(partLabel)}
+          className={cn(
+            rowClass,
+            "cursor-pointer transition-colors hover:border-accent-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           )}
-        </span>
-        <span className="shrink-0 text-muted" aria-hidden>
-          →
-        </span>
-      </button>
+        >
+          {content}
+          <span className="shrink-0 text-muted" aria-hidden>
+            →
+          </span>
+        </button>
+      ) : (
+        <div className={rowClass}>{content}</div>
+      )}
     </li>
   );
 }

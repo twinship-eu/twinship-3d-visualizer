@@ -76,7 +76,7 @@ export type ShipSystems = {
   energy: {
     /** Fuel burnt, tonnes per hour. */
     fuelTph: number;
-    /** Main engine load, % of rated. */
+    /** The gensets' load, % of rated (both, averaged), and their speed, rpm. */
     engineLoadPct: number;
     engineRpm: number;
     exhaustTempC: number;
@@ -85,12 +85,12 @@ export type ShipSystems = {
     batteryPct: number;
   };
   windAssist: {
-    /** Thrust from the rotor sails, kN. */
+    /** Thrust from the suction sails, kN. */
     thrustKn: number;
     /** Fuel saved against sailing without them, %. */
     fuelSavingPct: number;
-    /** Each rotor's speed, rpm. */
-    rotorRpm: [number, number];
+    /** Each suction sail's fan speed, rpm. */
+    fanRpm: [number, number];
   };
   hull: {
     /** Roll and pitch, degrees: starboard down and bow up positive. */
