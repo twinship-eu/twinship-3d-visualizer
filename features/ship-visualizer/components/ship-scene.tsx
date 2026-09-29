@@ -7,6 +7,7 @@ import type { LiveView } from "@/features/cockpit/cockpit-config";
 import { LiveSceneProjectors } from "@/features/cockpit/components/live-scene-layers";
 import { LiveSceneSync } from "@/features/cockpit/voyage/live-scene-sync";
 import { VoyageSceneOverlay } from "@/features/cockpit/voyage/voyage-scene-overlay";
+import { getBridgeState } from "@/features/bridge/lib/bridge-store";
 import type { useShipModel } from "../hooks/use-ship-model";
 import type { ShipTreeNode } from "../ship-visualizer-types";
 import Ship from "./scene-content";
@@ -69,7 +70,10 @@ export function ShipScene({ model, selectedNode, hoveredNode, onHover, onSelectB
           onModelTreeLoaded={model.handleModelTreeLoaded}
           tree={model.tree}
           onHover={onHover}
-          onSelectByClick={onSelectByClick}
+          // On the bridge a click is the operator looking about, not picking a part
+          onSelectByClick={(node) => {
+            if (!getBridgeState().isActive) onSelectByClick(node);
+          }}
           onAssemblyPointsSampled={model.setAssemblyTargets}
           isInteractive={loading.isInteractive}
         />

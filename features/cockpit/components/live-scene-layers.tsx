@@ -1,6 +1,8 @@
 "use client";
 
 import { AssistantHighlights } from "@/features/assistant/components/assistant-highlights";
+import { BridgeView } from "@/features/bridge/components/bridge-view";
+import { useBridgeState } from "@/features/bridge/lib/bridge-store";
 import { HighlightProjector } from "@/features/assistant/components/highlight-projector";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { CalloutAnchorProjector } from "../callouts/callout-anchor-projector";
@@ -31,6 +33,7 @@ export function LiveSceneProjectors({ callouts, view, liveSelection }: Projector
     <>
       <ComponentAlarmGlow />
       <HighlightProjector />
+      <BridgeView />
       {callouts && <CalloutAnchorProjector key={view} callouts={callouts} />}
       {/* A fresh projector for each component: it finds its part anew */}
       {liveSelection && <SensorAnchorProjector key={liveSelection.id} componentLabel={liveSelection.label} />}
@@ -64,6 +67,8 @@ export function LiveSceneOverlays({
   onOpenComponent,
   onOverview,
 }: OverlayProps) {
+  // On the bridge the glass carries the readings: the callouts give way
+  const { isActive: isOnBridge } = useBridgeState();
   if (liveSelection) {
     return (
       <>
@@ -78,7 +83,7 @@ export function LiveSceneOverlays({
     <>
       <AlarmBadges onOpenComponent={onOpenComponent} />
       <AssistantHighlights onOpenComponent={onOpenComponent} />
-      {callouts && <LiveCallouts key={view} callouts={callouts} onOpenComponent={onOpenComponent} />}
+      {callouts && !isOnBridge && <LiveCallouts key={view} callouts={callouts} onOpenComponent={onOpenComponent} />}
       <LiveViewControls
         view={view}
         onViewChange={onViewChange}

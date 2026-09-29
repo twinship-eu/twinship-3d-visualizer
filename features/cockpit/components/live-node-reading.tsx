@@ -1,6 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useBridgeState } from "@/features/bridge/lib/bridge-store";
+import { CONTROL_ROOM_LABEL } from "@/features/bridge/bridge-config";
 import { getActiveAlarms, useLiveData } from "@/features/live-data/hooks/use-live-data";
 import { componentReading, voyageSectionReading, type ReadingTone } from "../lib/component-readings";
 
@@ -16,6 +18,9 @@ const TONE_CLASSES: Record<ReadingTone, string> = {
  */
 export function LiveNodeReading({ label, isVoyage = false }: { label: string; isVoyage?: boolean }) {
   const snapshot = useLiveData();
+  const { isActive: isOnBridge } = useBridgeState();
+  // Where the camera stands, on the bridge
+  if (isOnBridge && label === CONTROL_ROOM_LABEL) return <span className="shrink-0 text-[11px] text-accent-ink">you are here</span>;
   if (!snapshot) return null;
 
   const hasActiveAlarm = getActiveAlarms(snapshot).some((alarm) => alarm.componentLabel === label);
