@@ -291,7 +291,17 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
             cardRefs.current[callout.id] = element;
           }}
           style={{ width: callout.widthPx, visibility: "hidden" }}
-          className="pointer-events-auto absolute top-0 left-0 flex flex-col gap-2 rounded-[10px] border border-glass-line bg-glass px-3.5 py-3 text-xs text-ink backdrop-blur"
+          // The whole card opens its component
+          role="button"
+          tabIndex={0}
+          aria-label={`${callout.title}: open ${callout.componentLabel}`}
+          onClick={() => onOpenComponent(callout.componentLabel)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            onOpenComponent(callout.componentLabel);
+          }}
+          className="pointer-events-auto absolute top-0 left-0 flex cursor-pointer flex-col gap-2 rounded-[10px] border border-glass-line bg-glass px-3.5 py-3 text-xs text-ink backdrop-blur transition-colors hover:border-accent-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <header className="flex items-center gap-2">
             <span className={cn("size-[7px] shrink-0 rounded-full", callout.dotClass)} aria-hidden />
@@ -299,14 +309,9 @@ export function LiveCallouts({ callouts, onOpenComponent }: Props) {
             <CalloutStatus callout={callout} snapshot={snapshot} />
           </header>
           <CalloutBody id={callout.id} snapshot={snapshot} history={history} />
+          {/* The card is the link: this only says so, as the design has it */}
           {callout.hasDetailsLink && (
-            <button
-              type="button"
-              onClick={() => onOpenComponent(callout.componentLabel)}
-              className="cursor-pointer self-start text-[13px] font-semibold text-accent-ink hover:text-accent"
-            >
-              Open component details →
-            </button>
+            <span className="self-start text-[13px] font-semibold text-accent-ink">Open component details →</span>
           )}
         </article>
       ))}

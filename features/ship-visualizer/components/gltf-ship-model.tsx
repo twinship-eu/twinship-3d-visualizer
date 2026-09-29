@@ -25,6 +25,7 @@ import { SHIP_MATERIAL_TUNING } from "@/features/3d-scene/lib/scene-material-tun
 import { Mesh, MeshStandardMaterial } from "three/webgpu";
 import { withKtx2Textures } from "../lib/ktx2-loader";
 import CameraFitToSelection from "./camera-fit-to-section";
+import ShipFlagCloth from "./ship-flag";
 import SpinningPropellers from "./spinning-propellers";
 
 export default function GltfShipModel({
@@ -125,6 +126,7 @@ export default function GltfShipModel({
     <>
       <CameraFitToSelection root={cloned} selectedNode={selectedStructureNode} />
       <SpinningPropellers spinners={propellerSpinners} />
+      <ShipFlagCloth root={cloned} />
       <primitive
         object={cloned as Group}
         scale={SHIP_MODEL_SCALE}
