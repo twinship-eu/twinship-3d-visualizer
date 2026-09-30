@@ -186,8 +186,12 @@ export function createFftOcean(wind: Wind) {
    * The tiles keep their sizes while they still fit the new sea: with the same
    * seed, the same waves then carry on, only higher or lower — new tiles would
    * be a new sea, jumping into place.
+   *
+   * `shortWavesTurn` turns the short waves (every cascade but the first, which
+   * holds the long, peak waves) by that many degrees on the sea, from the
+   * wind's bearing: long waves one way, the wind's own chop another.
    */
-  function setWind(nextWind: Wind) {
+  function setWind(nextWind: Wind, shortWavesTurn = 0) {
     const { peakFrequency } = jonswapParameters(nextWind);
     const peakWavelength = (2 * Math.PI * GRAVITY) / (peakFrequency * peakFrequency);
     const fitting = cascadeTileSizes(peakWavelength);
@@ -198,7 +202,8 @@ export function createFftOcean(wind: Wind) {
     const random = seededRandom(SPECTRUM_SEED);
 
     tileSizes.forEach((tileSize, index) => {
-      gpu.spectrum.array.set(buildCascadeSpectrum(nextWind, tileSize, bands[index], random), index * gpu.cells * 4);
+      const cascadeWind = index === 0 ? nextWind : { ...nextWind, fromDegrees: nextWind.fromDegrees - shortWavesTurn };
+      gpu.spectrum.array.set(buildCascadeSpectrum(cascadeWind, tileSize, bands[index], random), index * gpu.cells * 4);
       cascades[index].tileSize = tileSize;
     });
     gpu.spectrum.needsUpdate = true;

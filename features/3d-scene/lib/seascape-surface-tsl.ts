@@ -59,6 +59,7 @@ import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/web
 import type { ContactFoam } from "./seascape-contact-foam";
 import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
+import type { FoamMemory } from "./seascape-foam-memory";
 import { valueNoise } from "./seascape-noise";
 import { surfaceFromBelow, underwater } from "./seascape-underwater";
 import { rainRingsSlope } from "./seascape-rain-rings";
@@ -135,10 +136,11 @@ const CHURN_HEIGHT = 0.35;
 
 // Residual foam
 /**
- * Off: its patches read as flat decals on the water. The buoys show the ship
- * moving instead (`seascape-buoys.ts`). Kept, to try again with a better look.
+ * How opaque it is by default: none. Its patches read as flat decals on the
+ * water, and the buoys show the ship moving instead (`seascape-buoys.ts`).
+ * The Inspector turns it up (uniforms.residualFoamStrength), to compare.
  */
-const IS_RESIDUAL_FOAM_ENABLED = false;
+const DEFAULT_RESIDUAL_FOAM_STRENGTH = 0;
 /** Size of its patches across the waves' travel, in world units, and how much longer they are along it. */
 const RESIDUAL_FOAM_SIZE = 14;
 const RESIDUAL_FOAM_STRETCH = 3;
@@ -150,8 +152,14 @@ const RESIDUAL_FOAM_DRIFT = 0.3;
 /** Hs, in world units, below which the sea leaves none, and at which it leaves its most. */
 const RESIDUAL_FOAM_CALM_HS = 0.5;
 const RESIDUAL_FOAM_ROUGH_HS = 4;
-/** How opaque it gets against a whitecap: thin, old foam. */
+/** How opaque it gets against a whitecap at full strength: thin, old foam. */
 const RESIDUAL_FOAM_STRENGTH = 0.55;
+
+// Foam left in the water by breaking crests (see `seascape-foam-memory.ts`)
+/** How opaque it is against a fresh whitecap: it thins as it ages, and the memory fades it. */
+const DEFAULT_LEFT_FOAM_STRENGTH = 0.85;
+/** The breaking foam's grain where it is stamped into the memory: the memory has none of its own. */
+const LEFT_FOAM_STAMP_GRAIN = 0.5;
 
 // The water thrown up behind the stern
 /** Height of its mounds right behind the stern, in world units. */
@@ -315,6 +323,11 @@ type SurfaceOptions = {
   /** The trail the ship leaves, for its foam (see `seascape-wake.ts`). */
   wake?: Wake;
   /**
+   * The foam breaking crests leave in the water (see `seascape-foam-memory.ts`):
+   * given its stamp here, and drawn behind the crests. FFT only.
+   */
+  foamMemory?: FoamMemory;
+  /**
    * Where along z the ship's own waves start — its bow — in the ship's frame
    * (see `seascape-kelvin-wake.ts`). Without it, the ship raises no waves.
    */
@@ -361,6 +374,7 @@ export function createSeascapeSurfaceNodes({
   contactFoam,
   seaFrame,
   wake,
+  foamMemory,
   bowZ,
   kelvinTrack,
 }: SurfaceOptions) {
@@ -412,6 +426,10 @@ export function createSeascapeSurfaceNodes({
     hasShipWaves: uniform(0),
     /** The same for its wake and the churn behind the stern. */
     hasWake: uniform(0),
+    /** The foam left in the water by breaking crests: how opaque, 0 for none. */
+    leftFoamStrength: uniform(DEFAULT_LEFT_FOAM_STRENGTH),
+    /** The residual foam's patches: how opaque, 0 for none (see DEFAULT_RESIDUAL_FOAM_STRENGTH). */
+    residualFoamStrength: uniform(DEFAULT_RESIDUAL_FOAM_STRENGTH),
     /** Light shining through the crests towards the camera. */
     subsurfaceColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.subsurfaceColor)),
     subsurfaceStrength: uniform(SEASCAPE_SURFACE_DEFAULTS.subsurfaceStrength),
@@ -424,6 +442,16 @@ export function createSeascapeSurfaceNodes({
   applyWindSeaState(uniforms, wind, SEASCAPE_SURFACE_DEFAULTS.foamAmount);
 
   const sea: WindSeaNodes = { ...uniforms.windSea, cellSize: uniforms.cellSize };
+
+  // The memory's stamp: where the crests break now, at a point of the ship's
+  // frame — the same whitecaps the sea draws, from the big waves there
+  if (fft && foamMemory) {
+    foamMemory.setStamp((world) => {
+      const seaPosition = onSea(world);
+      const waves = fft.largeWaves(seaPosition);
+      return windSeaWhitecaps(seaPosition, time, sea.travel, waves.z, waves.xy, uniforms.whitecapLevels, float(LEFT_FOAM_STAMP_GRAIN));
+    });
+  }
 
   /**
    * Distance over which to measure the slope, in metres: grows with the square
@@ -749,12 +777,15 @@ export function createSeascapeSurfaceNodes({
     const residualCoverage = smoothstep(RESIDUAL_FOAM_START, RESIDUAL_FOAM_FULL, residualNoise).mul(
       smoothstep(RESIDUAL_FOAM_CALM_HS, RESIDUAL_FOAM_ROUGH_HS, sea.travel.w)
     );
-    const residualFoam = crestFoamDensity(residualCoverage, grain, float(1.0)).mul(RESIDUAL_FOAM_STRENGTH);
+    const residualFoam = crestFoamDensity(residualCoverage, grain, float(1.0))
+      .mul(RESIDUAL_FOAM_STRENGTH)
+      .mul(uniforms.residualFoamStrength);
+    // Foam left by the crests that broke here: still in the water as they run on
+    const leftFoam = foamMemory
+      ? crestFoamDensity(foamMemory.sample(positionWorld.xz), grain, float(1.0)).mul(uniforms.leftFoamStrength)
+      : float(0.0);
 
-    const foam = max(
-      max(crestFoam, hullFoam),
-      max(wakeFoam, IS_RESIDUAL_FOAM_ENABLED ? max(shipWavesFoam, residualFoam) : shipWavesFoam)
-    );
+    const foam = max(max(max(crestFoam, hullFoam), max(wakeFoam, shipWavesFoam)), max(residualFoam, leftFoam));
     const foamColor = crestFoamColor(vec3(uniforms.foamColor), normal, sun);
 
     // No sea inside the hull: seen over the bulwarks or through an open deck,

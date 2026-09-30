@@ -10,8 +10,13 @@ export const liveSceneOverrides: {
   shipSpeedKnots: number | null;
   /** The propeller shafts' speed when under way, rpm. */
   propellerRpm: number | null;
-  /** The true wind: its speed, m/s, and the side it comes from, degrees off the bow, starboard positive. */
-  wind: { speedMs: number; fromRelativeDeg: number } | null;
+  /**
+   * The true wind: its speed, m/s, and the side it comes from, degrees off the
+   * bow, starboard positive. `isUserSet` when the user chose it (in the
+   * Ontology): the sea then takes it at once, every wave from that side,
+   * rather than following the data's slowly.
+   */
+  wind: { speedMs: number; fromRelativeDeg: number; isUserSet?: boolean } | null;
 } = {
   shipSpeedKnots: null,
   propellerRpm: null,
