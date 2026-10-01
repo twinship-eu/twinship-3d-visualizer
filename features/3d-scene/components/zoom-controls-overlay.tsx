@@ -155,7 +155,7 @@ export function ZoomControlsOverlay({ isHiddenBelowLg = false }: { isHiddenBelow
         bottom and about 36px tall. 76px leaves a 24px gap between them.
       */
       className={cn(
-        "pointer-events-none absolute right-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:right-4 lg:bottom-4",
+        "pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-4 lg:bottom-4",
         isHiddenBelowLg && "max-lg:hidden"
       )}
       aria-label="Zoom controls"

@@ -11,7 +11,7 @@
  * to 1, from the water's height right above it (probed by the sea's
  * component). The atmosphere and the sea read these uniforms.
  */
-import { color, exp, float, length, max, mix, normalize, positionView, pow, smoothstep, uniform, vec3 } from "three/tsl";
+import { atan, color, cross, dot, exp, float, length, max, mix, normalize, positionView, pow, sin, smoothstep, time, uniform, vec3 } from "three/tsl";
 import type { Node } from "three/webgpu";
 import { clearSkyColor, gammaLift } from "./seascape-lighting";
 import { overcast } from "./seascape-weather";
@@ -25,6 +25,8 @@ import { skyUniforms } from "./sky-state";
 const DEEP_WATER = "#0e4a62";
 /** Looking up towards the surface: the light filtering down. */
 const SHALLOW_WATER = "#5cc2d2";
+/** The beams' colour: lighter than the water they cross. */
+const SHALLOW_WATER_RAYS = "#bfeaf0";
 /** Distance at which the water hides about two thirds of what is behind it, in world units. */
 const VISIBILITY = 90;
 /**
@@ -76,6 +78,33 @@ export const underwater = {
   isCameraInsideHull: uniform(0),
 };
 
+/**
+ * Shafts of sunlight: the light the waves focus into beams, seen in the water
+ * towards the sun, spreading from it, drifting. Strongest near the surface
+ * (they fade with the camera's depth), under a clear sky; none at night.
+ */
+const RAYS_STRENGTH = 1.3;
+/** How tightly the beams gather round the sun's direction, and how many spread round it. */
+const RAYS_FOCUS_POWER = 5;
+const RAYS_COUNT = 18;
+const RAYS_DRIFT = 0.25;
+/** How fast the beams fade with the camera's depth, per world unit. */
+const RAYS_DEPTH_FADE = 0.012;
+
+function sunRays(direction: Node<"vec3">) {
+  const sun = vec3(SUN);
+  // The angle round the sun's axis: the beams radiate from the sun along it
+  const tangent = normalize(cross(sun, vec3(0.0, 0.0, 1.0)));
+  const bitangent = cross(sun, tangent);
+  const angle = atan(dot(direction, bitangent), dot(direction, tangent));
+  const beams = sin(angle.mul(RAYS_COUNT).add(time.mul(RAYS_DRIFT))).mul(sin(angle.mul(RAYS_COUNT * 0.37).sub(time.mul(RAYS_DRIFT * 0.6))));
+  const shafts = beams.mul(0.5).add(0.5).pow(2.0);
+  const towardsSun = pow(max(dot(direction, sun), 0.0), RAYS_FOCUS_POWER);
+  const clear = float(1.0).sub(overcast());
+
+  return vec3(color(SHALLOW_WATER_RAYS)).mul(shafts.mul(towardsSun)).mul(vec3(skyUniforms.sunColor)).mul(clear).mul(RAYS_STRENGTH).mul(exp(underwater.depth.mul(-RAYS_DEPTH_FADE)));
+}
+
 /** The water's colour looking in `direction`, at the camera's depth. */
 export function underwaterColor(direction: Node<"vec3">) {
   const upwards = smoothstep(-0.6, 0.8, direction.y);
@@ -85,7 +114,7 @@ export function underwaterColor(direction: Node<"vec3">) {
   // Little light is left at night, and less the deeper
   const light = exp(underwater.depth.mul(-DARKENING_PER_DEPTH)).mul(skyUniforms.ambient);
 
-  return lit.add(scattered).mul(light);
+  return lit.add(scattered).mul(light).add(sunRays(direction));
 }
 
 /** How much the water hides of a fragment, from its distance to the camera: 0 to 1. */
@@ -118,5 +147,5 @@ export function surfaceFromBelow(normal: Node<"vec3">, viewDirection: Node<"vec3
   const bentSun = normalize(sun.add(normal.sub(vec3(0.0, 1.0, 0.0)).mul(SUN_BENDING)));
   const sunSpot = pow(max(viewDirection.dot(bentSun), 0.0), SUN_SPOT_POWER).mul(SUN_SPOT_BRIGHTNESS);
 
-  return mix(reflected, sky, inWindow).add(vec3(sunSpot).mul(vec3(skyUniforms.sunColor)));
+  return mix(reflected, sky, inWindow).add(vec3(sunSpot).mul(vec3(skyUniforms.sunColor))).add(sunRays(viewDirection));
 }

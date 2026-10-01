@@ -7,28 +7,22 @@ import { BridgePaneStrip } from "@/features/bridge/components/bridge-pane-strip"
 import { useBridgeState } from "@/features/bridge/lib/bridge-store";
 import { getSectionDotClass, getSectionIdOf } from "../lib/section-colors";
 import type { ShipTreeNode } from "../ship-visualizer-types";
-import { OntologyRelationsStrip } from "./ontology-relations-strip";
 
 type Props = {
   isOntologyMode: boolean;
   isVoyageView: boolean;
   selectedNode: ShipTreeNode | null;
-  onSelectRelated: (label: string) => void;
-  onShowLiveData: () => void;
 };
 
 /**
- * Under the scene, at lg: in Ontology, the selected component's relations;
- * in Live data, the systems' or the voyage's cards — on the bridge, its
+ * Under the scene, at lg: nothing in Ontology (the details card has the
+ * relations); in Live data, the systems' or the voyage's cards — on the bridge, its
  * panes — or the selected component's trends.
  */
-export function SceneBottomStrip({ isOntologyMode, isVoyageView, selectedNode, onSelectRelated, onShowLiveData }: Props) {
+export function SceneBottomStrip({ isOntologyMode, isVoyageView, selectedNode }: Props) {
   const { isActive: isOnBridge } = useBridgeState();
-  if (isOntologyMode) {
-    return selectedNode ? (
-      <OntologyRelationsStrip selectedNode={selectedNode} onSelectRelated={onSelectRelated} onShowSensors={onShowLiveData} />
-    ) : null;
-  }
+  // In Ontology the relations are in the details card: nothing under the scene
+  if (isOntologyMode) return null;
   if (selectedNode) {
     return (
       <SelectedComponentStrip

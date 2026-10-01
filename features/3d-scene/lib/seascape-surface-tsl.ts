@@ -41,6 +41,7 @@ import {
   length,
   linearDepth,
   max,
+  min,
   mix,
   modelWorldMatrix,
   normalize,
@@ -48,6 +49,7 @@ import {
   pow,
   positionWorld,
   screenSize,
+  screenUV,
   smoothstep,
   texture,
   time,
@@ -57,7 +59,9 @@ import {
   vec2,
   vec3,
   vec4,
+  viewportDepthTexture,
   viewportLinearDepth,
+  viewportSharedTexture,
 } from "three/tsl";
 import { Color, Vector4, type Node, type Texture } from "three/webgpu";
 import type { ContactFoam } from "./seascape-contact-foam";
@@ -77,6 +81,7 @@ import {
 import type { FftSurfaceNodes } from "./seascape-fft-surface";
 import { crestFoamColor, crestFoamDensity, foamGrain, hullFoamDensity } from "./seascape-foam-tsl";
 import { shadeSea } from "./seascape-lighting";
+import { bowWaveFoam, bowWaveHeight, bowWaveSlope } from "./seascape-bow-wave";
 import { seaSunVisibility } from "./seascape-shadow";
 import { skyUniforms } from "./sky-state";
 import { WAVES_AMPLITUDE } from "./seascape-waves";
@@ -226,6 +231,21 @@ const BEHIND_FAR = 400;
 const SEEN_THROUGH_FROM_BELOW = 0.8;
 /** ...and how much of that outside the window, where physically only the water's own reflection is: the ship is to be watched from below too. */
 const SEEN_OUTSIDE_WINDOW = 0.55;
+
+/**
+ * Whether the sea reads the picture behind it (the ship, below the surface and
+ * above it from below) and shifts it by the waves' tilt, with the red taken
+ * first. Off: the sea is blended over it instead, still, one tint.
+ */
+const IS_BACKDROP_REFRACTION_ENABLED = true;
+/** How far the view is shifted by the surface's tilt, in screen widths per unit of slope. */
+const DEFAULT_REFRACTION = 0.05;
+/** The thickness (world units) of water from which the shift is complete: a thin sheet bends little. */
+const REFRACTION_FULL_AT = 4;
+/** Relative absorption of red, green and blue: red first (clear ocean water, after the Beer-Lambert example). */
+/** In the 0-1 linear depth: how far behind the surface a shifted lookup must be to be used. */
+const REFRACTION_DEPTH_MARGIN = 0.0002;
+const WATER_ABSORPTION_BY_CHANNEL = vec3(1.0, 0.25, 0.06);
 
 /** What the sun's light on the water keeps in the ship's shadow. */
 const SHADE_SUN_SHARE = 0.12;
@@ -463,6 +483,7 @@ export function createSeascapeSurfaceNodes({
     /** The sun's light through the wave faces turned to it: how strong, 0 for none. */
     bodyLightStrength: uniform(DEFAULT_BODY_LIGHT_STRENGTH),
     waterAbsorption: uniform(DEFAULT_WATER_ABSORPTION),
+    refraction: uniform(DEFAULT_REFRACTION),
     /** The residual foam's patches: how opaque, 0 for none (see DEFAULT_RESIDUAL_FOAM_STRENGTH). */
     residualFoamStrength: uniform(DEFAULT_RESIDUAL_FOAM_STRENGTH),
     /** Light shining through the crests towards the camera. */
@@ -521,7 +542,9 @@ export function createSeascapeSurfaceNodes({
 
   // The ship's own waves, which stay with it (in the ship's frame)
   const shipWavesAt = (world: Node<"vec2">) =>
-    shipWaves ? kelvinWakeHeight(world, shipWaves.track, shipWaves.bowZ) : float(0.0);
+    shipWaves
+      ? kelvinWakeHeight(world, shipWaves.track, shipWaves.bowZ).add(bowWaveHeight(world, shipWaves.bowZ))
+      : float(0.0);
   // This vertex's own cell: larger towards the grid's edge (see `cellGrowth`)
   const acrossGrid = uv().mul(2.0).sub(1.0);
   const vertexCell = uniforms.cellSize.mul(
@@ -619,9 +642,13 @@ export function createSeascapeSurfaceNodes({
     if (shipWaves) {
       If(uniforms.hasShipWaves.greaterThan(0.5), () => {
         shipWavesSlope.assign(
-          kelvinWakeSlope(positionWorld.xz, shipWaves.track, shipWaves.bowZ, SHIP_WAVES_SLOPE_STEP)
+          kelvinWakeSlope(positionWorld.xz, shipWaves.track, shipWaves.bowZ, SHIP_WAVES_SLOPE_STEP).add(
+            bowWaveSlope(positionWorld.xz, shipWaves.bowZ)
+          )
         );
-        shipWavesFoamAmount.assign(kelvinWakeFoam(positionWorld.xz, shipWaves.track, shipWaves.bowZ));
+        shipWavesFoamAmount.assign(
+          max(kelvinWakeFoam(positionWorld.xz, shipWaves.track, shipWaves.bowZ), bowWaveFoam(positionWorld.xz, shipWaves.bowZ))
+        );
       });
     }
     // The churned water behind the ship: propeller wash, a tumbling surface
@@ -882,8 +909,31 @@ export function createSeascapeSurfaceNodes({
     const somethingBehind = smoothstep(BEHIND_NEAR, BEHIND_FAR, behind).oneMinus();
     const fromBelow = mix(float(SEEN_OUTSIDE_WINDOW), float(1.0), snellWindow(shared.normal, shared.viewDirection)).mul(somethingBehind).mul(SEEN_THROUGH_FROM_BELOW).oneMinus();
     const opacity = frontFacing.select(clear.oneMinus(), fromBelow);
+    if (!IS_BACKDROP_REFRACTION_ENABLED) return vec4(seen, opacity);
 
-    return vec4(seen, opacity);
+    // What is behind, read from the picture drawn so far (the opaque things,
+    // the ship) and shifted by the surface's tilt: the waves bend the view
+    // through them. Above, the water takes the red first, then the green; the
+    // blend by the thickness above is the same, the colour of what shows
+    // through per channel
+    const passes = opacity.oneMinus();
+    const tilt = shared.normal.xz.mul(uniforms.refraction).mul(min(behind.div(REFRACTION_FULL_AT), 1.0));
+    // ...but only from what lies behind the surface: a shifted lookup that lands
+    // on something nearer (the hull's own edge, above the water) is not bent
+    // through it, and drew a bright rim round the keel
+    const shifted = screenUV.add(tilt);
+    // ...and only from something there: the open sea has no floor, and past the
+    // hull's edge the lookup found the sky, a bright line round the keel
+    const shiftedDepth = linearDepth(viewportDepthTexture(shifted));
+    const isBehind = shiftedDepth
+      .greaterThan(linearDepth().add(REFRACTION_DEPTH_MARGIN))
+      .and(shiftedDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).lessThan(BEHIND_FAR));
+    const behindColor = viewportSharedTexture(isBehind.select(shifted, screenUV)).rgb;
+    const absorbed = WATER_ABSORPTION_BY_CHANNEL.mul(behind.mul(uniforms.waterAbsorption)).negate();
+    const throughWater = vec3(exp(absorbed.x), exp(absorbed.y), exp(absorbed.z));
+    // Relative to the single transmittance the blend already took
+    const tint = frontFacing.select(throughWater.div(transmittance.max(1e-3)), vec3(1.0));
+    return vec4(seen.mul(opacity).add(behindColor.mul(tint).mul(passes)), 1.0);
   })();
 
   return { positionNode, fragmentNode, uniforms };

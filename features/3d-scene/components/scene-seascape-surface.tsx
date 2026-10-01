@@ -41,6 +41,8 @@ import { apparentWind, weatherState } from "../lib/seascape-weather";
 import { getPerformanceProfile } from "../lib/performance-profile";
 import { createKelvinHistory } from "../lib/seascape-kelvin-wake";
 import { createBuoys } from "../lib/seascape-buoys";
+import { bowWave } from "../lib/seascape-bow-wave";
+import { createBowSpray } from "../lib/seascape-bow-spray";
 import { createBubbles } from "../lib/seascape-bubbles";
 import { createPrecipitation } from "../lib/seascape-precipitation";
 import { shipMotion as shipMotionState } from "../lib/seascape-ship-motion";
@@ -56,6 +58,19 @@ import {
   SEASCAPE_SURFACE_DEFAULTS,
 } from "../lib/seascape-surface-tsl";
 import { asSceneRenderer, getSceneInspector, isWebGPUBackend } from "../lib/webgpu-renderer";
+
+// The bow's spray: from this speed (m/s) it begins and at the second it is full; in a rough
+// sea (significant wave height, m) it is full, and in a calm one it keeps this share.
+const SPRAY_FROM_SPEED = 4;
+const SPRAY_FULL_SPEED = 11;
+const SPRAY_FROM_WAVES = 0.8;
+const SPRAY_FULL_WAVES = 3.5;
+const SPRAY_CALM_SHARE = 0.3;
+
+const smoothStep = (from: number, to: number, value: number) => {
+  const t = Math.min(Math.max((value - from) / (to - from), 0), 1);
+  return t * t * (3 - 2 * t);
+};
 
 /** The sea is the first of the blended things drawn: what is faded above the water is over it. */
 const SEA_RENDER_ORDER = -10;
@@ -284,6 +299,12 @@ function createSeaSurface(canUseCompute: boolean) {
     SEASCAPE_SURFACE_LEVEL_Y,
     fft ? (position) => fft.gridHeight(seaFrame.toSea(position), float(BUBBLE_SURFACE_FILTER)) : undefined
   );
+  // Water thrown off the stem at speed in a rough sea
+  const bowSpray = createBowSpray(
+    SEASCAPE_SURFACE_LEVEL_Y,
+    SEASCAPE_SHIP_HULL.halfLength,
+    fft ? (position) => fft.gridHeight(seaFrame.toSea(position), float(BUBBLE_SURFACE_FILTER)) : undefined
+  );
   // Rain and snow round the camera, never below the real surface
   const precipitation = createPrecipitation(
     SEASCAPE_SURFACE_LEVEL_Y,
@@ -344,6 +365,7 @@ function createSeaSurface(canUseCompute: boolean) {
     kelvinTrack,
     buoys,
     bubbles,
+    bowSpray,
     precipitation,
     probes,
     probeLayout,
@@ -405,6 +427,7 @@ const SEASCAPE_TUNING = {
   /** The sun's light through the wave faces turned to it: 0 for none (the old look), up for more. */
   bodyLight: 0.55,
   waterAbsorption: 0.2,
+  refraction: 0.05,
   foamColor: SEASCAPE_SURFACE_DEFAULTS.foamColor as string,
   /** Which foam mask texture; see `SEASCAPE_FOAM_TEXTURES`. */
   foamTexture: SEASCAPE_DEFAULT_FOAM_TEXTURE as SeascapeFoamTextureName,
@@ -476,6 +499,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "residualFoam", 0, 1, 0.01);
     panel.add(SEASCAPE_TUNING, "bodyLight", 0, 3, 0.05);
     panel.add(SEASCAPE_TUNING, "waterAbsorption", 0, 2, 0.01);
+    panel.add(SEASCAPE_TUNING, "refraction", 0, 0.3, 0.005);
     panel.addColor(SEASCAPE_TUNING, "foamColor");
     panel.add(
       SEASCAPE_TUNING,
@@ -589,6 +613,14 @@ export function SceneSeascapeSurface() {
     shipMotionState.speed = speed;
     sea.bubbles.uniforms.speed.value = speed;
     sea.bubbles.uniforms.shipY.value = shipMotionState.shipY;
+    // The bow wave and its spray: the faster the ship, and the rougher the sea, the more
+    const waveHeight = sea.uniforms.windSea.travel.value.w;
+    bowWave.speed.value = speed;
+    bowWave.waveHeight.value = waveHeight;
+    sea.bowSpray.uniforms.speed.value = speed;
+    sea.bowSpray.uniforms.intensity.value =
+      smoothStep(SPRAY_FROM_SPEED, SPRAY_FULL_SPEED, speed) *
+      (SPRAY_CALM_SHARE + (1 - SPRAY_CALM_SHARE) * smoothStep(SPRAY_FROM_WAVES, SPRAY_FULL_WAVES, waveHeight));
     sea.kelvinTrack.update(speed * delta, speed, delta);
 
     // The sea's height at every probe: under the ship, at the buoys, over the camera
@@ -634,7 +666,7 @@ export function SceneSeascapeSurface() {
       sea.contactFoam.update(
         asSceneRenderer(gl),
         scene,
-        [mesh, sea.buoys.mesh, sea.bubbles.sprite, sea.precipitation.sprite],
+        [mesh, sea.buoys.mesh, sea.bubbles.sprite, sea.bowSpray.sprite, sea.precipitation.sprite],
         highestWater
       );
       sea.framesSinceContactFoam = 0;
@@ -656,6 +688,7 @@ export function SceneSeascapeSurface() {
     // under way, and only from under the water (the sea hides them from
     // above); rain and snow only when falling
     sea.bubbles.sprite.visible = speed > STILL_SPEED && underwater.submerged.value > 0;
+    sea.bowSpray.sprite.visible = speed > STILL_SPEED && underwater.submerged.value < 0.5;
     sea.precipitation.sprite.visible = weatherState.rain > 0 || weatherState.snow > 0;
 
     // Applied per frame rather than through change handlers, as SceneLights
@@ -690,6 +723,7 @@ export function SceneSeascapeSurface() {
     sea.uniforms.residualFoamStrength.value = SEASCAPE_TUNING.residualFoam;
     sea.uniforms.bodyLightStrength.value = SEASCAPE_TUNING.bodyLight;
     sea.uniforms.waterAbsorption.value = SEASCAPE_TUNING.waterAbsorption;
+    sea.uniforms.refraction.value = SEASCAPE_TUNING.refraction;
     // Only on a change: switching to lines rebuilds the material's pipeline
     if (sea.material.wireframe !== SEASCAPE_TUNING.wireframe) {
       sea.material.wireframe = SEASCAPE_TUNING.wireframe;
@@ -709,6 +743,7 @@ export function SceneSeascapeSurface() {
       />
       <primitive object={seaRef.current.buoys.mesh} />
       <primitive object={seaRef.current.bubbles.sprite} />
+      <primitive object={seaRef.current.bowSpray.sprite} />
       <primitive object={seaRef.current.precipitation.sprite} />
     </>
   );

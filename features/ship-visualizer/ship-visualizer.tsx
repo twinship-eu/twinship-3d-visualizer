@@ -255,8 +255,6 @@ export function ShipVisualizer() {
               isOntologyMode={isOntologyMode}
               isVoyageView={isVoyageView}
               selectedNode={selectedStructureNode}
-              onSelectRelated={handleSelectConnectedComponent}
-              onShowLiveData={() => void setMode("live")}
             />
           )}
           {panels.logView}
