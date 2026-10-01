@@ -398,6 +398,8 @@ const SEASCAPE_TUNING = {
   leftFoam: 0.85,
   /** The residual foam's patches, how opaque: 0 for none, as by default. */
   residualFoam: 0,
+  /** The sun's light through the wave faces turned to it: 0 for none (the old look), up for more. */
+  bodyLight: 0.55,
   foamColor: SEASCAPE_SURFACE_DEFAULTS.foamColor as string,
   /** Which foam mask texture; see `SEASCAPE_FOAM_TEXTURES`. */
   foamTexture: SEASCAPE_DEFAULT_FOAM_TEXTURE as SeascapeFoamTextureName,
@@ -467,6 +469,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "wavesFrom", [...WAVES_FROM_OPTIONS]);
     panel.add(SEASCAPE_TUNING, "leftFoam", 0, 1, 0.01);
     panel.add(SEASCAPE_TUNING, "residualFoam", 0, 1, 0.01);
+    panel.add(SEASCAPE_TUNING, "bodyLight", 0, 3, 0.05);
     panel.addColor(SEASCAPE_TUNING, "foamColor");
     panel.add(
       SEASCAPE_TUNING,
@@ -679,6 +682,7 @@ export function SceneSeascapeSurface() {
     sea.uniforms.shininess.value = SEASCAPE_TUNING.shininess;
     sea.uniforms.leftFoamStrength.value = SEASCAPE_TUNING.leftFoam;
     sea.uniforms.residualFoamStrength.value = SEASCAPE_TUNING.residualFoam;
+    sea.uniforms.bodyLightStrength.value = SEASCAPE_TUNING.bodyLight;
     // Only on a change: switching to lines rebuilds the material's pipeline
     if (sea.material.wireframe !== SEASCAPE_TUNING.wireframe) {
       sea.material.wireframe = SEASCAPE_TUNING.wireframe;

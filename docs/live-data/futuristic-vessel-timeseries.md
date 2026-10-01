@@ -51,6 +51,26 @@ The columns, grouped by component:
 | `FV-WASP-1/2` | Propulsive power, power saved, thrust, fan speed | **WAPS** |
 | `SG-01` … `SG-05` | Bending stress, % of allowable | **Base Hull** sensors |
 
+## Names and the ontology
+
+Checked against the ontology (`twinship-data-pipeline/ontology`) and the KG
+workbook's names (`dagster_pipeline/*extraction.py`): of the 61 columns,
+
+- **18 are properties the ontology has** — blue names in row 2, each named as the KG names it:
+  the gensets' speed, fuel rate (in **MT/h**, the ontology's unit), total fuel and cooling water;
+  the motor shafts' speed and torque; the rudder angle; the suction sails' power and efficiency.
+  Two of them (genset speed, cooling water) have no column of that name in the futuristic
+  workbook, only the maximum's: named by the KG's own pattern, to confirm.
+- **43 are proposed** — orange names. The ontology has no navigation, motion or weather
+  properties (`draft_time_mode.ttl` is a placeholder, `weatherconditions.ttl` defines none), only the
+  *maximum* of a draught, a generator's power or a propeller's pitch, and no exhaust, load, state
+  of charge, thrust or strain properties for this vessel.
+
+The **`ONTOLOGY` sheet** lists every column with its property (or the one proposed, named as the
+ontology names its own: `tw` + component + quantity + `In` + unit), its unit and a note — the
+list to give the ontology team. One thing to raise with them: `twEMSHTorqueInKN` says
+kilonewtons; a torque is kN·m, and the values here are kN·m.
+
 ## How to fill it in
 
 - **Time**: ISO 8601 in UTC (`2026-09-29T06:00:00Z`) or an Excel date, one row
@@ -123,10 +143,11 @@ The 3D model's parts are coarser than the KG's components, so a part stands for 
 1. **Exhaust per cylinder**: the template keeps the maximum and its cylinder;
    with the real sensors, one column per cylinder (`…-CYL-1` … `-CYL-10` for the
    Wärtsilä 10V31) is simple to add.
-2. **Hull structural monitoring** and the ESS's state of charge are not in the
-   ontology yet: proposed as new properties.
-3. **WAPS**: the KG has **suction sails**; the viewer's texts still say "rotor
-   sails", and show the fans' speed as the rotors'. To align.
+2. **The 43 proposed properties** (see *Names and the ontology*), from navigation
+   and weather to hull structural monitoring and the ESS's state of charge, need the
+   ontology team.
+3. **WAPS**: the KG has **suction sails**; the viewer's texts now say so, and show the fans'
+   speed. The ontology's `SuctionSail` is defined as "Flettner rotor or similar": to check.
 4. **Operational mode** and **autonomy level** would be the first things for
    `draft_time_mode.ttl` to define.
 5. **Recorded attitude and sea state**: played from the file instead, the ship

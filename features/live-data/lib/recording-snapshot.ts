@@ -2,7 +2,6 @@ import { RECORDED_SENSORS, RECORDING_COLUMNS as COLUMNS } from "../live-data-rec
 import { turnBetween, type RecordingReader } from "./recording";
 import type { LiveSnapshot } from "../live-data-types";
 
-const KG_PER_TONNE = 1000;
 const KW_PER_MW = 1000;
 
 type Pair = readonly [string, string];
@@ -36,7 +35,8 @@ export function withRecordedReadings(snapshot: LiveSnapshot, read: RecordingRead
   const draftForeM = or(COLUMNS.draftFore, systems.hull.draftForeM);
   const draftAftM = or(COLUMNS.draftAft, systems.hull.draftAftM);
   const [fan1, fan2] = each(COLUMNS.sailFanSpeed);
-  const fuelKgPerHour = sum(COLUMNS.gensetFuel, systems.energy.fuelTph * KG_PER_TONNE);
+  // Metric tons an hour, the ontology's unit (twFuelConsumptionRateInMTPerHr): both gensets' together
+  const fuelTph = sum(COLUMNS.gensetFuel, systems.energy.fuelTph);
   const recordedSensors = Object.entries(RECORDED_SENSORS).flatMap(([sensorId, column]) => {
     const reading = read.number(column);
     return reading === undefined ? [] : [[sensorId, reading] as const];
@@ -72,7 +72,7 @@ export function withRecordedReadings(snapshot: LiveSnapshot, read: RecordingRead
       },
       energy: {
         ...systems.energy,
-        fuelTph: fuelKgPerHour / KG_PER_TONNE,
+        fuelTph,
         engineLoadPct: mean(COLUMNS.gensetLoad, systems.energy.engineLoadPct),
         engineRpm: mean(COLUMNS.gensetSpeed, systems.energy.engineRpm),
         exhaustTempC: highest(COLUMNS.gensetExhaust, systems.energy.exhaustTempC),

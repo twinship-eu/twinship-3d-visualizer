@@ -104,12 +104,12 @@ def step(i):
         else:
             hottest, cylinder = avg + 14 + random.uniform(-3, 3), random.choice([2, 7, 9])
         v.update({
-            f"{g}.TWINSHIP-SHAFT-SPEED-IN-REV_PER_MIN": round(720 + random.uniform(-2, 2), 1),
+            f"{g}.TWINSHIP-DIESEL-ENGINE-SPEED-IN-REV-PER-MIN": round(720 + random.uniform(-2, 2), 1),
             f"{g}.TWINSHIP-GENERATOR-POWER-IN-KW": round(power),
             f"{g}.TWINSHIP-LOAD-PERCENTAGE": round(100 * power / 6300, 1),
-            f"{g}.TWINSHIP-FUEL-CONSUMPTION-RATE-IN-KG_PER_HR": round(fuel, 1),
-            f"{g}.TWINSHIP-TOTAL-FUEL-CONSUMPTION-IN-MT": round(state["fuel"][g], 3),
-            f"{g}.TWINSHIP-COOLING-WATER-TEMPERATURE-IN-°C": round(walk[f"{g}.cool"](), 1),
+            f"{g}.TWINSHIP-FUEL-CONSUMPTION-RATE-IN-MT_PER_HR": round(fuel / 1000, 4),  # kg/h -> MT/h, the ontology's unit
+            f"{g}.TWINSHIP-FUEL-CONSUMPTION-TOTAL-IN-MT": round(state["fuel"][g], 3),
+            f"{g}.TWINSHIP-ME-COOLING-WATER-TEMPERATURE-IN-°C": round(walk[f"{g}.cool"](), 1),
             f"{g}.TWINSHIP-EXHAUST-GAS-TEMPERATURE-MAX-IN-°C": round(hottest, 1),
             f"{g}.TWINSHIP-EXHAUST-GAS-TEMPERATURE-MAX-CYLINDER": cylinder,
         })
@@ -125,7 +125,7 @@ def step(i):
         v.update({
             f"FV-EMSH-{n}.TWINSHIP-EMSH-POWER-IN-KW": round(power),
             f"FV-EMSH-{n}.TWINSHIP-EMSH-SPEED-REV-PER-MIN": round(rpm, 1),
-            f"FV-EMSH-{n}.TWINSHIP-EMSH-TORQUE-kNm": round(power / (2 * math.pi * rpm / 60), 1),
+            f"FV-EMSH-{n}.TWINSHIP-EMSH-TORQUE-kN": round(power / (2 * math.pi * rpm / 60), 1),
             f"FV-CPP-{n}.TWINSHIP-CPP-PITCH-PERCENTAGE": round(walk[f"{n}.pitch"](), 1),
             f"FV-CPP-{n}.TWINSHIP-RUDDER-ANGLE-DEGREE": round(walk[f"{n}.rudder"](), 1),
             f"FV-WASP-{n}.TWINSHIP-WASP-POWER-kW": round(wasp),
@@ -167,12 +167,87 @@ LIMITS = {  # (warning, alarm): a number from it up, "<n" from it down
     "TWINSHIP-TRUE-WIND-SPEED-IN-KN": (35, 45),
     "TWINSHIP-SIGNIFICANT-WAVE-HEIGHT-IN-M": (4, 6),
     "TWINSHIP-LOAD-PERCENTAGE": (90, 100),
-    "TWINSHIP-COOLING-WATER-TEMPERATURE-IN-°C": (88, 95),
+    "TWINSHIP-ME-COOLING-WATER-TEMPERATURE-IN-°C": (88, 95),
     "TWINSHIP-EXHAUST-GAS-TEMPERATURE-MAX-IN-°C": (400, 420),
     "TWINSHIP-ESS-STATE-OF-CHARGE-PERCENTAGE": ("<25", "<15"),
     "TWINSHIP-EMSH-SPEED-REV-PER-MIN": (155, 165),
     "TWINSHIP-BENDING-STRESS-PERCENTAGE-OF-ALLOWABLE": (80, 90),
 }
+
+# --- The ontology: which parameters it has a property for, and which are proposed ----------
+# Checked against twinship-data-pipeline/ontology (twinship-base, twinship-core, modules/vessel,
+# draft_time_mode, weatherconditions) and the KG workbook's names (dagster_pipeline/*extraction.py).
+# parameter -> (ontology property, unit, definition). The name in row 2 is the KG workbook's own.
+ONTOLOGY = {
+    "TWINSHIP-DIESEL-ENGINE-SPEED-IN-REV-PER-MIN": (
+        "twDieselEngineSpeedInRevPerMin", "rev/min",
+        "Named as extraction.py names the conventional vessels' engines' speed (harmonised to this property). "
+        "The futuristic genset sheet holds only the maximum speed (twShaftSpeedMaxInRevPerMin).",
+    ),
+    "TWINSHIP-FUEL-CONSUMPTION-RATE-IN-MT_PER_HR": ("twFuelConsumptionRateInMTPerHr", "MT/h", "Fuel consumption rate in metric tons per hour."),
+    "TWINSHIP-FUEL-CONSUMPTION-TOTAL-IN-MT": ("twFuelConsumptionTotalInMT", "MT", "Total fuel consumption in metric tons."),
+    "TWINSHIP-ME-COOLING-WATER-TEMPERATURE-IN-°C": (
+        "twMeCoolingWaterTemperatureInDegC", "°C",
+        "The ontology has this property, but the pipeline extracts only the maximum "
+        "(TWINSHIP-ME-COOLING-WATER-TEMPERATURE-MAX-IN-°C). This is that name without MAX: to confirm.",
+    ),
+    "TWINSHIP-EMSH-SPEED-REV-PER-MIN": ("twEMSHSpeedInRevPerMin", "rev/min", "Electric motor shaft rotational speed."),
+    "TWINSHIP-EMSH-TORQUE-kN": (
+        "twEMSHTorqueInKN", "kN [sic]",
+        "Electric motor shaft torque. The ontology says kilonewtons; a torque is kN·m and the values here are kN·m: to confirm.",
+    ),
+    "TWINSHIP-RUDDER-ANGLE-DEGREE": ("twRudderAngleDegree", "°", "Rudder angle."),
+    "TWINSHIP-WASP-POWER-kW": ("twWASPPowerInKW", "kW", "Wind Assisted Propulsion System power."),
+    "TWINSHIP-WASP-POWER-REDUCTION-EFFICIENCY-PERCENTAGE": (
+        "twWASPPowerReductionEfficiencyPercentage", "%", "Wind Assisted Propulsion System power reduction efficiency.",
+    ),
+}
+# Not in the ontology yet. A suggested property, named as the ontology names its own (tw + component + quantity
+# + In + unit), and what the ontology has nearest. draft_time_mode.ttl is a placeholder; weatherconditions.ttl has no properties.
+PROPOSED = {
+    "TWINSHIP-LATITUDE-IN-DEG": ("twVesselLatitudeInDeg", "°", "Position; no navigation module in the ontology."),
+    "TWINSHIP-LONGITUDE-IN-DEG": ("twVesselLongitudeInDeg", "°", "Position; no navigation module in the ontology."),
+    "TWINSHIP-HEADING-IN-DEG": ("twVesselHeadingInDeg", "°", "Heading, true."),
+    "TWINSHIP-COURSE-OVER-GROUND-IN-DEG": ("twVesselCourseOverGroundInDeg", "°", "Course over ground, true."),
+    "TWINSHIP-SPEED-OVER-GROUND-IN-KN": ("twVesselSpeedOverGroundInKn", "kn", "Speed over ground."),
+    "TWINSHIP-SPEED-THROUGH-WATER-IN-KN": ("twVesselSpeedThroughWaterInKn", "kn", "Speed through the water."),
+    "TWINSHIP-RATE-OF-TURN-IN-DEG_PER_MIN": ("twVesselRateOfTurnInDegPerMin", "°/min", "Rate of turn, starboard positive."),
+    "TWINSHIP-DRAFT-FORE-IN-M": ("twVesselDraftForInM", "m", "Current draught at the fore; the ontology has only the maximum (twVesselDraftForMaxInM)."),
+    "TWINSHIP-DRAFT-AFT-IN-M": ("twVesselDraftAftInM", "m", "Current draught at the aft; the ontology has only the maximum (twVesselDraftAftMaxInM)."),
+    "TWINSHIP-ROLL-IN-DEG": ("twVesselRollInDeg", "°", "Roll, starboard down positive."),
+    "TWINSHIP-PITCH-IN-DEG": ("twVesselPitchInDeg", "°", "Pitch, bow up positive."),
+    "TWINSHIP-HEAVE-IN-M": ("twVesselHeaveInM", "m", "Heave."),
+    "TWINSHIP-OPERATIONAL-MODE": ("twVesselOperationalMode", "enum", "Operational mode; for draft_time_mode.ttl."),
+    "TWINSHIP-AUTONOMY-LEVEL": ("twVesselAutonomyLevel", "enum", "Level of autonomy, L0-L4; for draft_time_mode.ttl."),
+    "TWINSHIP-DISTANCE-TO-GO-IN-NM": ("twVesselDistanceToGoInNm", "nm", "Distance left on the voyage."),
+    "TWINSHIP-TRUE-WIND-SPEED-IN-KN": ("twWeatherTrueWindSpeedInKn", "kn", "For weatherconditions.ttl, which has no properties yet."),
+    "TWINSHIP-TRUE-WIND-DIRECTION-IN-DEG": ("twWeatherTrueWindFromInDeg", "°", "The bearing the wind blows from, true."),
+    "TWINSHIP-SIGNIFICANT-WAVE-HEIGHT-IN-M": ("twWeatherSignificantWaveHeightInM", "m", "Significant wave height."),
+    "TWINSHIP-CLOUD-COVER-PERCENTAGE": ("twWeatherCloudCoverPercentage", "%", "Cloud cover."),
+    "TWINSHIP-PRECIPITATION-IN-MM_PER_HR": ("twWeatherPrecipitationInMMPerHr", "mm/h", "Precipitation rate."),
+    "TWINSHIP-GENERATOR-POWER-IN-KW": ("twGeneratorPowerInKW", "kW", "Current output; the ontology has only the maximum (twGeneratorPowerMaxInKW)."),
+    "TWINSHIP-LOAD-PERCENTAGE": ("twGensetLoadPercentage", "%", "Load, as a share of the genset's rated power."),
+    "TWINSHIP-EXHAUST-GAS-TEMPERATURE-MAX-IN-°C": ("twExhaustGasTemperatureMaxInDegC", "°C", "Hottest cylinder's exhaust gas temperature; the ontology's exhaust properties are the boiler's."),
+    "TWINSHIP-EXHAUST-GAS-TEMPERATURE-MAX-CYLINDER": ("twExhaustGasTemperatureMaxCylinder", "index", "Which cylinder is the hottest."),
+    "TWINSHIP-ESS-STATE-OF-CHARGE-PERCENTAGE": ("twESSStateOfChargePercentage", "%", "The ontology has only the depth of discharge (twESSDepthOfDischargePercentage)."),
+    "TWINSHIP-ESS-POWER-IN-KW": ("twESSPowerInKW", "kW", "Charge (+) or discharge power."),
+    "TWINSHIP-EMSH-POWER-IN-KW": ("twEMSHPowerInKW", "kW", "Shaft power; twEMPowerInMWh is the motor's capacity."),
+    "TWINSHIP-CPP-PITCH-PERCENTAGE": ("twPropellerPitchInPercentage", "%", "Current pitch; the ontology has only the maximum (twPropellerPitchMaxInPercentage)."),
+    "TWINSHIP-WASP-THRUST-IN-kN": ("twWASPThrustInKN", "kN", "Thrust from the sail."),
+    "TWINSHIP-WASP-FAN-SPEED-IN-REV_PER_MIN": ("twWASPFanSpeedInRevPerMin", "rev/min", "Speed of the suction fan."),
+    "TWINSHIP-BENDING-STRESS-PERCENTAGE-OF-ALLOWABLE": ("twStrainGaugeBendingStressPercentageOfAllowable", "%", "Hull structural monitoring; new."),
+}
+PROPOSED_FILL = PatternFill("solid", fgColor="FCE4D6")
+
+
+def ontology_status(parameter):
+    """('ontology' | 'proposed', property, unit, note) for a parameter."""
+    if parameter in ONTOLOGY:
+        return ("ontology", *ONTOLOGY[parameter])
+    if parameter in PROPOSED:
+        return ("proposed", *PROPOSED[parameter])
+    raise SystemExit(f"{parameter}: neither in ONTOLOGY nor in PROPOSED: say which")
+
 
 rows = [step(i) for i in range(STEPS)]
 columns = list(rows[0].keys())
@@ -197,6 +272,8 @@ for line in [
     "Row 3: the type. Rows 4-5: warning and alarm limits (a number: from it up; '<n': from it down). Data from row 6.",
     "TIMESTAMP-UTC: ISO 8601 in UTC, any regular interval (1-10 s reads smoothly). Leave a cell empty for no reading.",
     "Columns you have no data for can be deleted or left empty: the viewer simulates what the file does not give.",
+    "Names: a blue name in row 2 is a property the ontology has (the KG workbook's own name for it); an orange one is proposed, not in the ontology yet.",
+    "The ONTOLOGY sheet maps every column to its ontology property, or to the property proposed for it, with its unit and what the ontology has nearest.",
     "Sample data: 30 min every 5 s under way; genset 1's cylinder 4 exhaust rises over 400 C for a quarter of an hour.",
     "Into the viewer: python scripts/convert-timeseries.py <this.xlsx> (see docs/live-data/futuristic-vessel-timeseries.md).",
 ]:
@@ -218,6 +295,8 @@ for index, column in enumerate(columns, start=1):
         cell = ws.cell(row_index, index)
         cell.fill = fill
         cell.alignment = Alignment(wrap_text=True, vertical="top")
+    if index > 1 and ontology_status(parameter)[0] == "proposed":
+        ws.cell(2, index).fill = PROPOSED_FILL
     ws.cell(2, index).font = Font(bold=True, size=9)
     ws.cell(3, index).font = Font(italic=True, color="666666", size=9)
 # Row 1: the groups, merged over their columns
@@ -237,6 +316,26 @@ ws.row_dimensions[2].height = 60
 for row in rows:
     ws.append([row[column] for column in columns])
 ws.freeze_panes = ws.cell(HEADER_ROWS + 1, 2)
+
+# ONTOLOGY: every column, and the ontology property behind it
+mapping_sheet = wb.create_sheet("ONTOLOGY")
+mapping_sheet.append(["COLUMN (row 2 of TIMESERIES)", "COMPONENT", "STATUS", "ONTOLOGY PROPERTY (tws:)", "UNIT", "NOTE"])
+for column in columns[1:]:
+    component, parameter = column.split(".", 1)
+    status, prop, unit, note = ontology_status(parameter)
+    mapping_sheet.append([column, component, status, prop if status == "ontology" else f"{prop} (proposed)", unit, note])
+    if status == "proposed":
+        for cell in mapping_sheet[mapping_sheet.max_row]:
+            cell.fill = PROPOSED_FILL
+for cell in mapping_sheet[1]:
+    cell.font = Font(bold=True, color="FFFFFF")
+    cell.fill = PatternFill("solid", fgColor=GROUP_FILLS[0])
+for letter, width in zip("ABCDEF", (62, 12, 11, 52, 10, 110)):
+    mapping_sheet.column_dimensions[letter].width = width
+mapping_sheet.freeze_panes = "A2"
+mapping_sheet.auto_filter.ref = mapping_sheet.dimensions
+n_real = sum(1 for column in columns[1:] if column.split(".", 1)[1] in ONTOLOGY)
+print(f"ontology: {n_real} columns have a property, {len(columns) - 1 - n_real} are proposed")
 
 wb.save(OUT)
 print(f"wrote {OUT}: {len(columns)} columns, {len(rows)} rows; cylinder 4 over 400 C from {over_limit[0]:%H:%M:%S} to {over_limit[-1]:%H:%M:%S}")

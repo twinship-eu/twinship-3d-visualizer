@@ -200,6 +200,18 @@ const SCATTER_SUN_WRAP_SHARE = 0.6;
 const SCATTER_FACING_NONE = -0.05;
 const SCATTER_FACING_FULL = 0.45;
 
+// Sunlight through the wave faces (see "bodyLight" in the fragment shader)
+/**
+ * How tightly it follows the faces turned to the sun: the cosine between a
+ * face's normal and the sun, to this power. Sharp, since the sun is high and
+ * most faces lean only a little: the ones leaning towards it must stand out.
+ */
+const BODY_LIGHT_SHARPNESS = 4.0;
+/** How much of it reaches a trough, against a crest: the water there is thick, and shadowed. */
+const BODY_LIGHT_TROUGH_SHARE = 0.4;
+/** How strong it is by default; the Inspector changes it live (uniforms.bodyLightStrength). */
+const DEFAULT_BODY_LIGHT_STRENGTH = 0.55;
+
 // Subsurface scattering
 /**
  * How tightly the glow follows the sun: the cosine between where the camera
@@ -428,6 +440,8 @@ export function createSeascapeSurfaceNodes({
     hasWake: uniform(0),
     /** The foam left in the water by breaking crests: how opaque, 0 for none. */
     leftFoamStrength: uniform(DEFAULT_LEFT_FOAM_STRENGTH),
+    /** The sun's light through the wave faces turned to it: how strong, 0 for none. */
+    bodyLightStrength: uniform(DEFAULT_BODY_LIGHT_STRENGTH),
     /** The residual foam's patches: how opaque, 0 for none (see DEFAULT_RESIDUAL_FOAM_STRENGTH). */
     residualFoamStrength: uniform(DEFAULT_RESIDUAL_FOAM_STRENGTH),
     /** Light shining through the crests towards the camera. */
@@ -688,7 +702,20 @@ export function createSeascapeSurfaceNodes({
     const sunReach = max(dot(normal, sun), 0.0).mul(SCATTER_SUN_WRAP_SHARE).add(1.0 - SCATTER_SUN_WRAP_SHARE);
     const scatter = vec3(uniforms.scatterColor).mul(towardsViewer.mul(sunReach)).mul(uniforms.scatterStrength);
 
-    const subsurface = crestGlow.add(scatter);
+    // Sunlight through the wave faces. It enters the water where a face is
+    // turned to the sun and shines out where one is turned to the viewer — so
+    // with the sun behind you, the faces coming at you are lit and turquoise
+    // and their backs dark, which is what gives the sea its form there (no
+    // mirror glint can: it would need a slope over 1). Stronger on crests,
+    // where the water is thin; only as much as the clouds let through
+    const sunOnFace = pow(max(dot(normal, sun), 0.0), BODY_LIGHT_SHARPNESS);
+    const thin = mix(float(BODY_LIGHT_TROUGH_SHARE), float(1.0), onCrest);
+    const bodyLight = vec3(uniforms.scatterColor)
+      .mul(towardsViewer.mul(sunOnFace).mul(thin))
+      .mul(uniforms.bodyLightStrength)
+      .mul(weather.sunlight);
+
+    const subsurface = crestGlow.add(scatter).add(bodyLight);
 
     // The lighting's crest tint is the Shadertoy's, made for waves about
     // ±WAVES_AMPLITUDE high; so it is given the height as a share of Hs, the
