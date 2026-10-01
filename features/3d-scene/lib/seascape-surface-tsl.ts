@@ -27,6 +27,8 @@
  *   ... with 3 trains in octaves 1-2, SSS     -21%   <- current
  */
 import {
+  cameraFar,
+  cameraNear,
   cameraPosition,
   Discard,
   dot,
@@ -37,6 +39,7 @@ import {
   Fn,
   fwidth,
   length,
+  linearDepth,
   max,
   mix,
   modelWorldMatrix,
@@ -54,14 +57,15 @@ import {
   vec2,
   vec3,
   vec4,
+  viewportLinearDepth,
 } from "three/tsl";
-import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/webgpu";
+import { Color, Vector4, type Node, type Texture } from "three/webgpu";
 import type { ContactFoam } from "./seascape-contact-foam";
 import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
 import type { FoamMemory } from "./seascape-foam-memory";
 import { valueNoise } from "./seascape-noise";
-import { surfaceFromBelow, underwater } from "./seascape-underwater";
+import { snellWindow, surfaceFromBelow, underwater } from "./seascape-underwater";
 import { rainRingsSlope } from "./seascape-rain-rings";
 import { overcast, weather } from "./seascape-weather";
 import {
@@ -73,6 +77,8 @@ import {
 import type { FftSurfaceNodes } from "./seascape-fft-surface";
 import { crestFoamColor, crestFoamDensity, foamGrain, hullFoamDensity } from "./seascape-foam-tsl";
 import { shadeSea } from "./seascape-lighting";
+import { seaSunVisibility } from "./seascape-shadow";
+import { skyUniforms } from "./sky-state";
 import { WAVES_AMPLITUDE } from "./seascape-waves";
 import {
   packWindSeaState,
@@ -209,6 +215,24 @@ const SCATTER_FACING_FULL = 0.45;
 const BODY_LIGHT_SHARPNESS = 4.0;
 /** How much of it reaches a trough, against a crest: the water there is thick, and shadowed. */
 const BODY_LIGHT_TROUGH_SHARE = 0.4;
+// The water seen through: what is under it shows through, less the thicker the water over it
+/** How fast the water takes the light of what is under it, per world unit of water: about 5 m of water leaves a third. */
+const DEFAULT_WATER_ABSORPTION = 0.2;
+
+/** From below: things behind the surface within this reach (world units) show through it, fully from the nearer. */
+const BEHIND_NEAR = 60;
+const BEHIND_FAR = 400;
+/** How much of what stands behind the surface from below shows through Snell's window. */
+const SEEN_THROUGH_FROM_BELOW = 0.8;
+/** ...and how much of that outside the window, where physically only the water's own reflection is: the ship is to be watched from below too. */
+const SEEN_OUTSIDE_WINDOW = 0.55;
+
+/** What the sun's light on the water keeps in the ship's shadow. */
+const SHADE_SUN_SHARE = 0.12;
+
+/** How much of its light the sea keeps under a fully overcast sky. */
+const STORM_SEA_LIGHT = 0.55;
+
 /** How strong it is by default; the Inspector changes it live (uniforms.bodyLightStrength). */
 const DEFAULT_BODY_LIGHT_STRENGTH = 0.55;
 
@@ -316,8 +340,6 @@ type SurfaceOptions = {
   foamTexture: Texture;
   /** Tangent-space normal map for the short chop, tiling. */
   detailNormalsTexture: Texture;
-  /** Towards the scene's sun, so the water is lit as the ship is. */
-  sunDirection: Vector3;
   /**
    * The FFT ocean's cascades, to draw the waves from (see
    * `seascape-fft-surface.ts`). Without them, the analytic waves and the chop
@@ -381,7 +403,6 @@ export function createSeascapeSurfaceNodes({
   wind,
   foamTexture,
   detailNormalsTexture,
-  sunDirection,
   fft,
   contactFoam,
   seaFrame,
@@ -428,7 +449,6 @@ export function createSeascapeSurfaceNodes({
     /** The foam mask. Set `.value` to another texture to swap it without a rebuild. */
     foamMap: texture(foamTexture),
     /** Towards the sun: the highlights, the diffuse light, the glow and the foam's shading. */
-    sunDirection: uniform(sunDirection.clone().normalize()),
     /** The ship's speed through the water, in m/s: how big its own waves are. */
     shipSpeed: uniform(0),
     /**
@@ -442,6 +462,7 @@ export function createSeascapeSurfaceNodes({
     leftFoamStrength: uniform(DEFAULT_LEFT_FOAM_STRENGTH),
     /** The sun's light through the wave faces turned to it: how strong, 0 for none. */
     bodyLightStrength: uniform(DEFAULT_BODY_LIGHT_STRENGTH),
+    waterAbsorption: uniform(DEFAULT_WATER_ABSORPTION),
     /** The residual foam's patches: how opaque, 0 for none (see DEFAULT_RESIDUAL_FOAM_STRENGTH). */
     residualFoamStrength: uniform(DEFAULT_RESIDUAL_FOAM_STRENGTH),
     /** Light shining through the crests towards the camera. */
@@ -675,7 +696,9 @@ export function createSeascapeSurfaceNodes({
     // waves are left out of them — added, they lit every band of the V turquoise
     const height = vertexWaves.z.add(pixelWaves.z);
 
-    const sun = vec3(uniforms.sunDirection);
+    const sun = vec3(skyUniforms.sunDirection);
+    // The ship's shadow on the water: the sun it does not shut out, never quite none (the sky still lights the shade)
+    const sunVisibility = mix(float(SHADE_SUN_SHARE), float(1.0), seaSunVisibility(positionWorld));
 
     // Subsurface scattering: looking towards the sun, light comes through the
     // thin tops of the waves and lights them turquoise from inside. Strongest
@@ -713,9 +736,10 @@ export function createSeascapeSurfaceNodes({
     const bodyLight = vec3(uniforms.scatterColor)
       .mul(towardsViewer.mul(sunOnFace).mul(thin))
       .mul(uniforms.bodyLightStrength)
-      .mul(weather.sunlight);
+      .mul(vec3(skyUniforms.sunColor).mul(weather.sunlight).mul(sunVisibility));
 
-    const subsurface = crestGlow.add(scatter).add(bodyLight);
+    // The glow and the scatter are the sun's light too: gone at night, warm at dusk
+    const subsurface = crestGlow.add(scatter).mul(vec3(skyUniforms.sunColor).mul(sunVisibility)).add(bodyLight);
 
     // The lighting's crest tint is the Shadertoy's, made for waves about
     // ±WAVES_AMPLITUDE high; so it is given the height as a share of Hs, the
@@ -737,7 +761,13 @@ export function createSeascapeSurfaceNodes({
       1.0,
       reflectionNormal,
       overcast(),
-      weather.sunlight
+      // The sun's light, in its colour, as the clouds let it through
+      vec3(skyUniforms.sunColor).mul(weather.sunlight).mul(sunVisibility),
+      vec3(skyUniforms.zenith),
+      vec3(skyUniforms.horizon),
+      skyUniforms.dim,
+      // A storm darkens the sea: the light it has is the sky's, and the sky is a lid
+      skyUniforms.ambient.mul(mix(float(1.0), float(STORM_SEA_LIGHT), overcast()))
     );
 
     // White water on the highest crests, laid over the water's colour. The
@@ -836,7 +866,24 @@ export function createSeascapeSurfaceNodes({
       );
     });
 
-    return vec4(seen, 1.0);
+    // What is under the water — the hull below the waterline, the propellers —
+    // shows through, less the thicker the water over it: the depth behind the
+    // sea less the sea's own, along the view. What the water reflects (Fresnel)
+    // hides it, and so does foam. Nothing behind (the open sea has no floor) is
+    // the far plane: far too thick, the sea opaque. From below, always opaque
+    const behind = viewportLinearDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).max(0.0);
+    const transmittance = exp(behind.mul(uniforms.waterAbsorption).negate());
+    const facing = max(dot(shared.normal, shared.viewDirection.negate()), 0.0);
+    const reflected = pow(facing.oneMinus(), 5.0);
+    const clear = transmittance.mul(reflected.oneMinus()).mul(shared.foam.oneMinus());
+    // From below, the ship above the water shows through Snell's window: the
+    // surface lets most of the view through where something stands behind it
+    // within reach, and none where there is only sky (which it draws itself)
+    const somethingBehind = smoothstep(BEHIND_NEAR, BEHIND_FAR, behind).oneMinus();
+    const fromBelow = mix(float(SEEN_OUTSIDE_WINDOW), float(1.0), snellWindow(shared.normal, shared.viewDirection)).mul(somethingBehind).mul(SEEN_THROUGH_FROM_BELOW).oneMinus();
+    const opacity = frontFacing.select(clear.oneMinus(), fromBelow);
+
+    return vec4(seen, opacity);
   })();
 
   return { positionNode, fragmentNode, uniforms };

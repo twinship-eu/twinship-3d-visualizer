@@ -82,7 +82,7 @@ export function createRecordedSource(): LiveDataSource {
         .alarmsAt(snapshot.timestamp, moment, index)
         .map((alarm) => (acknowledged.has(alarm.id) ? { ...alarm, isAcknowledged: true } : alarm))
         .sort(byUrgency);
-      return { ...withRecordedReadings(snapshot, readRecordingAt(played, moment)), alarms };
+      return { ...withRecordedReadings(snapshot, readRecordingAt(played, moment)), observedAt: moment, alarms };
     }
 
     /**

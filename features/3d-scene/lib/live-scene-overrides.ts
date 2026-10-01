@@ -17,10 +17,17 @@ export const liveSceneOverrides: {
    * rather than following the data's slowly.
    */
   wind: { speedMs: number; fromRelativeDeg: number; isUserSet?: boolean } | null;
+  /**
+   * Where the sun is, from the data's place and clock: its height and its
+   * compass bearing, and the ship's heading to turn it to the bow. Null for the
+   * scene's own sun.
+   */
+  sun: { elevationDeg: number; azimuthDeg: number; headingDeg: number } | null;
 } = {
   shipSpeedKnots: null,
   propellerRpm: null,
   wind: null,
+  sun: null,
 };
 
 /**

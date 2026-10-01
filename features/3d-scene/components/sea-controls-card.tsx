@@ -1,8 +1,10 @@
 "use client";
 
-import { Waves } from "lucide-react";
+import { Sun, Waves } from "lucide-react";
 import { useLiveData } from "@/features/live-data/hooks/use-live-data";
 import { SEASCAPE_WIND_LIMITS } from "../lib/seascape-config";
+import { describeSunHeight, sunForClock } from "../lib/sun-for-clock";
+import { followDataSky, ONTOLOGY_DEFAULT_HOUR_UTC, setSkyHour, useSkyControls } from "../lib/sky-controls-store";
 import { DEFAULT_SEA, followDataSea, setSeaWavesFrom, setSeaWindSpeed, useSeaControls } from "../lib/sea-controls-store";
 
 const METRES_PER_SECOND_PER_KNOT = 0.514444;
@@ -33,17 +35,32 @@ function useDataWind() {
   return { speedMs: trueWind.speedKn * METRES_PER_SECOND_PER_KNOT, fromRelativeDeg: side };
 }
 
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+
+/** "06:30": an hour of the day, from 0 to 24. */
+function clockLabel(hour: number) {
+  const minutes = Math.round(hour * MINUTES_PER_HOUR) % (HOURS_PER_DAY * MINUTES_PER_HOUR);
+  return `${String(Math.floor(minutes / MINUTES_PER_HOUR)).padStart(2, "0")}:${String(minutes % MINUTES_PER_HOUR).padStart(2, "0")}`;
+}
+
 /**
- * Over the scene in the Ontology: the sea, set by the user — the wind's speed
- * and the side its waves come from. Each starts at the live data's, and at the
- * scene's own without data; "Use live data" hands them back to it.
+ * Over the scene in the Ontology: the sea and the sky, set by the user — the
+ * wind's speed, the side its waves come from, the hour of the day. Each starts
+ * at the live data's, and at the scene's own without data; "Use live data"
+ * hands them back to it.
  */
 export function SeaControlsCard() {
   const controls = useSeaControls();
+  const sky = useSkyControls();
+  const snapshot = useLiveData();
   const data = useDataWind();
+  // The Ontology opens at a high sun, whatever the data's clock; the user's hour replaces it
+  const hour = sky.hourUtc ?? ONTOLOGY_DEFAULT_HOUR_UTC;
+  const sun = sunForClock(snapshot?.observedAt ?? null, hour, snapshot?.navigation.position ?? null);
   const speedMs = controls.speedMs ?? data?.speedMs ?? DEFAULT_SEA.speedMs;
   const side = controls.fromRelativeDeg ?? data?.fromRelativeDeg ?? DEFAULT_SEA.fromRelativeDeg;
-  const isUsersOwn = controls.speedMs !== null || controls.fromRelativeDeg !== null;
+  const isUsersOwn = controls.speedMs !== null || controls.fromRelativeDeg !== null || sky.hourUtc !== null;
 
   return (
     <section
@@ -95,8 +112,37 @@ export function SeaControlsCard() {
         </span>
       </label>
 
+      <label className="flex flex-col gap-1.5 text-[13px]">
+        <span className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-ink-2">
+            <Sun className="size-3.5" aria-hidden />
+            Time (UTC)
+          </span>
+          <span className="font-mono font-semibold">
+            {clockLabel(hour)}
+            {` · ${sun.elevationDeg.toFixed(0)}° · ${describeSunHeight(sun.elevationDeg)}`}
+          </span>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={HOURS_PER_DAY}
+          step={1 / MINUTES_PER_HOUR}
+          value={hour}
+          onChange={(event) => setSkyHour(Number(event.target.value))}
+          className="w-full cursor-pointer accent-[var(--color-accent)]"
+        />
+      </label>
+
       {isUsersOwn && (
-        <button type="button" onClick={followDataSea} className="cursor-pointer self-start text-[13px] font-semibold text-accent-ink hover:text-accent">
+        <button
+          type="button"
+          onClick={() => {
+            followDataSea();
+            followDataSky();
+          }}
+          className="cursor-pointer self-start text-[13px] font-semibold text-accent-ink hover:text-accent"
+        >
           {data ? "Use live data" : "Back to default"}
         </button>
       )}

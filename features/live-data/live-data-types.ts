@@ -154,6 +154,12 @@ export type LiveDataOrigin = "simulated" | "recorded" | "stream";
 export type LiveSnapshot = {
   /** When it was taken, ms since the epoch. */
   timestamp: number;
+  /**
+   * The moment the readings are of, ms since the epoch: the data's own clock.
+   * The viewer's for a ship's stream and the simulation; a recording's, as it
+   * was taken, when one is played — the sun in the sky follows it.
+   */
+  observedAt: number;
   origin: LiveDataOrigin;
   /** Snapshots per second the source sends. */
   rateHz: number;

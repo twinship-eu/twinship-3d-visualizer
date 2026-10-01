@@ -13,9 +13,9 @@
  */
 import { color, exp, float, length, max, mix, normalize, positionView, pow, smoothstep, uniform, vec3 } from "three/tsl";
 import type { Node } from "three/webgpu";
-import { getSunDirection } from "./3d-scene-config";
 import { clearSkyColor, gammaLift } from "./seascape-lighting";
 import { overcast } from "./seascape-weather";
+import { skyUniforms } from "./sky-state";
 
 /**
  * Under the water, looking down into the depth: a deep blue, not black —
@@ -34,8 +34,8 @@ const VISIBILITY = 90;
 const DARKENING_PER_DEPTH = 0.006;
 
 // Sunlight in the water
-/** Towards the sun, as the scene's light comes from it. */
-const SUN = getSunDirection().normalize();
+/** Towards the sun, as the scene's light comes from it: wherever the hour has put it. */
+const SUN = skyUniforms.sunDirection;
 /**
  * Light scattered by the water towards the camera, looking towards the sun:
  * how strong, and how tightly it gathers around the sun's direction.
@@ -80,9 +80,10 @@ export const underwater = {
 export function underwaterColor(direction: Node<"vec3">) {
   const upwards = smoothstep(-0.6, 0.8, direction.y);
   const lit = vec3(mix(color(DEEP_WATER), color(SHALLOW_WATER), upwards));
-  const towardsSun = pow(max(direction.dot(vec3(SUN.x, SUN.y, SUN.z)), 0.0), SUN_SCATTER_POWER);
-  const scattered = vec3(color(SHALLOW_WATER)).mul(towardsSun.mul(SUN_SCATTER));
-  const light = exp(underwater.depth.mul(-DARKENING_PER_DEPTH));
+  const towardsSun = pow(max(direction.dot(vec3(SUN)), 0.0), SUN_SCATTER_POWER);
+  const scattered = vec3(color(SHALLOW_WATER)).mul(towardsSun.mul(SUN_SCATTER)).mul(vec3(skyUniforms.sunColor));
+  // Little light is left at night, and less the deeper
+  const light = exp(underwater.depth.mul(-DARKENING_PER_DEPTH)).mul(skyUniforms.ambient);
 
   return lit.add(scattered).mul(light);
 }
@@ -92,6 +93,8 @@ export function underwaterFogFactor() {
   return float(1.0).sub(exp(length(positionView).div(VISIBILITY).negate()));
 }
 
+/** How much of the view from below shows the sky (and what is in front of it): inside Snell's window, 0 to 1. */
+
 /**
  * The surface seen from below: the sky through Snell's window, the water's
  * own colour reflected back everywhere else.
@@ -99,16 +102,21 @@ export function underwaterFogFactor() {
  * @param normal        the surface's normal, pointing up
  * @param viewDirection from the camera towards the point
  */
+export function snellWindow(normal: Node<"vec3">, viewDirection: Node<"vec3">) {
+  return smoothstep(SNELL_WINDOW_EDGE, SNELL_WINDOW_FULL, viewDirection.dot(normal));
+}
+
 export function surfaceFromBelow(normal: Node<"vec3">, viewDirection: Node<"vec3">) {
-  const upwards = viewDirection.dot(normal);
-  const inWindow = smoothstep(SNELL_WINDOW_EDGE, SNELL_WINDOW_FULL, upwards);
-  const sky = gammaLift(clearSkyColor(viewDirection, overcast())).mul(SNELL_WINDOW_TRANSMISSION);
+  const inWindow = snellWindow(normal, viewDirection);
+  const sky = gammaLift(
+    clearSkyColor(viewDirection, overcast(), vec3(skyUniforms.zenith), vec3(skyUniforms.horizon), skyUniforms.dim)
+  ).mul(SNELL_WINDOW_TRANSMISSION);
   const reflected = underwaterColor(viewDirection.mul(vec3(1.0, -1.0, 1.0)));
 
   // The sun through the surface: its light, bent down by each wave's tilt
-  const sun = vec3(SUN.x, SUN.y, SUN.z);
+  const sun = vec3(SUN);
   const bentSun = normalize(sun.add(normal.sub(vec3(0.0, 1.0, 0.0)).mul(SUN_BENDING)));
   const sunSpot = pow(max(viewDirection.dot(bentSun), 0.0), SUN_SPOT_POWER).mul(SUN_SPOT_BRIGHTNESS);
 
-  return mix(reflected, sky, inWindow).add(vec3(sunSpot));
+  return mix(reflected, sky, inWindow).add(vec3(sunSpot).mul(vec3(skyUniforms.sunColor)));
 }

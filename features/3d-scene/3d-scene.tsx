@@ -14,6 +14,7 @@ import {
 } from "./lib/3d-scene-config";
 import { SceneLights } from "./components/scene-lights";
 import { SceneSky } from "./components/scene-sky";
+import { SceneSkyDriver } from "./components/scene-sky-driver";
 import { SceneEnvironmentMap } from "./components/scene-environment-map";
 // Water replaced by the raymarched seascape on this branch. Kept, not deleted.
 // import { SceneWater } from "./components/scene-water";
@@ -147,6 +148,7 @@ function SceneWithInteraction({
             SkyMesh stays for the raymarched background. (The ship's lighting
             probe bakes its own sky and does not depend on this one.)
           */}
+          <SceneSkyDriver />
           {!IS_SEASCAPE_SURFACE_ENABLED && <SceneSky />}
           {IS_SEASCAPE_SURFACE_ENABLED && <SceneSeascapeAtmosphere />}
           <SceneEnvironmentMap />

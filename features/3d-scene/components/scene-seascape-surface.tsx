@@ -12,7 +12,7 @@ import {
   type Mesh,
   type Texture,
 } from "three/webgpu";
-import { getSunDirection, IS_SCENE_INSPECTOR_ENABLED } from "../lib/3d-scene-config";
+import { IS_SCENE_INSPECTOR_ENABLED } from "../lib/3d-scene-config";
 import {
   IS_FFT_OCEAN_ENABLED,
   SEASCAPE_CHOP_NORMALS_URL,
@@ -56,6 +56,9 @@ import {
   SEASCAPE_SURFACE_DEFAULTS,
 } from "../lib/seascape-surface-tsl";
 import { asSceneRenderer, getSceneInspector, isWebGPUBackend } from "../lib/webgpu-renderer";
+
+/** The sea is the first of the blended things drawn: what is faded above the water is over it. */
+const SEA_RENDER_ORDER = -10;
 
 /** World units between adjacent grid vertices, for a grid of `segments` per side. */
 function cellSizeFor(segments: number): number {
@@ -309,7 +312,6 @@ function createSeaSurface(canUseCompute: boolean) {
     wind: INITIAL_WIND,
     foamTexture: getFoamTexture(SEASCAPE_DEFAULT_FOAM_TEXTURE),
     detailNormalsTexture: loadDetailNormalsTexture(),
-    sunDirection: getSunDirection(),
     fft,
     contactFoam,
     seaFrame,
@@ -325,6 +327,8 @@ function createSeaSurface(canUseCompute: boolean) {
   material.fragmentNode = nodes.fragmentNode;
   // Both faces: from under the water the camera sees the surface's underside
   material.side = DoubleSide;
+  // Blended over what is under the water (the hull's underwater part), by the water's thickness over it
+  material.transparent = true;
 
   return {
     geometry,
@@ -400,6 +404,7 @@ const SEASCAPE_TUNING = {
   residualFoam: 0,
   /** The sun's light through the wave faces turned to it: 0 for none (the old look), up for more. */
   bodyLight: 0.55,
+  waterAbsorption: 0.2,
   foamColor: SEASCAPE_SURFACE_DEFAULTS.foamColor as string,
   /** Which foam mask texture; see `SEASCAPE_FOAM_TEXTURES`. */
   foamTexture: SEASCAPE_DEFAULT_FOAM_TEXTURE as SeascapeFoamTextureName,
@@ -470,6 +475,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "leftFoam", 0, 1, 0.01);
     panel.add(SEASCAPE_TUNING, "residualFoam", 0, 1, 0.01);
     panel.add(SEASCAPE_TUNING, "bodyLight", 0, 3, 0.05);
+    panel.add(SEASCAPE_TUNING, "waterAbsorption", 0, 2, 0.01);
     panel.addColor(SEASCAPE_TUNING, "foamColor");
     panel.add(
       SEASCAPE_TUNING,
@@ -683,6 +689,7 @@ export function SceneSeascapeSurface() {
     sea.uniforms.leftFoamStrength.value = SEASCAPE_TUNING.leftFoam;
     sea.uniforms.residualFoamStrength.value = SEASCAPE_TUNING.residualFoam;
     sea.uniforms.bodyLightStrength.value = SEASCAPE_TUNING.bodyLight;
+    sea.uniforms.waterAbsorption.value = SEASCAPE_TUNING.waterAbsorption;
     // Only on a change: switching to lines rebuilds the material's pipeline
     if (sea.material.wireframe !== SEASCAPE_TUNING.wireframe) {
       sea.material.wireframe = SEASCAPE_TUNING.wireframe;
@@ -697,6 +704,8 @@ export function SceneSeascapeSurface() {
         geometry={geometry}
         material={material}
         position={[0, SEASCAPE_SURFACE_LEVEL_Y, 0]}
+        // Before the other blended things (the faded parts of the ship): they are drawn over the sea, not under it
+        renderOrder={SEA_RENDER_ORDER}
       />
       <primitive object={seaRef.current.buoys.mesh} />
       <primitive object={seaRef.current.bubbles.sprite} />

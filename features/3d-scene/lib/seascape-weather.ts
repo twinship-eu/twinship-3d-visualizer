@@ -28,10 +28,10 @@ export type Weather = {
 export const CLEAR_WEATHER: Weather = { cloudCover: 0.15, rain: 0, snow: 0 };
 
 /**
- * How much of the sun gets through at full cloud cover: an overcast sky lets
- * through about a fifth of the direct light, and none of it as a sharp glint.
+ * How much of the sun gets through at full cloud cover: a closed, stormy sky lets
+ * through a few per cent of the direct light, and none of it as a sharp glint.
  */
-const OVERCAST_SUNLIGHT = 0.18;
+const OVERCAST_SUNLIGHT = 0.06;
 /** Cloud cover from which the sun starts to dim, and at which it is dimmest. */
 const SUN_DIMS_FROM = 0.4;
 const SUN_DIMMEST_AT = 0.9;

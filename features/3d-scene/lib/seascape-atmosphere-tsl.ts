@@ -34,9 +34,9 @@ import {
   vec4,
 } from "three/tsl";
 import { Color } from "three/webgpu";
-import { withClouds } from "./seascape-clouds";
 import { overcast, precipitation } from "./seascape-weather";
-import { clearSkyColor, gammaLift } from "./seascape-lighting";
+import { skyOfTheHour } from "./seascape-sky";
+import { skyUniforms } from "./sky-state";
 import { underwater, underwaterColor, underwaterFogFactor } from "./seascape-underwater";
 
 type AtmosphereOptions = {
@@ -58,6 +58,10 @@ const OVERCAST_HORIZON = vec3(0.6, 0.63, 0.67);
  */
 const STORM_HAZE_REACH = 0.35;
 const STORM_SKY_HAZE_HEIGHT = 0.45;
+
+/** How much the horizon takes of the dusk's glow, and how much of the sun the low air dims. */
+const HORIZON_GLOW = 0.35;
+const LOW_AIR_DIMMING = 0.5;
 
 /** Smallest gap between two smoothstep edges, so they can never coincide at runtime. */
 const MIN_EDGE_GAP = 1e-3;
@@ -82,14 +86,18 @@ export function createSeascapeAtmosphereNodes(options: AtmosphereOptions) {
    * sphere's own normal is the direction being looked in.
    */
   const direction = normalize(normalWorldGeometry);
-  const sky = withClouds(gammaLift(clearSkyColor(direction, overcast())), direction);
-  // The horizon greys with the clouds, and the haze thickens and closes in
-  // with rain or snow in the air
-  const horizon = mix(vec3(uniforms.horizonColor), OVERCAST_HORIZON, overcast()).toVar();
+  const { sky, sun } = skyOfTheHour(direction);
+  // The horizon greys with the clouds, darkens with the night and glows with
+  // the dusk, and the haze thickens and closes in with rain or snow in the air
+  const horizon = mix(vec3(uniforms.horizonColor), OVERCAST_HORIZON, overcast())
+    .mul(skyUniforms.ambient)
+    .add(vec3(skyUniforms.glowColor).mul(skyUniforms.glow).mul(HORIZON_GLOW))
+    .toVar();
   const hazeHeight = mix(max(uniforms.skyHazeHeight, MIN_EDGE_GAP), float(STORM_SKY_HAZE_HEIGHT), precipitation());
   const skyHaze = smoothstep(0.0, hazeHeight, direction.y).oneMinus();
   // Under the water (`underwater.submerged`), the water's murk replaces the sky
-  const airBackground = mix(sky, horizon, skyHaze);
+  // The sun is added once the haze is, so the haze does not hide it; it dims a little in the low air
+  const airBackground = mix(sky, horizon, skyHaze).add(sun.mul(float(1.0).sub(skyHaze.mul(LOW_AIR_DIMMING))));
   const backgroundNode = vec4(mix(airBackground, underwaterColor(direction), underwater.submerged), 1.0);
 
   /**

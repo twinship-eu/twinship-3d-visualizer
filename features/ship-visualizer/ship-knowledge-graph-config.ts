@@ -15,6 +15,8 @@ export const PART_INSTANCES: Record<string, string[]> = {
   Engine: ["FV-GN-1", "FV-GN-2"],
   Propellers: ["FV-CPP-1", "FV-CPP-2"],
   WAPS: ["FV-WASP-1", "FV-WASP-2"],
+  // The graph has no hull of its own: the vessel is what the other systems are part of, and the hull stands for it
+  "Base Hull": ["FV-RR-1"],
 };
 
 /** The ontology's documentation, where a class or property IRI opens its page. */
@@ -43,3 +45,10 @@ export const QUALIFYING_TYPES = new Set([
  * symmetric, stored both ways.
  */
 export const RELATION_ORDER = ["partOf", "hasPart", "directlyConnectedTo", "connectedTo", "consume"] as const;
+
+/**
+ * Only the relations to a component the model has — one to click and jump to —
+ * are shown. The rest are in the graph, and shown once the ship has a 3D part
+ * for them: set this to false then.
+ */
+export const IS_ONLY_RELATIONS_TO_3D_PARTS = true;

@@ -237,7 +237,6 @@ export function ShipVisualizer() {
                 onToggleExpanded={() => setIsDetailsExpanded((open) => !open)}
                 onClose={clearSelection}
                 onSelectConnectedComponent={handleSelectConnectedComponent}
-                onShowLiveData={() => void setMode("live")}
               />
             )}
           </div>

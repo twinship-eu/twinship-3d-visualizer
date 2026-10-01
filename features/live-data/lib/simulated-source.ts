@@ -191,8 +191,10 @@ export function createSimulatedSource(): LiveDataSource {
       // The route shortens with the way made good, until the ship arrives
       state.distanceToGo = Math.max(0, state.distanceToGo - (state.speedOverGround * intervalSeconds) / SECONDS_PER_HOUR);
 
+      const now = Date.now();
       onSnapshot({
-        timestamp: Date.now(),
+        timestamp: now,
+        observedAt: now,
         origin: "simulated",
         rateHz: SIMULATION_RATE_HZ,
         autonomyLevel: SIMULATED_AUTONOMY_LEVEL,
