@@ -69,7 +69,7 @@ import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
 import type { FoamMemory } from "./seascape-foam-memory";
 import { valueNoise } from "./seascape-noise";
-import { snellWindow, surfaceFromBelow, underwater } from "./seascape-underwater";
+import { snellWindow, sunRays, surfaceFromBelow, underwater } from "./seascape-underwater";
 import { rainRingsSlope } from "./seascape-rain-rings";
 import { overcast, weather } from "./seascape-weather";
 import {
@@ -239,7 +239,7 @@ const SEEN_OUTSIDE_WINDOW = 0.55;
  */
 const IS_BACKDROP_REFRACTION_ENABLED = true;
 /** How far the view is shifted by the surface's tilt, in screen widths per unit of slope. */
-const DEFAULT_REFRACTION = 0.05;
+const DEFAULT_REFRACTION = 0.02;
 /** The thickness (world units) of water from which the shift is complete: a thin sheet bends little. */
 const REFRACTION_FULL_AT = 4;
 /** Relative absorption of red, green and blue: red first (clear ocean water, after the Beer-Lambert example). */
@@ -880,6 +880,9 @@ export function createSeascapeSurfaceNodes({
     // the surface — the surface's underside. A branch, not a select, so each
     // pixel shades only the side it shows (neither reads a texture). What both
     // use is held in variables first, outside the branch
+    // Whether the sun can be seen through the surface here: not where the ship stands behind it
+    const depthBehind = viewportLinearDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).max(0.0);
+    const sunVisible = smoothstep(BEHIND_NEAR, BEHIND_FAR, depthBehind);
     const shared = { normal: normal.toVar(), viewDirection: viewDirection.toVar(), foam: foam.toVar(), foamColor: foamColor.toVar() };
     const seen = vec3(0.0).toVar();
     If(frontFacing, () => {
@@ -889,7 +892,7 @@ export function createSeascapeSurfaceNodes({
       Discard(underwater.isCameraInsideHull.greaterThan(0.5));
       // ...with its foam, seen from underneath: darker, lit through the water
       seen.assign(
-        mix(surfaceFromBelow(shared.normal, shared.viewDirection), shared.foamColor.mul(FOAM_FROM_BELOW), shared.foam)
+        mix(surfaceFromBelow(shared.normal, shared.viewDirection, sunVisible), shared.foamColor.mul(FOAM_FROM_BELOW), shared.foam)
       );
     });
 
@@ -909,6 +912,10 @@ export function createSeascapeSurfaceNodes({
     const somethingBehind = smoothstep(BEHIND_NEAR, BEHIND_FAR, behind).oneMinus();
     const fromBelow = mix(float(SEEN_OUTSIDE_WINDOW), float(1.0), snellWindow(shared.normal, shared.viewDirection)).mul(somethingBehind).mul(SEEN_THROUGH_FROM_BELOW).oneMinus();
     const opacity = frontFacing.select(clear.oneMinus(), fromBelow);
+    // The sun's shafts in the water in front of the surface — not where the ship
+    // stands behind it: they shone through it
+    const shafts = frontFacing.select(vec3(0.0), sunRays(shared.viewDirection).mul(somethingBehind.oneMinus()));
+    seen.addAssign(shafts);
     if (!IS_BACKDROP_REFRACTION_ENABLED) return vec4(seen, opacity);
 
     // What is behind, read from the picture drawn so far (the opaque things,

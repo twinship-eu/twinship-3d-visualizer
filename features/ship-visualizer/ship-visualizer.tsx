@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { CockpitTopBar } from "@/features/cockpit/components/cockpit-top-bar";
 import { LiveSceneOverlays } from "@/features/cockpit/components/live-scene-layers";
 import { SidebarFooter, sidebarReadingFor } from "@/features/cockpit/components/sidebar-live-content";
+import { useCockpitPanel } from "@/features/cockpit/hooks/use-cockpit-panel";
 import { useCockpitPanels } from "@/features/cockpit/hooks/use-cockpit-panels";
 import { useLiveLayout } from "@/features/cockpit/hooks/use-live-layout";
 import { ComponentLivePanel } from "@/features/cockpit/component-live/component-live-panel";
@@ -112,7 +113,7 @@ export function ShipVisualizer() {
 
   const {
     isOntologyMode,
-    liveSelection,
+    liveSelection: componentLiveSelection,
     isVoyageView,
     liveSelectionSection,
     callouts,
@@ -124,6 +125,10 @@ export function ShipVisualizer() {
     selectedNode: selectedStructureNode,
     isModelReady,
   });
+  // With the event log open the ship is focused by the log, not opened in a component's panel
+  const { panel: openPanelParam } = useCockpitPanel();
+  const isLogOpen = !isOntologyMode && openPanelParam === "log";
+  const liveSelection = isLogOpen ? null : componentLiveSelection;
   const clearSelection = () => {
     setSelectedStructureNode(null);
     setIsDetailsExpanded(false);
@@ -211,6 +216,7 @@ export function ShipVisualizer() {
                 onOverview={clearSelection}
               />
             )}
+            {panels.logScene}
             {isMobileCard && (
               <MobileSceneCardChrome
                 isExpanded={isSceneExpanded}
@@ -257,9 +263,9 @@ export function ShipVisualizer() {
               selectedNode={selectedStructureNode}
             />
           )}
-          {panels.logView}
         </div>
         {!liveSelection && panels.assistantPanel}
+        {panels.logPanel}
         {liveSelection && (
           <ComponentLivePanel
             key={`panel-${liveSelection.id}`}

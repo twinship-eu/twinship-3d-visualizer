@@ -1,7 +1,9 @@
 "use client";
 
-import { EventLogView } from "@/features/event-log/components/event-log-view";
-import { EventsPerSystemNote, LogNodeCount } from "@/features/event-log/components/log-sidebar";
+import { EventLogPanel } from "@/features/event-log/components/event-log-panel";
+import { LogSceneOverlay } from "@/features/event-log/components/log-scene-overlay";
+import { LogBesideShipNote, LogNodeCount } from "@/features/event-log/components/log-sidebar";
+import { resetEventLogState } from "@/features/event-log/lib/event-log-store";
 import { AssistantEvidenceStrip } from "@/features/assistant/components/assistant-evidence-strip";
 import { AssistantPanel } from "@/features/assistant/components/assistant-panel";
 import { askAssistant, useAssistantState } from "@/features/assistant/lib/assistant-store";
@@ -26,8 +28,8 @@ function RelatedTag() {
 }
 
 /**
- * Live data's panels — the event log over the scene, the ship assistant
- * beside it — and what they change around them: the top bar's buttons, the
+ * Live data's panels — the event log and the ship assistant, each beside
+ * the scene — and what they change around them: the top bar's buttons, the
  * tree's counts and clicks while the log is open, its note under the tree.
  */
 export function useCockpitPanels({ isOntologyMode, onOpenComponent, onClearSelection, renderReading }: Inputs) {
@@ -39,6 +41,7 @@ export function useCockpitPanels({ isOntologyMode, onOpenComponent, onClearSelec
   const highlighted = new Set(highlights.map((highlight) => highlight.component));
 
   const changePanel = (next: CockpitPanel | null) => {
+    if (next !== "log") resetEventLogState();
     onClearSelection();
     void setPanel(next);
   };
@@ -58,7 +61,7 @@ export function useCockpitPanels({ isOntologyMode, onOpenComponent, onClearSelec
     ask,
     showOnShip,
     /** The callouts give way to the assistant's highlights, as the design has it. */
-    hidesCallouts: isAssistantOpen && highlights.length > 0,
+    hidesCallouts: isLogOpen || (isAssistantOpen && highlights.length > 0),
     /**
      * While the log is open, the tree filters it and counts its events; while
      * the assistant is, it tags what the answer names; null otherwise.
@@ -70,7 +73,7 @@ export function useCockpitPanels({ isOntologyMode, onOpenComponent, onClearSelec
             void setLogSystem(logSystem === sectionId ? null : sectionId);
           },
           renderReading: (node: ShipTreeNode) => <LogNodeCount node={node} filterId={logSystem} />,
-          footer: <EventsPerSystemNote onBack={() => void setPanel(null)} />,
+          footer: <LogBesideShipNote onBack={() => changePanel(null)} />,
         }
       : isAssistantOpen && highlighted.size > 0
         ? {
@@ -88,13 +91,11 @@ export function useCockpitPanels({ isOntologyMode, onOpenComponent, onClearSelec
       isAssistantOpen && latestReply && (latestReply.evidenceSensor || latestReply.citedEvents.length > 0) ? (
         <AssistantEvidenceStrip onOpenLog={openLog} />
       ) : null,
-    logView: isLogOpen ? (
-      <EventLogView
-        systemId={logSystem}
-        onSystemChange={(systemId) => void setLogSystem(systemId)}
-        onShowOnShip={showOnShip}
-        onAsk={ask}
-      />
+    /** The event log beside the scene, the ship in the middle; null while closed. */
+    logPanel: isLogOpen ? (
+      <EventLogPanel systemId={logSystem} onFocus={onOpenComponent} onAsk={ask} onClose={() => void setPanel(null)} />
     ) : null,
+    /** Over the scene while the log is open: what the camera is on, and the time series. */
+    logScene: isLogOpen ? <LogSceneOverlay onShowWholeShip={onClearSelection} /> : null,
   };
 }

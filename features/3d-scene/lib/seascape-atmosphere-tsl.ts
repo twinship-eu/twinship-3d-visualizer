@@ -114,7 +114,7 @@ export function createSeascapeAtmosphereNodes(options: AtmosphereOptions) {
   // ...and closes in within tens of metres, lighter looking up, darker down
   const lookingAt = normalize(positionWorld.sub(cameraPosition));
   const fogNode = fog(
-    mix(horizon, underwaterColor(lookingAt), underwater.submerged),
+    mix(horizon, underwaterColor(lookingAt, false), underwater.submerged),
     mix(airFog, underwaterFogFactor(), underwater.submerged)
   );
 

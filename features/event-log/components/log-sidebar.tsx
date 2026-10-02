@@ -22,12 +22,15 @@ export function EventCount({ count, isFilter }: { count: number; isFilter: boole
   return <span className={isFilter ? "font-mono text-[12px] font-bold text-accent-ink" : "font-mono text-[12px] text-muted"}>{count}</span>;
 }
 
-/** Under the tree while the log is open: what its counts are, and the way back. */
-export function EventsPerSystemNote({ onBack }: { onBack: () => void }) {
+/** Under the tree while the log is open: how the ship and the log go together, and the way back. */
+export function LogBesideShipNote({ onBack }: { onBack: () => void }) {
   return (
     <section className="m-3.5 flex flex-col gap-2 rounded-[10px] border border-line bg-card px-4 py-3.5 text-[13px]">
-      <h2 className="text-[11px] font-semibold tracking-[0.12em] text-muted">EVENTS PER SYSTEM</h2>
-      <p className="text-ink-2">The counts in the tree are the log&apos;s events. Click a system to filter the log to it and its components.</p>
+      <h2 className="text-[11px] font-semibold tracking-[0.12em] text-muted">LOG BESIDE THE SHIP</h2>
+      <p className="text-ink-2">
+        The ship keeps sailing in the middle. Pick a warning in the log and the camera focuses on it; pick anything else and it follows the
+        ship again. The counts in the tree are the log&apos;s events: click a system to filter the log to it.
+      </p>
       <button type="button" onClick={onBack} className="cursor-pointer self-start font-semibold text-accent-ink hover:text-accent">
         ← Back to the ship
       </button>

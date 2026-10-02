@@ -28,14 +28,8 @@ export const EVENT_KIND_CHIPS: Record<EventKind, { label: string; className: str
 export const APPROACH_SHARE = 0.95;
 export const APPROACH_REARM_SHARE = 0.9;
 
-/** How close in time another event of the same component must be to count as related, in ms. */
-export const RELATED_EVENTS_WINDOW_MS = 15 * 60_000;
-
 /** The log's first number: #1001 for its oldest entry. */
 export const FIRST_EVENT_NUMBER = 1001;
 
 /** Minutes of data before an alarm's raising its trend shows. */
 export const TREND_LEAD_MINUTES = 5;
-
-/** The readings table: one row every this many seconds of the kept history. */
-export const READINGS_STEP_SECONDS = 5;

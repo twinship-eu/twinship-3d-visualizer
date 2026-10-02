@@ -51,8 +51,13 @@ const SUN_SCATTER_POWER = 5;
  * and how bright.
  */
 const SUN_BENDING = 2.5;
-const SUN_SPOT_POWER = 60;
 const SUN_SPOT_BRIGHTNESS = 6;
+/** The sun's disc seen through the surface: the dot of the view with the (bent) sun at which it ends and is full — a few degrees wide, not a point. */
+const SUN_DISC_EDGE = 0.99985;
+const SUN_DISC_FULL = 0.99996;
+/** The soft glow round it. */
+const SUN_HALO_POWER = 40;
+const SUN_HALO_STRENGTH = 1.2;
 
 /**
  * Looking up from under the water, the sky shows only within Snell's window:
@@ -83,30 +88,69 @@ export const underwater = {
  * towards the sun, spreading from it, drifting. Strongest near the surface
  * (they fade with the camera's depth), under a clear sky; none at night.
  */
-const RAYS_STRENGTH = 1.3;
+const RAYS_STRENGTH = 0.15;
 /** How tightly the beams gather round the sun's direction, and how many spread round it. */
-const RAYS_FOCUS_POWER = 5;
-const RAYS_COUNT = 18;
+const RAYS_FOCUS_POWER = 3;
+/** Whole numbers, so the pattern closes round the sun: with any other the angle's wrap left a seam. */
+const RAYS_COUNT_SLOW = 13;
+/** The sun's disc seen from the water, as dots of the view with its direction: its edge, where it is full, and how bright. */
+/** 1 less the dot of the view with the sun at the disc's edge, at the outside sun's size scaled to 1: about a degree and a half. */
+const SUN_VIEW_DISC_SPAN = 0.00035;
+const SUN_VIEW_DISC_BRIGHTNESS = 2.5;
 const RAYS_DRIFT = 0.25;
 /** How fast the beams fade with the camera's depth, per world unit. */
 const RAYS_DEPTH_FADE = 0.012;
 
-function sunRays(direction: Node<"vec3">) {
+/** Live knobs for the Inspector: how many beams, how thin, how strong, and the sun's size and glow. */
+export const raysTuning = {
+  /** Beams round the sun: rounded to a whole number (a fraction left a seam). */
+  count: uniform(8),
+  /** Higher is thinner: the power the beam pattern is raised to. */
+  width: uniform(2.5),
+  strength: uniform(1),
+  /** The disc's size against the outside sun's: its angle scales by this. */
+  sunSize: uniform(0.2),
+  glow: uniform(5),
+};
+
+/**
+ * @param withSun draw the sun itself too: not in the haze that hides the hull,
+ *   which would put the sun on the ship
+ */
+export function sunRays(direction: Node<"vec3">, withSun = true) {
   const sun = vec3(SUN);
   // The angle round the sun's axis: the beams radiate from the sun along it
   const tangent = normalize(cross(sun, vec3(0.0, 0.0, 1.0)));
   const bitangent = cross(sun, tangent);
   const angle = atan(dot(direction, bitangent), dot(direction, tangent));
-  const beams = sin(angle.mul(RAYS_COUNT).add(time.mul(RAYS_DRIFT))).mul(sin(angle.mul(RAYS_COUNT * 0.37).sub(time.mul(RAYS_DRIFT * 0.6))));
-  const shafts = beams.mul(0.5).add(0.5).pow(2.0);
+  const count = raysTuning.count.round();
+  const beams = sin(angle.mul(count).add(time.mul(RAYS_DRIFT))).mul(sin(angle.mul(RAYS_COUNT_SLOW).sub(time.mul(RAYS_DRIFT * 0.6))));
+  // ...and patchy: some of the water is lit, some is not
+  const patches = sin(dot(direction, vec3(11.0, 6.0, 9.0)).sub(time.mul(0.2))).mul(0.12).add(0.88);
+  const shafts = beams.mul(0.5).add(0.5).pow(raysTuning.width).mul(patches);
   const towardsSun = pow(max(dot(direction, sun), 0.0), RAYS_FOCUS_POWER);
   const clear = float(1.0).sub(overcast());
+  const rays = vec3(color(SHALLOW_WATER_RAYS))
+    .mul(shafts.mul(towardsSun))
+    .mul(vec3(skyUniforms.sunColor))
+    .mul(clear)
+    .mul(raysTuning.strength)
+    .mul(exp(underwater.depth.mul(-RAYS_DEPTH_FADE)));
+  if (!withSun) return rays;
 
-  return vec3(color(SHALLOW_WATER_RAYS)).mul(shafts.mul(towardsSun)).mul(vec3(skyUniforms.sunColor)).mul(clear).mul(RAYS_STRENGTH).mul(exp(underwater.depth.mul(-RAYS_DEPTH_FADE)));
+  // The sun itself where the beams meet: smaller than the outside sun, in a glow so its edge is barely a circle
+  const onSun = dot(direction, sun);
+  const size = raysTuning.sunSize.mul(raysTuning.sunSize);
+  const edge = float(1.0).sub(size.mul(SUN_VIEW_DISC_SPAN));
+  const full = float(1.0).sub(size.mul(SUN_VIEW_DISC_SPAN * 0.12));
+  const disc = smoothstep(edge, full, onSun).mul(SUN_VIEW_DISC_BRIGHTNESS).add(pow(max(onSun, 0.0), 220.0).mul(raysTuning.glow));
+  const sunItself = vec3(1.0, 0.98, 0.9).mul(disc).mul(vec3(skyUniforms.sunColor)).mul(clear);
+
+  return sunItself.add(rays);
 }
 
 /** The water's colour looking in `direction`, at the camera's depth. */
-export function underwaterColor(direction: Node<"vec3">) {
+export function underwaterColor(direction: Node<"vec3">, withRays = true, withSun = true) {
   const upwards = smoothstep(-0.6, 0.8, direction.y);
   const lit = vec3(mix(color(DEEP_WATER), color(SHALLOW_WATER), upwards));
   const towardsSun = pow(max(direction.dot(vec3(SUN)), 0.0), SUN_SCATTER_POWER);
@@ -114,7 +158,9 @@ export function underwaterColor(direction: Node<"vec3">) {
   // Little light is left at night, and less the deeper
   const light = exp(underwater.depth.mul(-DARKENING_PER_DEPTH)).mul(skyUniforms.ambient);
 
-  return lit.add(scattered).mul(light).add(sunRays(direction));
+  const water = lit.add(scattered).mul(light);
+  // The beams are in the water as the background shows it; not in the fog that hides the hull in it
+  return withRays ? water.add(sunRays(direction, withSun)) : water;
 }
 
 /** How much the water hides of a fragment, from its distance to the camera: 0 to 1. */
@@ -135,7 +181,7 @@ export function snellWindow(normal: Node<"vec3">, viewDirection: Node<"vec3">) {
   return smoothstep(SNELL_WINDOW_EDGE, SNELL_WINDOW_FULL, viewDirection.dot(normal));
 }
 
-export function surfaceFromBelow(normal: Node<"vec3">, viewDirection: Node<"vec3">) {
+export function surfaceFromBelow(normal: Node<"vec3">, viewDirection: Node<"vec3">, sunVisibility: Node<"float">) {
   const inWindow = snellWindow(normal, viewDirection);
   const sky = gammaLift(
     clearSkyColor(viewDirection, overcast(), vec3(skyUniforms.zenith), vec3(skyUniforms.horizon), skyUniforms.dim)
@@ -145,7 +191,11 @@ export function surfaceFromBelow(normal: Node<"vec3">, viewDirection: Node<"vec3
   // The sun through the surface: its light, bent down by each wave's tilt
   const sun = vec3(SUN);
   const bentSun = normalize(sun.add(normal.sub(vec3(0.0, 1.0, 0.0)).mul(SUN_BENDING)));
-  const sunSpot = pow(max(viewDirection.dot(bentSun), 0.0), SUN_SPOT_POWER).mul(SUN_SPOT_BRIGHTNESS);
+  const towardsBentSun = viewDirection.dot(bentSun);
+  const sunSpot = smoothstep(SUN_DISC_EDGE, SUN_DISC_FULL, towardsBentSun)
+    .mul(SUN_SPOT_BRIGHTNESS)
+    .add(pow(max(towardsBentSun, 0.0), SUN_HALO_POWER).mul(SUN_HALO_STRENGTH))
+    .mul(sunVisibility);
 
-  return mix(reflected, sky, inWindow).add(vec3(sunSpot).mul(vec3(skyUniforms.sunColor))).add(sunRays(viewDirection));
+  return mix(reflected, sky, inWindow).add(vec3(sunSpot).mul(vec3(skyUniforms.sunColor)));
 }

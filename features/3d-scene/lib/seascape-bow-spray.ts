@@ -12,7 +12,7 @@
 import { float, fract, instanceIndex, length, max, mix, sin, smoothstep, time, uniform, uv, vec2, vec3 } from "three/tsl";
 import { AdditiveBlending, Sprite, SpriteNodeMaterial, type Node } from "three/webgpu";
 
-const SPRAY_COUNT = 800;
+const SPRAY_COUNT = 560;
 /** Seconds a droplet is in the air, at most. */
 const LIFETIME = 1.4;
 /** Where it leaves the hull: along the stem and the flank, and above the water, in world units. */
@@ -31,6 +31,8 @@ const STREAM_SHARE = 0.75;
 /** Their size when thrown and when they fall, in world units. */
 const BIRTH_SIZE = 0.55;
 const LATE_SIZE = 0.2;
+/** Droplets to a group that surges together. */
+const GROUP_SIZE = 40;
 const SPRAY_OPACITY = 0.45;
 
 const hash = (seed: Node<"float">) => fract(sin(seed.mul(12.9898)).mul(43758.5453));
@@ -64,7 +66,7 @@ export function createBowSpray(levelY: number, bowZ: number, waterHeight?: (posi
 
   // Each droplet its own side and strength; the stronger, the higher and further
   const side = seedB.lessThan(0.5).select(float(-1.0), float(1.0));
-  const strength = seedC.mul(0.7).add(0.3).mul(uniforms.intensity.mul(0.6).add(0.4));
+  const strength = seedC.mul(seedC).mul(0.8).add(0.2).mul(uniforms.intensity.mul(0.6).add(0.4));
   const up = strength.mul(UP_SPEED).mul(seedE.mul(0.8).add(0.4));
   const out = strength.mul(OUT_SPEED).mul(side);
 
@@ -85,13 +87,17 @@ export function createBowSpray(levelY: number, bowZ: number, waterHeight?: (posi
   const material = new SpriteNodeMaterial({ transparent: true, depthWrite: false, blending: AdditiveBlending });
   // A droplet that has fallen back to the water is gone
   material.positionNode = vec3(position.x, max(position.y, water), position.z);
-  material.scaleNode = mix(float(BIRTH_SIZE), float(LATE_SIZE), age).mul(seedC.mul(0.8).add(0.6));
+  material.scaleNode = mix(float(BIRTH_SIZE), float(LATE_SIZE), age).mul(seedC.mul(seedE).mul(1.6).add(0.35));
 
   const fromCentre = length(uv().sub(0.5)).mul(2.0);
   const disc = smoothstep(0.7, 1.0, fromCentre).oneMinus();
   const inAir = smoothstep(0.0, 0.15, position.y.sub(water));
   material.colorNode = vec3(0.95, 0.98, 1.0);
-  material.opacityNode = disc.mul(sin(age.mul(Math.PI))).mul(inAir).mul(uniforms.intensity).mul(SPRAY_OPACITY);
+  // Surges, not a steady spray: groups of droplets come and go, each group on its own beat
+  const group = index.div(GROUP_SIZE).floor();
+  const beat = sin(time.mul(hash(group).mul(1.6).add(0.7)).add(hash(group.add(5.0)).mul(6.28)));
+  const surge = smoothstep(-0.2, 0.6, beat);
+  material.opacityNode = disc.mul(sin(age.mul(Math.PI))).mul(inAir).mul(surge).mul(uniforms.intensity).mul(SPRAY_OPACITY);
 
   const sprite = new Sprite(material);
   sprite.count = SPRAY_COUNT;

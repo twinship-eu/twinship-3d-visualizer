@@ -8,6 +8,7 @@ import { LiveSceneProjectors } from "@/features/cockpit/components/live-scene-la
 import { LiveSceneSync } from "@/features/cockpit/voyage/live-scene-sync";
 import { VoyageSceneOverlay } from "@/features/cockpit/voyage/voyage-scene-overlay";
 import { SeaControlsCard } from "@/features/3d-scene/components/sea-controls-card";
+import { IS_SCENE_INSPECTOR_ENABLED } from "@/features/3d-scene/lib/3d-scene-config";
 import { getBridgeState } from "@/features/bridge/lib/bridge-store";
 import type { useShipModel } from "../hooks/use-ship-model";
 import type { ShipTreeNode } from "../ship-visualizer-types";
@@ -59,7 +60,8 @@ export function ShipScene({ model, selectedNode, hoveredNode, onHover, onSelectB
           <>
             {/* The environment is the data's: the ship's speed, its propellers, the wind — the sea the user's in the Ontology */}
             <LiveSceneSync isUserSea={live === null} />
-            {live === null && <SeaControlsCard />}
+            {/* The sea and the hour to play with: a testing aid, flagged off in the production build */}
+            {live === null && IS_SCENE_INSPECTOR_ENABLED && <SeaControlsCard />}
             {live?.isVoyageView && <VoyageSceneOverlay />}
           </>
         }
