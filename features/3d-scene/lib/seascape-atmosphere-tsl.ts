@@ -37,7 +37,7 @@ import { Color } from "three/webgpu";
 import { overcast, precipitation } from "./seascape-weather";
 import { skyOfTheHour } from "./seascape-sky";
 import { skyUniforms } from "./sky-state";
-import { underwater, underwaterColor, underwaterFogFactor } from "./seascape-underwater";
+import { raysTuning, underwater, underwaterColor, underwaterFogFactor } from "./seascape-underwater";
 
 type AtmosphereOptions = {
   /** Horizon colour, as a CSS colour string. */
@@ -114,7 +114,7 @@ export function createSeascapeAtmosphereNodes(options: AtmosphereOptions) {
   // ...and closes in within tens of metres, lighter looking up, darker down
   const lookingAt = normalize(positionWorld.sub(cameraPosition));
   const fogNode = fog(
-    mix(horizon, underwaterColor(lookingAt, false), underwater.submerged),
+    mix(horizon, underwaterColor(lookingAt, false, false, raysTuning.hazeGlow), underwater.submerged),
     mix(airFog, underwaterFogFactor(), underwater.submerged)
   );
 

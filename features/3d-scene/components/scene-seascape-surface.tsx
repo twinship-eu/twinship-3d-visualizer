@@ -434,6 +434,7 @@ const SEASCAPE_TUNING = {
   raysStrength: 1,
   sunSize: 0.2,
   sunGlow: 5,
+  hullHazeGlow: 0,
   foamColor: SEASCAPE_SURFACE_DEFAULTS.foamColor as string,
   /** Which foam mask texture; see `SEASCAPE_FOAM_TEXTURES`. */
   foamTexture: SEASCAPE_DEFAULT_FOAM_TEXTURE as SeascapeFoamTextureName,
@@ -511,6 +512,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "raysStrength", 0, 2, 0.05);
     panel.add(SEASCAPE_TUNING, "sunSize", 0.1, 2, 0.05);
     panel.add(SEASCAPE_TUNING, "sunGlow", 0, 6, 0.1);
+    panel.add(SEASCAPE_TUNING, "hullHazeGlow", 0, 1, 0.05);
     panel.addColor(SEASCAPE_TUNING, "foamColor");
     panel.add(
       SEASCAPE_TUNING,
@@ -740,6 +742,7 @@ export function SceneSeascapeSurface() {
     raysTuning.strength.value = SEASCAPE_TUNING.raysStrength;
     raysTuning.sunSize.value = SEASCAPE_TUNING.sunSize;
     raysTuning.glow.value = SEASCAPE_TUNING.sunGlow;
+    raysTuning.hazeGlow.value = SEASCAPE_TUNING.hullHazeGlow;
     // Only on a change: switching to lines rebuilds the material's pipeline
     if (sea.material.wireframe !== SEASCAPE_TUNING.wireframe) {
       sea.material.wireframe = SEASCAPE_TUNING.wireframe;

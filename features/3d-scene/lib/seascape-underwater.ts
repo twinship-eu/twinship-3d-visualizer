@@ -88,7 +88,6 @@ export const underwater = {
  * towards the sun, spreading from it, drifting. Strongest near the surface
  * (they fade with the camera's depth), under a clear sky; none at night.
  */
-const RAYS_STRENGTH = 0.15;
 /** How tightly the beams gather round the sun's direction, and how many spread round it. */
 const RAYS_FOCUS_POWER = 3;
 /** Whole numbers, so the pattern closes round the sun: with any other the angle's wrap left a seam. */
@@ -111,6 +110,8 @@ export const raysTuning = {
   /** The disc's size against the outside sun's: its angle scales by this. */
   sunSize: uniform(0.2),
   glow: uniform(5),
+  /** What the haze over a thing in the water (the hull) keeps of the light scattered towards the sun: lower, a darker hull against the sun. */
+  hazeGlow: uniform(0),
 };
 
 /**
@@ -150,11 +151,17 @@ export function sunRays(direction: Node<"vec3">, withSun = true) {
 }
 
 /** The water's colour looking in `direction`, at the camera's depth. */
-export function underwaterColor(direction: Node<"vec3">, withRays = true, withSun = true) {
+/**
+ * @param withRays    the sun's beams (and, with `withSun`, the sun itself): the open water's
+ * @param scatterShare how much of the light scattered towards the sun it has: all of it for the
+ *   open water; less in the haze over a thing in the water, which stands in the way of that light
+ *   — or a hull between the camera and the sun glowed as bright as the water round the sun
+ */
+export function underwaterColor(direction: Node<"vec3">, withRays = true, withSun = true, scatterShare: number | Node<"float"> = 1) {
   const upwards = smoothstep(-0.6, 0.8, direction.y);
   const lit = vec3(mix(color(DEEP_WATER), color(SHALLOW_WATER), upwards));
   const towardsSun = pow(max(direction.dot(vec3(SUN)), 0.0), SUN_SCATTER_POWER);
-  const scattered = vec3(color(SHALLOW_WATER)).mul(towardsSun.mul(SUN_SCATTER)).mul(vec3(skyUniforms.sunColor));
+  const scattered = vec3(color(SHALLOW_WATER)).mul(towardsSun.mul(SUN_SCATTER).mul(scatterShare)).mul(vec3(skyUniforms.sunColor));
   // Little light is left at night, and less the deeper
   const light = exp(underwater.depth.mul(-DARKENING_PER_DEPTH)).mul(skyUniforms.ambient);
 
@@ -162,6 +169,7 @@ export function underwaterColor(direction: Node<"vec3">, withRays = true, withSu
   // The beams are in the water as the background shows it; not in the fog that hides the hull in it
   return withRays ? water.add(sunRays(direction, withSun)) : water;
 }
+
 
 /** How much the water hides of a fragment, from its distance to the camera: 0 to 1. */
 export function underwaterFogFactor() {

@@ -69,7 +69,7 @@ import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
 import type { FoamMemory } from "./seascape-foam-memory";
 import { valueNoise } from "./seascape-noise";
-import { snellWindow, sunRays, surfaceFromBelow, underwater } from "./seascape-underwater";
+import { snellWindow, sunRays, surfaceFromBelow, underwater, underwaterFogFactor } from "./seascape-underwater";
 import { rainRingsSlope } from "./seascape-rain-rings";
 import { overcast, weather } from "./seascape-weather";
 import {
@@ -246,6 +246,10 @@ const REFRACTION_FULL_AT = 4;
 /** In the 0-1 linear depth: how far behind the surface a shifted lookup must be to be used. */
 const REFRACTION_DEPTH_MARGIN = 0.0002;
 const WATER_ABSORPTION_BY_CHANNEL = vec3(1.0, 0.25, 0.06);
+
+/** From below: the share of the water's haze at which the surface starts fading out, and is gone. */
+const FAR_FADE_FROM = 0.8;
+const FAR_FADE_TO = 0.97;
 
 /** What the sun's light on the water keeps in the ship's shadow. */
 const SHADE_SUN_SHARE = 0.12;
@@ -916,7 +920,10 @@ export function createSeascapeSurfaceNodes({
     // stands behind it: they shone through it
     const shafts = frontFacing.select(vec3(0.0), sunRays(shared.viewDirection).mul(somethingBehind.oneMinus()));
     seen.addAssign(shafts);
-    if (!IS_BACKDROP_REFRACTION_ENABLED) return vec4(seen, opacity);
+    // From below, the far surface fades out before the grid ends: there the water's haze has hidden
+    // it, and the open water behind it (with the beams) takes over without a line where the grid stops
+    const nearEnough = frontFacing.select(float(1.0), smoothstep(FAR_FADE_FROM, FAR_FADE_TO, underwaterFogFactor()).oneMinus());
+    if (!IS_BACKDROP_REFRACTION_ENABLED) return vec4(seen, opacity.mul(nearEnough));
 
     // What is behind, read from the picture drawn so far (the opaque things,
     // the ship) and shifted by the surface's tilt: the waves bend the view
@@ -940,7 +947,7 @@ export function createSeascapeSurfaceNodes({
     const throughWater = vec3(exp(absorbed.x), exp(absorbed.y), exp(absorbed.z));
     // Relative to the single transmittance the blend already took
     const tint = frontFacing.select(throughWater.div(transmittance.max(1e-3)), vec3(1.0));
-    return vec4(seen.mul(opacity).add(behindColor.mul(tint).mul(passes)), 1.0);
+    return vec4(seen.mul(opacity).add(behindColor.mul(tint).mul(passes)), nearEnough);
   })();
 
   return { positionNode, fragmentNode, uniforms };
