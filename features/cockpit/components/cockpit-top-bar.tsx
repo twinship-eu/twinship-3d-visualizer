@@ -63,7 +63,8 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm, panel, onPanelC
         </div>
       </div>
 
-      <ViewerModeSwitch mode={mode} onChange={onModeChange} activeAlarmCount={activeAlarmCount} />
+      {/* The warnings are Live data's: none shown in the Ontology */}
+      <ViewerModeSwitch mode={mode} onChange={onModeChange} activeAlarmCount={0} />
 
       {isLive ? (
         <NavigationReadouts navigation={snapshot?.navigation ?? null} />
@@ -91,7 +92,7 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm, panel, onPanelC
           </button>
         ))}
 
-      {activeAlarms[0] && (
+      {isLive && activeAlarms[0] && (
         <button
           type="button"
           onClick={() => onOpenAlarm(activeAlarms[0])}

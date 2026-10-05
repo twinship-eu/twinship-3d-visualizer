@@ -4,8 +4,10 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatUtcTime } from "@/features/live-data/lib/format-readings";
+import { findSensor } from "@/features/live-data/live-data-sensors";
 import { EVENT_KIND_CHIPS } from "../event-log-config";
 import { seriesFor, TIME_TICKS, VALUE_TICKS } from "../event-log-series";
+import type { LogEvent } from "../event-log-types";
 import { useEventLog } from "../hooks/use-event-log";
 import { selectLogEvent, setTimeSeriesOpen, useEventLogState } from "../lib/event-log-store";
 
@@ -22,6 +24,17 @@ const MARK_CLASS: Record<string, string> = {
   cleared: "border-b-ok",
   system: "border-b-muted",
 };
+
+/**
+ * Whether an event is about the reading the drawer shows: its own sensor, or
+ * — an event of the component without a sensor of its own — that sensor's
+ * component. The sea and the speed have no events of their own.
+ */
+function isAboutSeries(event: LogEvent, seriesId: string) {
+  if (event.sensorId) return event.sensorId === seriesId;
+  const sensor = findSensor(seriesId);
+  return sensor !== undefined && event.componentLabel === sensor.componentLabel;
+}
 
 /**
  * Over the scene while the log is open: a reading across the kept window,
@@ -114,7 +127,7 @@ export function TimeSeriesDrawer() {
         {/* The log's events along the time axis, each a mark that selects it */}
         <div className="absolute inset-x-0 -bottom-4 h-4">
           {events
-            .filter((event) => event.at >= start && event.at <= end && event.kind !== "system")
+            .filter((event) => event.at >= start && event.at <= end && isAboutSeries(event, active.id))
             .map((event) => (
               <button
                 key={event.id}
@@ -136,7 +149,7 @@ export function TimeSeriesDrawer() {
       </div>
       <footer className="flex justify-between text-xs text-ink-2">
         <span>
-          <span className="mr-1 inline-block border-x-[4px] border-b-[7px] border-x-transparent border-b-warn align-middle" aria-hidden /> log events on the timeline
+          <span className="mr-1 inline-block border-x-[4px] border-b-[7px] border-x-transparent border-b-warn align-middle" aria-hidden /> this reading&apos;s events on the timeline
           {selected && <span className="ml-3 border-l border-accent pl-2">selected event · {formatUtcTime(selected.at)}</span>}
         </span>
         <span>{active.label} now {last.value.toFixed(active.unit === "m" || active.unit === "kn" ? 1 : 0)}{active.unit === "%" ? "%" : ` ${active.unit}`}</span>

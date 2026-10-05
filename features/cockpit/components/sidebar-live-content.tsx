@@ -5,7 +5,6 @@ import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-ty
 import { VoyageSummary } from "../voyage/voyage-summary";
 import { AlarmsEventsList } from "./alarms-events-list";
 import { LiveNodeReading } from "./live-node-reading";
-import { LiveWarningCard } from "./live-warning-card";
 
 /** A tree row's live reading, in Live data. */
 const renderLiveReading = (node: ShipTreeNode) => <LiveNodeReading label={node.label} />;
@@ -21,11 +20,12 @@ export function sidebarReadingFor({ isOntologyMode, isVoyageView }: View) {
 }
 
 /**
- * Under the tree: the live warning in Ontology; the alarms in Live data —
+ * Under the tree: nothing in Ontology; the alarms in Live data —
  * under way too, in Voyage, above the voyage's summary.
  */
 export function SidebarFooter({ isOntologyMode, isVoyageView, onOpenAlarm }: View & { onOpenAlarm: (alarm: Alarm) => void }) {
-  if (isOntologyMode) return <LiveWarningCard onOpen={onOpenAlarm} />;
+  // The warnings are Live data's: nothing of them in the Ontology
+  if (isOntologyMode) return null;
   if (isVoyageView) {
     return (
       <>
