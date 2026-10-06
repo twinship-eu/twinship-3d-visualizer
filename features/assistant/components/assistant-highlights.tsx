@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MessageCircle } from "lucide-react";
-import { clearHighlights, useAssistantState } from "../lib/assistant-store";
+import { useAssistantState } from "../lib/assistant-store";
 import { highlightAnchors, subscribeToHighlightAnchors } from "../lib/highlight-anchors";
 
 /**
@@ -60,18 +59,6 @@ export function AssistantHighlights({ onOpenComponent }: Props) {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
-      <div className="pointer-events-auto absolute top-[68px] left-4 flex items-center gap-3 rounded-lg border border-accent-line bg-glass py-1.5 pr-1.5 pl-3.5 text-[13px] text-ink backdrop-blur">
-        <MessageCircle className="size-4 text-accent-ink" aria-hidden />
-        <span>
-          <b className="font-semibold">
-            {highlights.length} component{highlights.length === 1 ? "" : "s"}
-          </b>{" "}
-          highlighted by the assistant
-        </span>
-        <button type="button" onClick={clearHighlights} className="cursor-pointer rounded-md bg-btn px-2.5 py-1 font-semibold hover:brightness-110">
-          Clear
-        </button>
-      </div>
       <svg className="absolute inset-0 size-full overflow-visible" aria-hidden>
         {highlights.map((highlight, index) => (
           <line

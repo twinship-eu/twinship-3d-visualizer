@@ -9,6 +9,7 @@ import type { LiveSnapshot, OperatorAction } from "@/features/live-data/live-dat
 import { partRelationsOf } from "@/features/ship-visualizer/lib/knowledge-graph";
 import { getSectionDotClass, getSectionIdOf } from "@/features/ship-visualizer/lib/section-colors";
 import { SHIP_TREE_SECTIONS } from "@/features/ship-visualizer/ship-visualizer-config";
+import { IS_TIME_SERIES_DRAWER_ENABLED } from "../event-log-config";
 import type { LogEvent } from "../event-log-types";
 import { lifecycleOf } from "../lib/build-event-log";
 import { EventKindChip } from "./event-kind-chip";
@@ -105,6 +106,19 @@ export function EventRow({ event, isSelected, history, actions, onSelect, onFocu
             ))}
           </dl>
 
+          {event.readings && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5" aria-label="The row's readings">
+              {event.readings.map((reading) => (
+                <div key={reading.id} className="flex justify-between gap-2 border-b border-line/60 py-1">
+                  <dt className="truncate text-ink-2">{reading.label}</dt>
+                  <dd className={cn("shrink-0 font-mono", reading.state === "alarm" ? "text-alarm" : reading.state === "warning" ? "font-semibold text-warn" : "")}>
+                    {reading.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
           {lifecycle && (
             <ol className="relative grid grid-cols-4 gap-2" aria-label="Life of the alarm">
               <span className="absolute top-[5px] right-[12%] left-[6px] h-0.5 bg-line-strong" aria-hidden />
@@ -149,7 +163,7 @@ export function EventRow({ event, isSelected, history, actions, onSelect, onFocu
                 Acknowledge
               </button>
             )}
-            {event.sensorId && (
+            {IS_TIME_SERIES_DRAWER_ENABLED && event.sensorId && (
               <button type="button" onClick={onShowTimeSeries} className={SECONDARY_BUTTON_CLASS}>
                 <LineChart className="size-4 shrink-0" aria-hidden />
                 Time series

@@ -16,6 +16,8 @@ const SILENCE_MS = 5 * 60_000;
 
 type Props = {
   alarm: Alarm;
+  /** Below the alarm, scrolled with it: the component's connected components. */
+  children?: React.ReactNode;
   snapshot: LiveSnapshot;
   history: LiveSnapshot[];
   /** On a phone: acknowledge and a mute button only, without the procedure. */
@@ -27,7 +29,7 @@ type Props = {
  * likely cause, what the ship proposes, what to watch with it — and the
  * operator's answers: acknowledge, silence, the procedure.
  */
-export function AlarmFocus({ alarm, snapshot, history, isCompact = false }: Props) {
+export function AlarmFocus({ alarm, snapshot, history, isCompact = false, children }: Props) {
   const [proposed, setProposed] = useState<Set<string>>(new Set());
   const silencedUntil = useAlarmSilences()[alarm.id] ?? null;
   const sensor = alarm.sensorId ? findSensor(alarm.sensorId) : undefined;
@@ -133,6 +135,7 @@ export function AlarmFocus({ alarm, snapshot, history, isCompact = false }: Prop
             ))}
           </section>
         )}
+        {children}
       </div>
 
       <footer className="flex shrink-0 gap-2 border-t border-line p-4">

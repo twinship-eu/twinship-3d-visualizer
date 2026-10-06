@@ -12,6 +12,7 @@ import { COMPONENT_LIVE } from "./component-live-config";
 import { AlarmFocus } from "./alarm-focus";
 import { LiveTab } from "./live-tab";
 import { componentState, STATE_CHIPS } from "./component-state";
+import { ConnectedComponents } from "./connected-components";
 import { OntologyDescription, OntologyParameters } from "./ontology-sections";
 
 type Tab = "live" | "description" | "parameters";
@@ -93,7 +94,9 @@ export function ComponentLivePanel({ node, onClose, onSelectRelated, onOpenInOnt
       </header>
 
       {alarm && snapshot ? (
-        <AlarmFocus key={alarm.id} alarm={alarm} snapshot={snapshot} history={history} />
+        <AlarmFocus key={alarm.id} alarm={alarm} snapshot={snapshot} history={history}>
+          <ConnectedComponents node={node} onSelect={onSelectRelated} />
+        </AlarmFocus>
       ) : (
         <>
           <div role="tablist" className="flex shrink-0 gap-1 border-b border-line px-4 py-2.5">
@@ -116,7 +119,12 @@ export function ComponentLivePanel({ node, onClose, onSelectRelated, onOpenInOnt
           <div className="min-h-0 grow overflow-y-auto">
             {tab === "live" &&
               (definition && snapshot ? (
-                <LiveTab componentLabel={node.label} definition={definition} snapshot={snapshot} history={history} />
+                <>
+                  <LiveTab componentLabel={node.label} definition={definition} snapshot={snapshot} history={history} />
+                  <div className="px-6 pb-5 text-sm">
+                    <ConnectedComponents node={node} onSelect={onSelectRelated} />
+                  </div>
+                </>
               ) : (
                 <p className="px-6 py-5 text-sm text-muted">No live readings for this component yet.</p>
               ))}

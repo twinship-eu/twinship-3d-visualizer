@@ -74,8 +74,11 @@ export const VOYAGE_CARDS: SystemCard[] = [
 
 /** Camera positions for the Voyage view's camera modes: [x, y, z], the ship at the origin, its bow to +z. */
 export const VOYAGE_CAMERA = {
-  /** Behind and above the stern, off the port quarter: the design's view. */
-  follow: { position: [-55, 42, -125] as [number, number, number], target: [0, 0, 10] as [number, number, number] },
+  /** Low off the quarter, close: the ship's side and stern large, its bow running away up the scene. */
+  follow: { position: [68, 18, -66] as [number, number, number], target: [-4, 6, -6] as [number, number, number] },
   /** Straight down over the ship; a little aft, so the orbit controls keep their bearing. */
   topDown: { position: [0, 230, -18] as [number, number, number], target: [0, 0, 0] as [number, number, number] },
 } as const;
+
+/** The hour the Voyage view shows the sun at, UTC: a mid-morning sun, the ship lit from the side it is seen from. */
+export const VOYAGE_HOUR_UTC = 10 + 5 / 60;

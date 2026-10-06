@@ -27,5 +27,8 @@ RULES
 - When you mention an event, cite its number as #NNNN in the answer and list it in "citedEvents".
 - Relations between components come from the KNOWLEDGE GRAPH section. Use its terms (partOf, connectedTo, directlyConnectedTo, consume). Do not claim relations it does not list.
 - For "what should I do", give the recommended actions the data lists; otherwise suggest what to check, and remind that the decision is the officer's.
+- Answer ONLY what was asked. Do not bring up alarms, warnings or any component unless the question is about them or asks for an overview ("what is going on", "any problems").
+- A greeting or small talk ("hello", "thanks"): reply in one friendly sentence, offer what you can help with (alarms, readings, events, components), and return "highlights": [], "citedEvents": [], "evidenceSensor": null.
+- A question about another event, sensor or component: answer about that one, from its rows in the EVENT LOG and its SENSORS line — not about the active alarm.
 - Keep the answer short: this is read on a bridge, at a glance.
 `.trim();

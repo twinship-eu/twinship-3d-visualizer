@@ -9,6 +9,8 @@ export type Playback = {
   /** The oldest and latest moments kept, ms since the epoch; null before the first snapshot. */
   oldest: number | null;
   latest: number | null;
+  /** Whether the moment viewed moves on with the data, as it came: a replay playing, not paused. */
+  isPlaying: boolean;
 };
 
 /** The last snapshot at or before a moment: the history is oldest first. */
@@ -33,11 +35,13 @@ function createLiveDataStore(source: LiveDataSource) {
   /** Oldest first. A new array each time, so React sees the change. */
   let history: LiveSnapshot[] = [];
   let viewedAt: number | null = null;
+  /** A replay playing: the moment viewed moves on as new snapshots arrive, until it is live again. */
+  let isReplayPlaying = false;
   let stop: (() => void) | null = null;
   // What the getters hand out, rebuilt only when it changes: React compares them by identity
   let viewedSnapshot: LiveSnapshot | null = null;
   let viewedHistory: LiveSnapshot[] = [];
-  let playback: Playback = { viewedAt: null, oldest: null, latest: null };
+  let playback: Playback = { viewedAt: null, oldest: null, latest: null, isPlaying: true };
   /**
    * Alarms silenced from the cockpit, by id: until when, ms since the epoch.
    * The operator's, not the ship's — kept here, not in the snapshots.
@@ -57,6 +61,7 @@ function createLiveDataStore(source: LiveDataSource) {
       viewedAt,
       oldest: history[0]?.timestamp ?? null,
       latest: history[history.length - 1]?.timestamp ?? null,
+      isPlaying: viewedAt === null || isReplayPlaying,
     };
     listeners.forEach((notify) => notify());
   }
@@ -65,7 +70,16 @@ function createLiveDataStore(source: LiveDataSource) {
     listeners.add(listener);
     stop ??= source.start(
       (snapshot) => {
+        const previous = history[history.length - 1]?.timestamp;
         history = [...history.slice(-(PLAYBACK_HISTORY_LENGTH - 1)), snapshot];
+        // A replay playing moves on by as much as the data did; caught up, it is live
+        if (viewedAt !== null && isReplayPlaying && previous !== undefined) {
+          viewedAt += snapshot.timestamp - previous;
+          if (viewedAt >= snapshot.timestamp) {
+            viewedAt = null;
+            isReplayPlaying = false;
+          }
+        }
         refresh();
       },
       // A recording's past, kept as if it had been received
@@ -86,9 +100,11 @@ function createLiveDataStore(source: LiveDataSource) {
 
   /**
    * Views a moment of the kept history, clamped to it — the latest moment
-   * too, frozen there: a pause. Null goes live again.
+   * too, frozen there: a pause; or `isPlaying`, moving on from it as the data
+   * came. Null goes live again.
    */
-  function viewAt(moment: number | null) {
+  function viewAt(moment: number | null, isPlaying = false) {
+    isReplayPlaying = moment !== null && isPlaying;
     const oldest = history[0]?.timestamp;
     const latest = history[history.length - 1]?.timestamp;
     viewedAt =

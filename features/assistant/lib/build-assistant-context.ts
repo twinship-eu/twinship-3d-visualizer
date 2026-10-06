@@ -76,14 +76,53 @@ function alarmLines({ alarms }: LiveSnapshot) {
     .join("\n");
 }
 
+/**
+ * The log for the model: a warning's run of rows as one line (first and last
+ * row, how many, its peak), every other notable entry as itself — not the
+ * rows within limits, one a few seconds, which drowned the rest out.
+ */
 function eventLines(events: LogEvent[]) {
-  return events
-    .slice(0, CONTEXT_EVENTS)
-    .map(
-      (event) =>
-        `#${event.number} ${formatUtcTime(event.at)} ${event.kind.toUpperCase()} · ${event.componentLabel ?? "data stream"}${event.subject ? ` ${event.subject}` : ""} · "${event.title}"${event.value ? ` · ${event.value}` : ""} · ${event.status}`
-    )
-    .join("\n");
+  const oldestFirst = [...events].reverse();
+  const lines: { at: number; text: string }[] = [];
+  let run: LogEvent[] = [];
+  const closeRun = () => {
+    if (run.length === 0) return;
+    const first = run[0];
+    const last = run[run.length - 1];
+    const peak = run.reduce((best, event) => (parseFloat(event.value ?? "") > parseFloat(best.value ?? "") ? event : best));
+    lines.push({
+      at: last.at,
+      text: `#${first.number}–#${last.number} ${formatUtcTime(first.at)}–${formatUtcTime(last.at)} ${first.kind.toUpperCase()} · ${first.componentLabel ?? "data stream"}${first.subject ? ` ${first.subject}` : ""} · "${first.title}" · ${run.length} rows, peak ${peak.value ?? "—"} at ${formatUtcTime(peak.at)} · ${last.status}`,
+    });
+    run = [];
+  };
+  for (const event of oldestFirst) {
+    const isRunRow = event.readings !== undefined && (event.kind === "warning" || event.kind === "alarm");
+    if (isRunRow && run.length > 0 && run[0].title === event.title) {
+      run.push(event);
+      continue;
+    }
+    closeRun();
+    if (isRunRow) {
+      run = [event];
+      continue;
+    }
+    // Rows within limits: the data itself, in the readings and trends; not one line each
+    if (event.readings !== undefined) continue;
+    lines.push({
+      at: event.at,
+      text: `#${event.number} ${formatUtcTime(event.at)} ${event.kind.toUpperCase()} · ${event.componentLabel ?? "data stream"}${event.subject ? ` ${event.subject}` : ""} · "${event.title}"${event.value ? ` · ${event.value}` : ""} · ${event.status}`,
+    });
+  }
+  closeRun();
+  const rowsWithinLimits = events.filter((event) => event.readings !== undefined && event.kind === "info").length;
+  return [
+    ...lines
+      .sort((first, second) => second.at - first.at)
+      .slice(0, CONTEXT_EVENTS)
+      .map((line) => line.text),
+    `(${rowsWithinLimits} data rows with every reading within its limits are not listed)`,
+  ].join("\n");
 }
 
 function knowledgeGraphLines() {

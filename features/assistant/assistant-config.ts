@@ -8,12 +8,18 @@
 export const ASSISTANT_ROUTE = "/api/assistant";
 
 /**
- * The Ollama chat endpoint and model, server side. The weather router's by
- * default (NTUA's server: reachable over its VPN); override with
- * OLLAMA_CHAT_URL and ASSISTANT_MODEL.
+ * The Ollama chat endpoint and model, server side: the project's public
+ * Ollama, which takes a bearer key (OLLAMA_API_KEY in .env.local). Override
+ * with OLLAMA_CHAT_URL and ASSISTANT_MODEL — NTUA's own server over its VPN
+ * was http://ugpu.epu.ntua.gr:11434/api/chat.
  */
-export const DEFAULT_OLLAMA_CHAT_URL = "http://ugpu.epu.ntua.gr:11434/api/chat";
-export const DEFAULT_ASSISTANT_MODEL = "mistral:7b-instruct";
+export const DEFAULT_OLLAMA_CHAT_URL = "https://ollama.vessel-ai.eu/api/chat";
+/**
+ * On the project server: ministral-3:8b follows the instructions (a greeting is
+ * a greeting, a question about one sensor is about it); mistral:7b turned every
+ * question to the active alarm. Also there: maritime-ministral3, mistral:7b.
+ */
+export const DEFAULT_ASSISTANT_MODEL = "ministral-3:8b";
 export const ASSISTANT_TEMPERATURE = 0.1;
 /** The prompt carries the ship's data every turn: Ollama's default 2048 tokens would cut it. */
 export const ASSISTANT_NUM_CTX = 8192;

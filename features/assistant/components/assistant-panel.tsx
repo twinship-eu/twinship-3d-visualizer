@@ -5,7 +5,7 @@ import { ArrowRight, MessageCircle, Plus, X } from "lucide-react";
 import { useEventLog } from "@/features/event-log/hooks/use-event-log";
 import { ASSISTANT_DISCLAIMER, SUGGESTED_QUESTIONS } from "../assistant-config";
 import { useSendQuestion } from "../hooks/use-send-question";
-import { startNewConversation, takePendingQuestion, useAssistantState } from "../lib/assistant-store";
+import { clearHighlights, startNewConversation, takePendingQuestion, useAssistantState } from "../lib/assistant-store";
 import { AssistantMessageItem } from "./assistant-message-item";
 
 type Props = {
@@ -34,18 +34,19 @@ function Thinking() {
  * the ontology, and lights up what it talks about on the ship.
  */
 export function AssistantPanel({ onClose, onOpenLog, onOpenComponent }: Props) {
-  const { messages } = useAssistantState();
+  const { messages, highlights } = useAssistantState();
   const { events } = useEventLog();
   const { send, isThinking } = useSendQuestion();
   const [input, setInput] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
   const hasSentPending = useRef(false);
 
-  // A question asked from elsewhere, sent once as the panel opens
+  // Opened, a new conversation — with the question asked from elsewhere, if one was, sent once
   useEffect(() => {
     if (hasSentPending.current) return;
     hasSentPending.current = true;
     const question = takePendingQuestion();
+    startNewConversation();
     if (question) void send(question);
   }, [send]);
 
@@ -69,13 +70,39 @@ export function AssistantPanel({ onClose, onOpenLog, onOpenComponent }: Props) {
           <h2 className="text-lg font-bold">Ship assistant</h2>
           <p className="text-xs text-ink-2">Uses live stream · event log · ontology</p>
         </div>
-        <button type="button" onClick={startNewConversation} aria-label="New conversation" title="New conversation" className={ICON_BUTTON_CLASS}>
+        <button
+          type="button"
+          onClick={() => {
+            startNewConversation();
+            setInput("");
+          }}
+          disabled={isThinking || messages.length === 0}
+          title="Start a new conversation"
+          className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] font-semibold text-ink-2 hover:border-line-strong hover:text-ink disabled:cursor-default disabled:opacity-40"
+        >
           <Plus className="size-4" aria-hidden />
+          New chat
         </button>
         <button type="button" onClick={onClose} aria-label="Close the assistant" className={ICON_BUTTON_CLASS}>
           <X className="size-4" aria-hidden />
         </button>
       </header>
+
+      {/* Pinned under the header, not over the scene: what the answer lit up on the ship */}
+      {highlights.length > 0 && (
+        <div className="flex shrink-0 items-center gap-3 border-b border-line bg-accent-soft/40 px-5 py-2 text-[13px]">
+          <MessageCircle className="size-4 shrink-0 text-accent-ink" aria-hidden />
+          <span className="min-w-0 grow truncate">
+            <b className="font-semibold">
+              {highlights.length} component{highlights.length === 1 ? "" : "s"}
+            </b>{" "}
+            highlighted on the ship
+          </span>
+          <button type="button" onClick={clearHighlights} className="shrink-0 cursor-pointer rounded-md bg-btn px-2.5 py-1 font-semibold hover:brightness-110">
+            Clear
+          </button>
+        </div>
+      )}
 
       <div ref={messagesRef} className="flex min-h-0 grow flex-col gap-4 overflow-y-auto px-5 py-5">
         {messages.length === 0 && (

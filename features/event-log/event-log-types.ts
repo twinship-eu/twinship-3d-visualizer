@@ -27,7 +27,12 @@ export type LogEvent = {
   /** The alarm it is about, and the sensor whose reading raised it. */
   alarmId?: string;
   sensorId?: string;
+  /** A row of the recording: every reading in it, each with its state against its limits. */
+  readings?: RowReading[];
 };
+
+/** One reading of a recorded row, as the log shows it. */
+export type RowReading = { id: string; label: string; value: string; state: "normal" | "warning" | "alarm" };
 
 /** A step of an alarm's life: raised, at its peak, acknowledged, cleared — each when, if it has happened. */
 export type LifecycleStep = { label: string; at: number | null; value?: string };

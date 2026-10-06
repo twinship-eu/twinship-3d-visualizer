@@ -7,7 +7,7 @@ import type { Alarm, LiveSnapshot, OperatorAction } from "../live-data-types";
 const getServerSnapshot = () => null;
 const NO_HISTORY: LiveSnapshot[] = [];
 const getServerHistory = () => NO_HISTORY;
-const NO_PLAYBACK: Playback = { viewedAt: null, oldest: null, latest: null };
+const NO_PLAYBACK: Playback = { viewedAt: null, oldest: null, latest: null, isPlaying: true };
 const getServerPlayback = () => NO_PLAYBACK;
 const NO_SILENCES: Record<string, number> = {};
 const getServerSilences = () => NO_SILENCES;
@@ -52,9 +52,9 @@ export function usePlayback(): Playback {
   return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getPlayback, getServerPlayback);
 }
 
-/** Views a moment of the kept history, or the live data again with null. */
-export function viewLiveDataAt(moment: number | null) {
-  liveDataStore.viewAt(moment);
+/** Views a moment of the kept history — paused there, or playing on from it — or the live data again with null. */
+export function viewLiveDataAt(moment: number | null, isPlaying = false) {
+  liveDataStore.viewAt(moment, isPlaying);
 }
 
 /** The alarms silenced from the cockpit, by id: until when, ms since the epoch. */

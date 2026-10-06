@@ -59,7 +59,7 @@ export function ShipScene({ model, selectedNode, hoveredNode, onHover, onSelectB
         overlay={
           <>
             {/* The environment is the data's: the ship's speed, its propellers, the wind — the sea the user's in the Ontology */}
-            <LiveSceneSync isUserSea={live === null} />
+            <LiveSceneSync isUserSea={live === null} isVoyageView={live?.isVoyageView ?? false} />
             {/* The sea and the hour to play with: a testing aid, flagged off in the production build */}
             {live === null && IS_SCENE_INSPECTOR_ENABLED && <SeaControlsCard />}
             {live?.isVoyageView && <VoyageSceneOverlay />}

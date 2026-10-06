@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Download, SearchIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePlayback } from "@/features/live-data/hooks/use-live-data";
+import { formatElapsed } from "@/features/live-data/lib/format-readings";
 import { getSectionIdOf } from "@/features/ship-visualizer/lib/section-colors";
 import { EVENT_TABS } from "../event-log-config";
 import type { LogEvent } from "../event-log-types";
@@ -15,6 +17,8 @@ type Props = {
   /** The system the log is filtered to, by its section id (from the tree); null for all. */
   systemId: string | null;
   onFocus: (componentLabel: string) => void;
+  /** Lets the camera follow the whole ship again. */
+  onShowWholeShip: () => void;
   onAsk: (question: string) => void;
   onClose: () => void;
 };
@@ -36,7 +40,7 @@ function isInSystem(event: LogEvent, systemId: string | null) {
  * did in the kept window, newest first, to filter and search; an event opens
  * in place and the ship focuses on its component while the scene goes on.
  */
-export function EventLogPanel({ systemId, onFocus, onAsk, onClose }: Props) {
+export function EventLogPanel({ systemId, onFocus, onShowWholeShip, onAsk, onClose }: Props) {
   const { events: liveEvents, history, actions } = useEventLog();
   const { selectedEventId } = useEventLogState();
   const [isFollowingLive, setIsFollowingLive] = useState(true);
@@ -54,6 +58,9 @@ export function EventLogPanel({ systemId, onFocus, onAsk, onClose }: Props) {
       (!query || `${event.title} ${event.componentLabel ?? ""} ${event.subject ?? ""} ${event.status}`.toLowerCase().includes(query))
   );
   const latest = history[history.length - 1];
+  // Replaying, the log is the replay's: say so, and how far behind live it is
+  const playback = usePlayback();
+  const replayBehind = playback.viewedAt !== null && playback.latest !== null ? formatElapsed(playback.viewedAt, playback.latest) : null;
 
   const toggleFollowLive = () => {
     if (isFollowingLive) setFrozen(liveEvents);
@@ -70,8 +77,9 @@ export function EventLogPanel({ systemId, onFocus, onAsk, onClose }: Props) {
   const select = (event: LogEvent) => {
     const isOpen = event.id === selectedEventId;
     selectLogEvent(isOpen ? null : event.id);
-    // The ship focuses on the event's component; closing it, or a system event, lets the camera follow the ship again
+    // The ship focuses on the event's component, with its callout; closing it, or a system event, shows the whole ship again
     if (!isOpen && event.componentLabel) onFocus(event.componentLabel);
+    else onShowWholeShip();
   };
 
   return (
@@ -90,11 +98,11 @@ export function EventLogPanel({ systemId, onFocus, onAsk, onClose }: Props) {
           aria-pressed={isFollowingLive}
           className={cn(
             "flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-line px-3 text-[13px] font-semibold",
-            isFollowingLive && "border-ok bg-ok-soft text-ok"
+            isFollowingLive && (replayBehind ? "border-warn-line bg-warn-soft text-warn-ink" : "border-ok bg-ok-soft text-ok")
           )}
         >
-          <span className={cn("size-2 rounded-full", isFollowingLive ? "bg-ok" : "bg-muted")} aria-hidden />
-          {isFollowingLive ? "Live" : "Paused"}
+          <span className={cn("size-2 rounded-full", !isFollowingLive ? "bg-muted" : replayBehind ? "bg-warn" : "bg-ok")} aria-hidden />
+          {!isFollowingLive ? "Paused" : replayBehind ? `Replay −${replayBehind}` : "Live"}
         </button>
         <button type="button" onClick={exportCsv} aria-label="Export the log as CSV" title="Export CSV" className={ICON_BUTTON_CLASS}>
           <Download className="size-4" aria-hidden />

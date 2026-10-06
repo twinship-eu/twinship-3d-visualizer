@@ -6,6 +6,7 @@ import { liveSceneOverrides } from "@/features/3d-scene/lib/live-scene-overrides
 import { DEFAULT_SEA, useSeaControls } from "@/features/3d-scene/lib/sea-controls-store";
 import { ONTOLOGY_DEFAULT_HOUR_UTC, useSkyControls } from "@/features/3d-scene/lib/sky-controls-store";
 import { sunForClock } from "@/features/3d-scene/lib/sun-for-clock";
+import { VOYAGE_HOUR_UTC } from "../cockpit-voyage";
 import { wrapSigned } from "../lib/voyage-math";
 
 const METRES_PER_SECOND_PER_KNOT = 0.514444;
@@ -22,12 +23,13 @@ const METRES_PER_SECOND_PER_KNOT = 0.514444;
  * speed and the waves' side, each the data's until moved — and the scene's
  * defaults without data.
  */
-export function LiveSceneSync({ isUserSea = false }: { isUserSea?: boolean }) {
+export function LiveSceneSync({ isUserSea = false, isVoyageView = false }: { isUserSea?: boolean; isVoyageView?: boolean }) {
   const snapshot = useLiveData();
   const seaControls = useSeaControls();
   const skyControls = useSkyControls();
-  // In the Ontology the sun starts high, whatever the data's clock; in Live data it is the data's
-  const hourUtc = skyControls.hourUtc ?? (isUserSea ? ONTOLOGY_DEFAULT_HOUR_UTC : null);
+  // The sun high in both views, on the data's day and at its place, so the ship is seen in full colour;
+  // the hour the user sets replaces it
+  const hourUtc = skyControls.hourUtc ?? (isVoyageView ? VOYAGE_HOUR_UTC : ONTOLOGY_DEFAULT_HOUR_UTC);
   const speedKnots = snapshot?.navigation.speedOverGroundKn ?? null;
   const shaftRpm = snapshot?.systems.propulsion.shaftRpm ?? null;
   const windSpeedKn = snapshot?.navigation.trueWind.speedKn ?? null;

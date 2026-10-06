@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useLiveData } from "@/features/live-data/hooks/use-live-data";
+import { useLiveData, usePlayback, viewLiveDataAt } from "@/features/live-data/hooks/use-live-data";
 import { useZoomControls } from "@/features/3d-scene/components/zoom-controls-overlay";
 import { useShipVoyage } from "@/features/3d-scene/components/ship-voyage-context";
 import { BridgeControls } from "@/features/bridge/components/bridge-controls";
@@ -9,10 +9,11 @@ import { setBridgeActive } from "@/features/bridge/lib/bridge-store";
 import { SegmentedControl } from "../components/segmented-control";
 import { VOYAGE_CAMERA } from "../cockpit-voyage";
 import { CompassTape } from "./compass-tape";
-import { RouteProgress } from "./route-progress";
+import { PlaybackTimeline } from "../components/playback-timeline";
 import { AttitudeCard, MotionCard, RelativeWindCard } from "./voyage-instruments";
 
-type CameraMode = "follow" | "free" | "topDown" | "bridge";
+/** The camera can always be moved by hand: following the ship, or on its bridge. */
+type CameraMode = "follow" | "bridge";
 
 /**
  * The Voyage view over the scene: the compass tape, the ship's motion,
@@ -44,11 +45,22 @@ export function VoyageSceneOverlay() {
   // Off the bridge when the Voyage view closes
   useEffect(() => () => setBridgeActive(false), []);
 
+  // The voyage told from its start: the data's first moment, playing on from it — the log filling row by
+  // row — to pause or step on.
+  // Once, as soon as the data is there; leaving the view goes live again
+  const { oldest } = usePlayback();
+  const hasStartedAtBeginning = useRef(false);
+  useEffect(() => {
+    if (oldest === null || hasStartedAtBeginning.current) return;
+    hasStartedAtBeginning.current = true;
+    viewLiveDataAt(oldest, true);
+  }, [oldest]);
+  useEffect(() => () => viewLiveDataAt(null), []);
+
   const chooseCameraMode = (mode: CameraMode) => {
     setCameraMode(mode);
     setBridgeActive(mode === "bridge");
     if (mode === "follow") cameraActions?.moveCameraTo(VOYAGE_CAMERA.follow.position, VOYAGE_CAMERA.follow.target);
-    if (mode === "topDown") cameraActions?.moveCameraTo(VOYAGE_CAMERA.topDown.position, VOYAGE_CAMERA.topDown.target);
   };
 
   if (!snapshot) return null;
@@ -69,21 +81,17 @@ export function VoyageSceneOverlay() {
             <AttitudeCard snapshot={snapshot} />
             <RelativeWindCard snapshot={snapshot} />
           </div>
-          {/* Clear of the zoom controls in the scene's bottom right corner */}
-          <div data-callout-avoid className="absolute right-[68px] bottom-4">
-            <RouteProgress snapshot={snapshot} />
-          </div>
+          {/* The route and the replay in one compact bar, in the scene's bottom right corner */}
+          <PlaybackTimeline showsRoute className="absolute right-4 bottom-4 w-[540px]" />
         </>
       )}
-      <div data-callout-avoid className="absolute bottom-4 left-4">
+      <div data-callout-avoid className="absolute bottom-4 left-[72px]">
         <SegmentedControl
           label="Camera"
           value={cameraMode}
           onChange={chooseCameraMode}
           options={[
             { value: "follow", label: "Follow ship" },
-            { value: "free", label: "Free camera" },
-            { value: "topDown", label: "Top down" },
             { value: "bridge", label: "Bridge" },
           ]}
         />

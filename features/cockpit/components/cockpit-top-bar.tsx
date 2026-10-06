@@ -1,13 +1,14 @@
 "use client";
 
-import { List, MessageCircle, Ship, TriangleAlert } from "lucide-react";
+import { MessageCircle, Ship, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveAlarms, useLiveData, usePlayback } from "@/features/live-data/hooks/use-live-data";
 import { formatElapsed, formatUtcTime } from "@/features/live-data/lib/format-readings";
 import type { Alarm, LiveSnapshot } from "@/features/live-data/live-data-types";
-import { AUTONOMY_LEVELS, COCKPIT_BRAND, type CockpitPanel, type ViewerMode } from "../cockpit-config";
+import { COCKPIT_BRAND, type CockpitPanel, type ViewerMode } from "../cockpit-config";
 import { NavigationReadouts } from "./navigation-readouts";
 import { ThemeToggle } from "./theme-toggle";
+import { AutonomyBadge } from "./autonomy-badge";
 import { ViewerModeSwitch } from "./viewer-mode-switch";
 
 type Props = {
@@ -20,15 +21,10 @@ type Props = {
   onPanelChange: (panel: CockpitPanel | null) => void;
 };
 
-const PANEL_BUTTONS: { panel: CockpitPanel; label: string; Icon: typeof List }[] = [
-  { panel: "log", label: "Event log", Icon: List },
+// The event log opens from its tab on the scene's right edge: only the assistant here
+const PANEL_BUTTONS: { panel: CockpitPanel; label: string; Icon: typeof MessageCircle }[] = [
   { panel: "assistant", label: "Ship assistant", Icon: MessageCircle },
 ];
-
-/** The autonomy badge's explanation: the level, and what it means. */
-function autonomyDescription(level: string) {
-  return `Autonomy level ${level}${AUTONOMY_LEVELS[level] ? ` · ${AUTONOMY_LEVELS[level]}` : ""}`;
-}
 
 const ORIGIN_LABELS: Record<LiveSnapshot["origin"], string> = { simulated: "SIM", recorded: "REC", stream: "STREAM" };
 
@@ -106,13 +102,7 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm, panel, onPanelC
 
       {isLive && snapshot && (
         <>
-          <span
-            title={autonomyDescription(snapshot.autonomyLevel)}
-            aria-label={autonomyDescription(snapshot.autonomyLevel)}
-            className="hidden h-[30px] shrink-0 cursor-help items-center rounded-md border border-accent-line px-2.5 text-xs font-semibold tracking-[0.08em] text-accent-ink lg:flex"
-          >
-            AUTO · {snapshot.autonomyLevel}
-          </span>
+          <AutonomyBadge level={snapshot.autonomyLevel} />
           <div className="hidden shrink-0 items-center gap-2 lg:flex">
             {isReplaying ? (
               <>

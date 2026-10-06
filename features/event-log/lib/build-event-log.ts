@@ -1,7 +1,7 @@
 import { findSensor, SENSORS } from "@/features/live-data/live-data-sensors";
 import type { Alarm, LiveSnapshot, OperatorAction } from "@/features/live-data/live-data-types";
-import { APPROACH_REARM_SHARE, APPROACH_SHARE, FIRST_EVENT_NUMBER } from "../event-log-config";
-import type { LifecycleStep, LogEvent } from "../event-log-types";
+import { FIRST_EVENT_NUMBER, RECORDING_ROW_SECONDS } from "../event-log-config";
+import type { LifecycleStep, LogEvent, RowReading } from "../event-log-types";
 
 type Draft = Omit<LogEvent, "number">;
 
@@ -64,44 +64,6 @@ export function lifecycleOf(alarm: Alarm, history: LiveSnapshot[], actions: Oper
   ];
 }
 
-/** An alarm's entries: raised, and cleared once it has. */
-function alarmEvents(alarm: Alarm, history: LiveSnapshot[]): Draft[] {
-  const subject = alarm.sensorId;
-  if (alarm.severity === "info" || (alarm.severity === "resolved" && !alarm.clearedAt)) {
-    return [{ id: `${alarm.id}:logged`, at: alarm.raisedAt, kind: "info", componentLabel: alarm.componentLabel, title: alarm.title, status: "Logged", alarmId: alarm.id }];
-  }
-  const isActive = alarm.severity === "alarm" || alarm.severity === "warning";
-  const raised: Draft = {
-    id: `${alarm.id}:raised`,
-    at: alarm.raisedAt,
-    kind: alarm.severity === "alarm" ? "alarm" : "warning",
-    componentLabel: alarm.componentLabel,
-    subject,
-    title: alarm.title,
-    value: formatReading(alarm.sensorId, peakOf(history, alarm)?.reading ?? readingAt(history, subject ?? "", alarm.raisedAt)),
-    status: alarm.clearedAt ? "Cleared" : alarm.isAcknowledged ? "Acknowledged" : "Active · unack",
-    isAttention: isActive && !alarm.isAcknowledged,
-    alarmId: alarm.id,
-    sensorId: alarm.sensorId,
-  };
-  if (!alarm.clearedAt) return [raised];
-  return [
-    raised,
-    {
-      id: `${alarm.id}:cleared`,
-      at: alarm.clearedAt,
-      kind: "cleared",
-      componentLabel: alarm.componentLabel,
-      subject,
-      title: `${alarm.title} · back to normal`,
-      value: formatReading(alarm.sensorId, readingAt(history, subject ?? "", alarm.clearedAt)),
-      status: `Cleared after ${formatDuration(alarm.clearedAt - alarm.raisedAt)}`,
-      alarmId: alarm.id,
-      sensorId: alarm.sensorId,
-    },
-  ];
-}
-
 /** The operator's entries: what they acknowledged and silenced, from the cockpit. */
 function operatorEvents(actions: OperatorAction[], alarms: Alarm[]): Draft[] {
   return actions.map((action, index) => {
@@ -119,41 +81,65 @@ function operatorEvents(actions: OperatorAction[], alarms: Alarm[]): Draft[] {
   });
 }
 
-/** Sensors nearing their warning limit, from the kept history: noted once, again after falling back. */
-function approachEvents(history: LiveSnapshot[]): Draft[] {
-  const events: Draft[] = [];
-  for (const sensor of SENSORS) {
-    if (sensor.warnAt === undefined) continue;
-    // Armed by a reading under the threshold: one already near the limit when the data starts is not approaching it
-    let isArmed: boolean | null = null;
-    for (const snapshot of history) {
-      const reading = snapshot.sensors[sensor.id];
-      if (reading === undefined) continue;
-      isArmed ??= reading < sensor.warnAt * APPROACH_SHARE;
-      if (isArmed && reading >= sensor.warnAt * APPROACH_SHARE && reading < sensor.warnAt) {
-        isArmed = false;
-        events.push({
-          id: `approach:${sensor.id}:${snapshot.timestamp}`,
-          at: snapshot.timestamp,
-          kind: "info",
-          componentLabel: sensor.componentLabel,
-          subject: sensor.id,
-          title: `${sensor.quantity} approaching warning limit`,
-          value: formatReading(sensor.id, reading),
-          status: "Watching",
-          sensorId: sensor.id,
-        });
-      }
-      if (reading < sensor.warnAt * APPROACH_REARM_SHARE) isArmed = true;
-    }
-  }
-  return events;
+/** A reading's state against its sensor's limits. */
+function stateOf(reading: number, warnAt?: number, alarmAt?: number): RowReading["state"] {
+  if (alarmAt !== undefined && reading >= alarmAt) return "alarm";
+  if (warnAt !== undefined && reading >= warnAt) return "warning";
+  return "normal";
 }
 
 /**
- * The event log: every entry the live data and the operator's actions make,
- * newest first — the alarms' raising, peaks and clearing, what the operator
- * did, sensors nearing their limits, and where the data comes from.
+ * The recording's rows, one log entry each: every reading in it, and — when
+ * one is past its limit — that one as the row's warning, with its alarm to
+ * acknowledge.
+ */
+function rowEvents(history: LiveSnapshot[]): Draft[] {
+  const rowMs = RECORDING_ROW_SECONDS * 1000;
+  const rows = new Map<number, LiveSnapshot>();
+  for (const snapshot of history) {
+    const row = Math.floor(snapshot.observedAt / rowMs);
+    if (!rows.has(row)) rows.set(row, snapshot);
+  }
+  return [...rows.values()].map((snapshot) => {
+    const { navigation } = snapshot;
+    const sensors = SENSORS.flatMap((sensor) => {
+      const reading = snapshot.sensors[sensor.id];
+      return reading === undefined ? [] : [{ sensor, reading, state: stateOf(reading, sensor.warnAt, sensor.alarmAt) }];
+    });
+    const readings: RowReading[] = [
+      { id: "sog", label: "Speed over ground", value: `${navigation.speedOverGroundKn.toFixed(1)} kn`, state: "normal" },
+      { id: "wind", label: "True wind", value: `${navigation.trueWind.speedKn.toFixed(1)} kn`, state: "normal" },
+      ...sensors.map(({ sensor, reading, state }) => ({ id: sensor.id, label: `${sensor.id} · ${sensor.quantity.toLowerCase()}`, value: formatReading(sensor.id, reading) ?? "", state })),
+    ];
+    // The reading furthest past (or nearest to) its warning limit: what the row is about
+    const worst = sensors
+      .filter(({ sensor }) => sensor.warnAt !== undefined)
+      .sort((first, second) => second.reading / (second.sensor.warnAt ?? 1) - first.reading / (first.sensor.warnAt ?? 1))[0];
+    const isOver = worst !== undefined && worst.state !== "normal";
+    const alarm = isOver ? snapshot.alarms.find((candidate) => candidate.sensorId === worst.sensor.id) : undefined;
+    const base = { id: `row:${snapshot.observedAt}`, at: snapshot.timestamp, readings };
+    if (!isOver || !worst) {
+      return { ...base, kind: "info" as const, componentLabel: null, subject: "all readings", title: "Readings within limits", status: "Normal" };
+    }
+    return {
+      ...base,
+      kind: worst.state === "alarm" ? ("alarm" as const) : ("warning" as const),
+      componentLabel: worst.sensor.componentLabel,
+      subject: worst.sensor.id,
+      title: `${worst.sensor.quantity} above limit · ${worst.sensor.shortName}`,
+      value: formatReading(worst.sensor.id, worst.reading),
+      status: alarm?.isAcknowledged ? "Acknowledged" : "Active · unack",
+      isAttention: !alarm?.isAcknowledged,
+      alarmId: alarm?.id,
+      sensorId: worst.sensor.id,
+    };
+  });
+}
+
+/**
+ * The event log: every row of the recording, newest first — each with its
+ * readings, a warning where one is past its limit — what the operator did,
+ * and where the data comes from.
  */
 export function buildEventLog(history: LiveSnapshot[], actions: OperatorAction[]): LogEvent[] {
   const latest = history[history.length - 1];
@@ -168,9 +154,8 @@ export function buildEventLog(history: LiveSnapshot[], actions: OperatorAction[]
       title: `Live data from ${ORIGIN_NAMES[latest.origin]} · ${latest.rateHz} Hz`,
       status: "Running",
     },
-    ...latest.alarms.flatMap((alarm) => alarmEvents(alarm, history)),
+    ...rowEvents(history),
     ...operatorEvents(actions, latest.alarms),
-    ...approachEvents(history),
   ];
   return drafts
     .sort((first, second) => first.at - second.at || first.id.localeCompare(second.id))

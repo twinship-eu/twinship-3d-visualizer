@@ -194,7 +194,7 @@ export function ShipVisualizer() {
               live={
                 isOntologyMode
                   ? null
-                  : { view: liveView.view, isVoyageView, callouts: panels.hidesCallouts ? null : callouts, liveSelection }
+                  : { view: liveView.view, isVoyageView, callouts: panels.hidesCallouts ? panels.logCallouts : callouts, liveSelection }
               }
               // No zoom controls on the phone's card, nor under a component's sheet
               isCompactBelowLg={
@@ -203,7 +203,7 @@ export function ShipVisualizer() {
             />
             {!isOntologyMode && (
               <LiveSceneOverlays
-                callouts={panels.hidesCallouts ? null : callouts}
+                callouts={panels.hidesCallouts ? panels.logCallouts : callouts}
                 view={liveView.view}
                 liveSelection={liveSelection}
                 sectionLabel={liveSelectionSection?.label}
