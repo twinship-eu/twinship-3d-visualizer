@@ -221,8 +221,8 @@ const BODY_LIGHT_SHARPNESS = 4.0;
 /** How much of it reaches a trough, against a crest: the water there is thick, and shadowed. */
 const BODY_LIGHT_TROUGH_SHARE = 0.4;
 // The water seen through: what is under it shows through, less the thicker the water over it
-/** How fast the water takes the light of what is under it, per world unit of water: about 5 m of water leaves a third. */
-const DEFAULT_WATER_ABSORPTION = 0.2;
+/** How fast the water takes the light of what is under it, per world unit of water: the hull shows through its first metre or two, gone well above the keel. */
+const DEFAULT_WATER_ABSORPTION = 1.2;
 
 /** From below: things behind the surface within this reach (world units) show through it, fully from the nearer. */
 const BEHIND_NEAR = 60;
@@ -942,7 +942,8 @@ export function createSeascapeSurfaceNodes({
     const isBehind = shiftedDepth
       .greaterThan(linearDepth().add(REFRACTION_DEPTH_MARGIN))
       .and(shiftedDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).lessThan(BEHIND_FAR));
-    const behindColor = viewportSharedTexture(isBehind.select(shifted, screenUV)).rgb;
+    const centre = isBehind.select(shifted, screenUV);
+    const behindColor = viewportSharedTexture(centre).rgb;
     const absorbed = WATER_ABSORPTION_BY_CHANNEL.mul(behind.mul(uniforms.waterAbsorption)).negate();
     const throughWater = vec3(exp(absorbed.x), exp(absorbed.y), exp(absorbed.z));
     // Relative to the single transmittance the blend already took

@@ -427,7 +427,7 @@ const SEASCAPE_TUNING = {
   residualFoam: 0,
   /** The sun's light through the wave faces turned to it: 0 for none (the old look), up for more. */
   bodyLight: 0.55,
-  waterAbsorption: 0.2,
+  waterAbsorption: 1.2,
   refraction: 0.02,
   raysCount: 8,
   raysWidth: 2.5,
@@ -505,7 +505,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "leftFoam", 0, 1, 0.01);
     panel.add(SEASCAPE_TUNING, "residualFoam", 0, 1, 0.01);
     panel.add(SEASCAPE_TUNING, "bodyLight", 0, 3, 0.05);
-    panel.add(SEASCAPE_TUNING, "waterAbsorption", 0, 2, 0.01);
+    panel.add(SEASCAPE_TUNING, "waterAbsorption", 0, 3, 0.01);
     panel.add(SEASCAPE_TUNING, "refraction", 0, 0.3, 0.005);
     panel.add(SEASCAPE_TUNING, "raysCount", 4, 240, 1);
     panel.add(SEASCAPE_TUNING, "raysWidth", 1, 30, 0.5);
