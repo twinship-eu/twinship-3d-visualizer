@@ -12,7 +12,7 @@ export const COMPONENT_SYSTEMS: Record<string, SystemId> = {
   Engine: "energy",
   Propellers: "propulsion",
   WAPS: "windAssist",
-  Container: "deck",
+  Truck: "deck",
   Crane: "deck",
 };
 
@@ -21,8 +21,8 @@ export const COMPONENT_OBJECT_NAMES: Record<string, string> = {
   "Base Hull": "Base",
   "Hull top towers": "Base_Top",
   "Control room": "ControlRoom",
-  Radio: "Radio",
-  Container: "Container",
+  Radio: "Radio_NEW",
+  Truck: "Truck",
   Crane: "Crane",
   Propellers: "Propellers",
   Engine: "Engine",

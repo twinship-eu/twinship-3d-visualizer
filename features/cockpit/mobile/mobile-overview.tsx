@@ -17,7 +17,7 @@ const OVERVIEW_COMPONENTS: { label: string; dotClass: string }[] = [
   { label: "Engine", dotClass: "bg-system-energy" },
   { label: "WAPS", dotClass: "bg-system-hull" },
   { label: "Propellers", dotClass: "bg-system-propeller" },
-  { label: "Container", dotClass: "bg-system-deck" },
+  { label: "Truck", dotClass: "bg-system-deck" },
   { label: "Crane", dotClass: "bg-system-deck" },
 ];
 /** The hull card's reading on the phone: its bending stress, as in the design. */

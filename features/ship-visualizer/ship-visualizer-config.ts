@@ -51,6 +51,17 @@ export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
  * uncompressed — and upload faster; the file is a little smaller too (38 MB against 41).
  */
 export const ENGINE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-engine-ktx2.glb";
+
+/**
+ * The update export (TwinShip_UPDATE 1.glb): the hull and its top reworked, the
+ * container replaced by a truck, a new radio mast and new propellers — merged
+ * into the hull there, and split out again into their own `Propellers` node by
+ *   node scripts/split-propellers.mjs <raw> <split>
+ * then built as the engine model was (optimize, simplify Engine 0.25 then
+ * 0.5/0.02, Truck,Crane 0.5/0.005), and KTX2: 37.7 MB.
+ */
+export const UPDATE_SHIP_MODEL_GLB = "/ship/twinship-update.glb";
+export const UPDATE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-update-ktx2.glb";
 /** Off to load the WebP build instead, to compare. */
 const IS_KTX2_SHIP_TEXTURES_ENABLED = true;
 
@@ -62,8 +73,8 @@ const IS_KTX2_SHIP_TEXTURES_ENABLED = true;
  * history if a comparison is ever wanted again.
  */
 export const DEFAULT_SHIP_MODEL_PATH = IS_KTX2_SHIP_TEXTURES_ENABLED
-  ? ENGINE_SHIP_MODEL_KTX2_GLB
-  : ENGINE_SHIP_MODEL_GLB;
+  ? UPDATE_SHIP_MODEL_KTX2_GLB
+  : UPDATE_SHIP_MODEL_GLB;
 
 /** Default ship mesh color (unselected). */
 export const SHIP_COLOR = "#ffffff";

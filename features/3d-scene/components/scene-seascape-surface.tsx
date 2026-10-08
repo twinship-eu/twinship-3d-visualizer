@@ -60,6 +60,12 @@ import {
 } from "../lib/seascape-surface-tsl";
 import { asSceneRenderer, getSceneInspector, isWebGPUBackend } from "../lib/webgpu-renderer";
 
+/**
+ * Whether droplets are thrown off the bow. Off: from above they read as white
+ * blobs floating round the hull, not spray; the bow wave and its foam stay.
+ */
+const IS_BOW_SPRAY_ENABLED = false;
+
 // The bow's spray: from this speed (m/s) it begins and at the second it is full; in a rough
 // sea (significant wave height, m) it is full, and in a calm one it keeps this share.
 const SPRAY_FROM_SPEED = 4;
@@ -422,13 +428,14 @@ const SEASCAPE_TUNING = {
   /** Where the waves come from round the ship: see `seascape-wave-direction.ts`. */
   wavesFrom: DEFAULT_WAVES_FROM as WavesFrom,
   /** The foam breaking crests leave in the water, how opaque: 0 for none (see `seascape-foam-memory.ts`). */
-  leftFoam: 0.85,
+  leftFoam: 0,
   /** The residual foam's patches, how opaque: 0 for none, as by default. */
   residualFoam: 0,
   /** The sun's light through the wave faces turned to it: 0 for none (the old look), up for more. */
   bodyLight: 0.55,
   waterAbsorption: 1.2,
   refraction: 0.02,
+  wakeFoam: 1.3,
   raysCount: 8,
   raysWidth: 2.5,
   raysStrength: 1,
@@ -507,6 +514,7 @@ export function SceneSeascapeSurface() {
     panel.add(SEASCAPE_TUNING, "bodyLight", 0, 3, 0.05);
     panel.add(SEASCAPE_TUNING, "waterAbsorption", 0, 3, 0.01);
     panel.add(SEASCAPE_TUNING, "refraction", 0, 0.3, 0.005);
+    panel.add(SEASCAPE_TUNING, "wakeFoam", 0, 2, 0.05);
     panel.add(SEASCAPE_TUNING, "raysCount", 4, 240, 1);
     panel.add(SEASCAPE_TUNING, "raysWidth", 1, 30, 0.5);
     panel.add(SEASCAPE_TUNING, "raysStrength", 0, 2, 0.05);
@@ -692,7 +700,8 @@ export function SceneSeascapeSurface() {
     const hasWake = sea.stillSeconds < WAKE_SETTLE_SECONDS;
     if (hasWake) sea.wake.update(asSceneRenderer(gl), delta, speed);
     // The foam the crests leave, flowing past with the water: always, the sea breaks at rest too
-    sea.foamMemory?.update(asSceneRenderer(gl), delta, speed);
+    // Only while it is drawn: it is a render pass a frame
+    if (sea.uniforms.leftFoamStrength.value > 0) sea.foamMemory?.update(asSceneRenderer(gl), delta, speed);
     // ...and the sea's shader skips the wake, and the ship's waves, once they are gone
     sea.uniforms.hasWake.value = hasWake ? 1 : 0;
     sea.uniforms.hasShipWaves.value = sea.stillSeconds < SHIP_WAVES_SETTLE_SECONDS ? 1 : 0;
@@ -701,7 +710,7 @@ export function SceneSeascapeSurface() {
     // under way, and only from under the water (the sea hides them from
     // above); rain and snow only when falling
     sea.bubbles.sprite.visible = speed > STILL_SPEED && underwater.submerged.value > 0;
-    sea.bowSpray.sprite.visible = speed > STILL_SPEED && underwater.submerged.value < 0.5;
+    sea.bowSpray.sprite.visible = IS_BOW_SPRAY_ENABLED && speed > STILL_SPEED && underwater.submerged.value < 0.5;
     sea.precipitation.sprite.visible = weatherState.rain > 0 || weatherState.snow > 0;
 
     // Applied per frame rather than through change handlers, as SceneLights
@@ -737,6 +746,7 @@ export function SceneSeascapeSurface() {
     sea.uniforms.bodyLightStrength.value = SEASCAPE_TUNING.bodyLight;
     sea.uniforms.waterAbsorption.value = SEASCAPE_TUNING.waterAbsorption;
     sea.uniforms.refraction.value = SEASCAPE_TUNING.refraction;
+    sea.uniforms.wakeFoamStrength.value = SEASCAPE_TUNING.wakeFoam;
     raysTuning.count.value = SEASCAPE_TUNING.raysCount;
     raysTuning.width.value = SEASCAPE_TUNING.raysWidth;
     raysTuning.strength.value = SEASCAPE_TUNING.raysStrength;

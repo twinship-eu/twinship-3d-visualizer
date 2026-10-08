@@ -28,6 +28,9 @@
  */
 import {
   cameraFar,
+  cameraProjectionMatrixInverse,
+  cameraWorldMatrix,
+  getViewPosition,
   cameraNear,
   cameraPosition,
   Discard,
@@ -168,7 +171,12 @@ const RESIDUAL_FOAM_STRENGTH = 0.55;
 
 // Foam left in the water by breaking crests (see `seascape-foam-memory.ts`)
 /** How opaque it is against a fresh whitecap: it thins as it ages, and the memory fades it. */
-const DEFAULT_LEFT_FOAM_STRENGTH = 0.85;
+/**
+ * Off by default: the memory is coarse (2.5 m a texel), so up close its foam
+ * was soft white blobs, smeared along as the crests stamped it and swept back
+ * and forth as the ship stopped and started. The Inspector can still turn it on.
+ */
+const DEFAULT_LEFT_FOAM_STRENGTH = 0;
 /** The breaking foam's grain where it is stamped into the memory: the memory has none of its own. */
 const LEFT_FOAM_STAMP_GRAIN = 0.5;
 
@@ -245,6 +253,8 @@ const REFRACTION_FULL_AT = 4;
 /** Relative absorption of red, green and blue: red first (clear ocean water, after the Beer-Lambert example). */
 /** In the 0-1 linear depth: how far behind the surface a shifted lookup must be to be used. */
 const REFRACTION_DEPTH_MARGIN = 0.0002;
+/** How far below the surface here a shifted lookup must land to be bent through it, in world units. */
+const UNDERWATER_MARGIN = 0.15;
 const WATER_ABSORPTION_BY_CHANNEL = vec3(1.0, 0.25, 0.06);
 
 /** From below: the share of the water's haze at which the surface starts fading out, and is gone. */
@@ -488,6 +498,8 @@ export function createSeascapeSurfaceNodes({
     bodyLightStrength: uniform(DEFAULT_BODY_LIGHT_STRENGTH),
     waterAbsorption: uniform(DEFAULT_WATER_ABSORPTION),
     refraction: uniform(DEFAULT_REFRACTION),
+    /** The hull's wake foam: the white water along the sides and behind; live from the Inspector. */
+    wakeFoamStrength: uniform(WAKE_FOAM_STRENGTH),
     /** The residual foam's patches: how opaque, 0 for none (see DEFAULT_RESIDUAL_FOAM_STRENGTH). */
     residualFoamStrength: uniform(DEFAULT_RESIDUAL_FOAM_STRENGTH),
     /** Light shining through the crests towards the camera. */
@@ -843,7 +855,7 @@ export function createSeascapeSurfaceNodes({
             smoothstep(sea.travel.w.mul(-0.5), sea.travel.w.mul(0.5), bigWaves.z)
           )
         );
-        wakeFoam.assign(crestFoamDensity(wakeOnWaves, grain, float(1.0)).mul(WAKE_FOAM_STRENGTH));
+        wakeFoam.assign(crestFoamDensity(wakeOnWaves, grain, float(1.0)).mul(uniforms.wakeFoamStrength));
       });
     }
     // The white V: fresh foam, its amount shaded by the grain into a veil
@@ -938,10 +950,17 @@ export function createSeascapeSurfaceNodes({
     const shifted = screenUV.add(tilt);
     // ...and only from something there: the open sea has no floor, and past the
     // hull's edge the lookup found the sky, a bright line round the keel
-    const shiftedDepth = linearDepth(viewportDepthTexture(shifted));
+    const shiftedRawDepth = viewportDepthTexture(shifted).x;
+    const shiftedDepth = linearDepth(shiftedRawDepth);
+    // ...and only from what is under the water: the hull above the waterline
+    // lies behind the surface too, seen from above, and a shifted lookup drew
+    // the transom and its name into the sea, wobbling with the waves
+    const shiftedWorld = cameraWorldMatrix.mul(vec4(getViewPosition(shifted, shiftedRawDepth, cameraProjectionMatrixInverse), 1.0)).xyz;
+    const isUnderwater = shiftedWorld.y.lessThan(positionWorld.y.sub(UNDERWATER_MARGIN));
     const isBehind = shiftedDepth
       .greaterThan(linearDepth().add(REFRACTION_DEPTH_MARGIN))
-      .and(shiftedDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).lessThan(BEHIND_FAR));
+      .and(shiftedDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).lessThan(BEHIND_FAR))
+      .and(isUnderwater);
     const centre = isBehind.select(shifted, screenUV);
     const behindColor = viewportSharedTexture(centre).rgb;
     const absorbed = WATER_ABSORPTION_BY_CHANNEL.mul(behind.mul(uniforms.waterAbsorption)).negate();
