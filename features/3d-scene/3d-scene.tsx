@@ -49,6 +49,7 @@ import {
 import { CameraMotionProvider } from "./components/camera-motion-context";
 import { ShipVoyageProvider } from "./components/ship-voyage-context";
 import { SceneCameraFollow } from "./components/scene-camera-follow";
+import { SceneCompassCamera } from "./components/scene-compass-camera";
 import { SceneRenderPipeline } from "./components/scene-render-pipeline";
 import { SceneWeather } from "./components/scene-weather";
 import { SceneAdaptiveResolution } from "./components/scene-adaptive-resolution";
@@ -170,6 +171,7 @@ function SceneWithInteraction({
             onEnd={() => setIsOrbitControlsActive(false)}
           />
           <SceneCameraFollow />
+          <SceneCompassCamera />
           <SceneRenderPipeline />
           <SceneAdaptiveResolution />
           <ZoomControlsBridge />

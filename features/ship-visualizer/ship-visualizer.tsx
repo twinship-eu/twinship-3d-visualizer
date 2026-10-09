@@ -4,6 +4,11 @@ import { useState, useCallback } from "react";
 import { CockpitTopBar } from "@/features/cockpit/components/cockpit-top-bar";
 import { LiveSceneOverlays } from "@/features/cockpit/components/live-scene-layers";
 import { SidebarFooter, sidebarReadingFor } from "@/features/cockpit/components/sidebar-live-content";
+import { AnomalyPanel } from "@/features/anomalies/components/anomaly-panel";
+import { AnomalySceneOverlay } from "@/features/anomalies/components/anomaly-scene-overlay";
+import { AnomalyStrip } from "@/features/anomalies/components/anomaly-strip";
+import { anomalyTreeTag } from "@/features/anomalies/components/anomaly-tree-tag";
+import { closeAnomaly, openAnomaly, useOpenAnomaly } from "@/features/anomalies/lib/anomaly-store";
 import { useCockpitPanel } from "@/features/cockpit/hooks/use-cockpit-panel";
 import { useCockpitPanels } from "@/features/cockpit/hooks/use-cockpit-panels";
 import { useLiveLayout } from "@/features/cockpit/hooks/use-live-layout";
@@ -31,12 +36,7 @@ import type { ShipTreeNode } from "./ship-visualizer-types";
 export function ShipVisualizer() {
   const { mode, setMode } = useViewerMode();
   const liveView = useLiveView();
-  const mobile = useMobileTab({
-    mode,
-    liveView: liveView.view,
-    setMode: (next) => void setMode(next),
-    setLiveView: (next) => void liveView.setView(next),
-  });
+  const mobile = useMobileTab({ setMode: (next) => void setMode(next) });
   /** Below lg: the scene's card opened full screen. */
   const [isSceneExpanded, setIsSceneExpanded] = useState(false);
   /** Below lg: the open component's alarm shown in its sheet, rather than its readings. */
@@ -102,6 +102,13 @@ export function ShipVisualizer() {
   const handleOpenAlarm = useCallback(
     (alarm: Alarm) => {
       void setMode("live");
+      // A behaviour anomaly (a group's, the ship's) opens as itself, not as one component
+      if (alarm.kind === "behaviour") {
+        setSelectedStructureNode(null);
+        openAnomaly(alarm.id);
+        return;
+      }
+      closeAnomaly();
       const componentNode = findNodeByLabel(tree, alarm.componentLabel);
       if (componentNode && !isNodeInNonSelectableSection(componentNode)) {
         setSelectedStructureNode(componentNode);
@@ -135,6 +142,10 @@ export function ShipVisualizer() {
     setIsShowingMobileAlarm(false);
   };
   const liveReading = sidebarReadingFor({ isOntologyMode, isVoyageView });
+  // An open behaviour anomaly: its panel beside the scene, its pins and banner over it, its strip under it
+  const openedAnomaly = useOpenAnomaly();
+  const anomaly = !isOntologyMode && selectedStructureNode === null ? openedAnomaly : null;
+  const anomalyReading = anomaly ? anomalyTreeTag(anomaly, liveReading) : null;
   // The event log over the scene, the assistant beside it: in Live data
   const panels = useCockpitPanels({
     isOntologyMode,
@@ -152,7 +163,7 @@ export function ShipVisualizer() {
         panel={panels.panel}
         onPanelChange={panels.changePanel}
       />
-      {liveSelection === null && <MobileHeader />}
+      {liveSelection === null && <MobileHeader mode={mode} onModeChange={(next) => void setMode(next)} />}
       <div className="relative flex min-h-0 w-full flex-1 gap-0">
         <ShipSidebar
           isOpen={isSidebarOpen}
@@ -168,10 +179,15 @@ export function ShipVisualizer() {
           selectedNodeId={selectedStructureNode?.id ?? null}
           footer={
             panels.sidebar?.footer ?? (
-              <SidebarFooter isOntologyMode={isOntologyMode} isVoyageView={isVoyageView} onOpenAlarm={handleOpenAlarm} />
+              <SidebarFooter
+                isOntologyMode={isOntologyMode}
+                isVoyageView={isVoyageView}
+                onOpenAlarm={handleOpenAlarm}
+                onOpenLog={() => panels.changePanel("log")}
+              />
             )
           }
-          renderReading={panels.sidebar?.renderReading ?? liveReading}
+          renderReading={anomalyReading ?? panels.sidebar?.renderReading ?? liveReading}
         />
         <div
           className={sceneColumnClass({
@@ -194,7 +210,7 @@ export function ShipVisualizer() {
               live={
                 isOntologyMode
                   ? null
-                  : { view: liveView.view, isVoyageView, callouts: panels.hidesCallouts ? panels.logCallouts : callouts, liveSelection }
+                  : { view: liveView.view, isVoyageView, callouts: anomaly ? null : (panels.logCallouts ?? (panels.hidesCallouts ? null : callouts)), liveSelection }
               }
               // No zoom controls on the phone's card, nor under a component's sheet
               isCompactBelowLg={
@@ -203,7 +219,7 @@ export function ShipVisualizer() {
             />
             {!isOntologyMode && (
               <LiveSceneOverlays
-                callouts={panels.hidesCallouts ? panels.logCallouts : callouts}
+                callouts={anomaly ? null : (panels.logCallouts ?? (panels.hidesCallouts ? null : callouts))}
                 view={liveView.view}
                 liveSelection={liveSelection}
                 sectionLabel={liveSelectionSection?.label}
@@ -212,11 +228,14 @@ export function ShipVisualizer() {
                 onShowCalloutsChange={(isShowing) =>
                   void liveView.setIsShowingCallouts(isShowing)
                 }
+                isShowingNavigation={liveView.isShowingNavigation}
+                onShowNavigationChange={(isShowing) => void liveView.setIsShowingNavigation(isShowing)}
                 onOpenComponent={handleSelectConnectedComponent}
                 onOverview={clearSelection}
               />
             )}
             {panels.logScene}
+            {anomaly && <AnomalySceneOverlay alarm={anomaly} />}
             {isMobileCard && (
               <MobileSceneCardChrome
                 isExpanded={isSceneExpanded}
@@ -254,9 +273,10 @@ export function ShipVisualizer() {
                 handleSelectConnectedComponent(label);
                 setIsShowingMobileAlarm(false);
               }}
+              onTabChange={mobile.setTab}
             />
           )}
-          {panels.evidenceStrip ?? (
+          {anomaly ? <AnomalyStrip alarm={anomaly} /> : panels.evidenceStrip ?? (
             <SceneBottomStrip
               isOntologyMode={isOntologyMode}
               isVoyageView={isVoyageView}
@@ -264,8 +284,14 @@ export function ShipVisualizer() {
             />
           )}
         </div>
-        {!liveSelection && panels.assistantPanel}
-        {panels.logPanel}
+        {anomaly ? (
+          <AnomalyPanel alarm={anomaly} onAsk={() => panels.changePanel("assistant")} onOpenLog={() => { closeAnomaly(); panels.changePanel("log"); }} />
+        ) : (
+          <>
+            {!liveSelection && panels.assistantPanel}
+            {panels.logPanel}
+          </>
+        )}
         {liveSelection && (
           <ComponentLivePanel
             key={`panel-${liveSelection.id}`}

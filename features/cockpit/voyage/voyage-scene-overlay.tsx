@@ -7,10 +7,17 @@ import { useShipVoyage } from "@/features/3d-scene/components/ship-voyage-contex
 import { BridgeControls } from "@/features/bridge/components/bridge-controls";
 import { setBridgeActive } from "@/features/bridge/lib/bridge-store";
 import { SegmentedControl } from "../components/segmented-control";
-import { VOYAGE_CAMERA } from "../cockpit-voyage";
+import { IS_BRIDGE_VIEW_ENABLED } from "../cockpit-config";
+import { liveSceneOverrides } from "@/features/3d-scene/lib/live-scene-overrides";
+import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET } from "@/features/ship-visualizer/ship-visualizer-config";
+import { LIVE_CAMERA_BEARING_DEG, LIVE_CAMERA_POSE, VOYAGE_CAMERA } from "../cockpit-voyage";
+import { poseLookingTowards } from "@/features/3d-scene/lib/compass-camera-pose";
 import { CompassTape } from "./compass-tape";
 import { PlaybackTimeline } from "../components/playback-timeline";
 import { AttitudeCard, MotionCard, RelativeWindCard } from "./voyage-instruments";
+
+/** Tailwind's lg: where the replay bar is shown. */
+const DESKTOP_QUERY = "(min-width: 1024px)";
 
 /** The camera can always be moved by hand: following the ship, or on its bridge. */
 type CameraMode = "follow" | "bridge";
@@ -22,40 +29,71 @@ type CameraMode = "follow" | "bridge";
  * Rendered inside the Scene, for the camera and the ship's voyage. The ship
  * is set under way, as the live data reports it.
  */
-export function VoyageSceneOverlay() {
-  const snapshot = useLiveData();
+/**
+ * Live data's ship, under way from its data's start: set under way, the
+ * camera on the Ontology's view held to its compass bearing, the replay
+ * playing from the first moment kept (the log filling row by row). On
+ * leaving: back to live, the ship stopped and the camera on the Ontology's
+ * own view. Rendered inside the Scene, for the camera and the ship's voyage.
+ * The Voyage view's own, and — one Live view — Live data's.
+ */
+export function LiveUnderWay() {
   const cameraActions = useZoomControls();
   const { setIsTraveling } = useShipVoyage();
-  const [cameraMode, setCameraMode] = useState<CameraMode>("follow");
   const hasMovedCamera = useRef(false);
 
-  // The ship makes way in the Voyage view: set under way on entering it.
-  // Once only — the anchor button can still stop it
+  // Under way on entering; once only — the anchor button can still stop it
   useEffect(() => {
     setIsTraveling(true);
   }, [setIsTraveling]);
 
-  // Opens on the design's view from astern, as soon as the camera can be moved
+  // The Ontology's view, the ship turned on it to its heading, as soon as both are known;
+  // from then on the camera holds that bearing as the ship turns (SceneCompassCamera)
+  const headingDeg = useLiveData()?.navigation.headingDeg;
+  const hasHeading = headingDeg !== undefined;
   useEffect(() => {
-    if (!cameraActions || hasMovedCamera.current) return;
+    if (!cameraActions || !hasHeading || headingDeg === undefined || hasMovedCamera.current) return;
     hasMovedCamera.current = true;
-    cameraActions.moveCameraTo(VOYAGE_CAMERA.follow.position, VOYAGE_CAMERA.follow.target);
+    const pose = poseLookingTowards(LIVE_CAMERA_POSE, LIVE_CAMERA_BEARING_DEG, headingDeg);
+    liveSceneOverrides.compassCamera = { bearingDeg: LIVE_CAMERA_BEARING_DEG, headingDeg };
+    cameraActions.moveCameraTo(pose.position, pose.target);
+    // Only the first heading sets the pose: the camera turns with the later ones itself
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraActions, hasHeading]);
+  // Leaving for the Ontology: the camera let go of the compass and back to the Ontology's own view,
+  // and the ship stopped — the Ontology shows it at rest. (The latest actions, for the cleanup)
+  const latestCameraActions = useRef(cameraActions);
+  useEffect(() => {
+    latestCameraActions.current = cameraActions;
   }, [cameraActions]);
+  useEffect(
+    () => () => {
+      liveSceneOverrides.compassCamera = null;
+      latestCameraActions.current?.moveCameraTo(DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET);
+      setIsTraveling(false);
+    },
+    [setIsTraveling]
+  );
 
-  // Off the bridge when the Voyage view closes
-  useEffect(() => () => setBridgeActive(false), []);
-
-  // The voyage told from its start: the data's first moment, playing on from it — the log filling row by
-  // row — to pause or step on.
-  // Once, as soon as the data is there; leaving the view goes live again
+  // From the data's first moment, playing on; leaving goes live again
   const { oldest } = usePlayback();
   const hasStartedAtBeginning = useRef(false);
   useEffect(() => {
     if (oldest === null || hasStartedAtBeginning.current) return;
     hasStartedAtBeginning.current = true;
-    viewLiveDataAt(oldest, true);
+    // Only where the replay bar is, to step and play from: the phone has none, and shows it live
+    if (window.matchMedia(DESKTOP_QUERY).matches) viewLiveDataAt(oldest, true);
   }, [oldest]);
   useEffect(() => () => viewLiveDataAt(null), []);
+  useEffect(() => () => setBridgeActive(false), []);
+
+  return null;
+}
+
+export function VoyageSceneOverlay() {
+  const snapshot = useLiveData();
+  const cameraActions = useZoomControls();
+  const [cameraMode, setCameraMode] = useState<CameraMode>("follow");
 
   const chooseCameraMode = (mode: CameraMode) => {
     setCameraMode(mode);
@@ -69,6 +107,7 @@ export function VoyageSceneOverlay() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
+      <LiveUnderWay />
       {isOnBridge ? (
         <BridgeControls />
       ) : (
@@ -78,7 +117,7 @@ export function VoyageSceneOverlay() {
             <MotionCard snapshot={snapshot} />
           </div>
           <div data-callout-avoid className="absolute top-4 right-4 flex flex-col gap-3">
-            <AttitudeCard snapshot={snapshot} />
+            <AttitudeCard attitude={snapshot.systems.hull} />
             <RelativeWindCard snapshot={snapshot} />
           </div>
           {/* The route and the replay in one compact bar, in the scene's bottom right corner */}
@@ -92,7 +131,7 @@ export function VoyageSceneOverlay() {
           onChange={chooseCameraMode}
           options={[
             { value: "follow", label: "Follow ship" },
-            { value: "bridge", label: "Bridge" },
+            ...(IS_BRIDGE_VIEW_ENABLED ? [{ value: "bridge" as const, label: "Bridge" }] : []),
           ]}
         />
       </div>

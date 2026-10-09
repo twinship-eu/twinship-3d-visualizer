@@ -4,9 +4,8 @@ import { useEffect } from "react";
 import { useLiveData } from "@/features/live-data/hooks/use-live-data";
 import { liveSceneOverrides } from "@/features/3d-scene/lib/live-scene-overrides";
 import { DEFAULT_SEA, useSeaControls } from "@/features/3d-scene/lib/sea-controls-store";
-import { ONTOLOGY_DEFAULT_HOUR_UTC, useSkyControls } from "@/features/3d-scene/lib/sky-controls-store";
+import { ONTOLOGY_DEFAULT_HOUR_UTC, ONTOLOGY_SUN_HEADING_DEG, ONTOLOGY_WIND_KN, useSkyControls } from "@/features/3d-scene/lib/sky-controls-store";
 import { sunForClock } from "@/features/3d-scene/lib/sun-for-clock";
-import { VOYAGE_HOUR_UTC } from "../cockpit-voyage";
 import { wrapSigned } from "../lib/voyage-math";
 
 const METRES_PER_SECOND_PER_KNOT = 0.514444;
@@ -23,19 +22,22 @@ const METRES_PER_SECOND_PER_KNOT = 0.514444;
  * speed and the waves' side, each the data's until moved — and the scene's
  * defaults without data.
  */
-export function LiveSceneSync({ isUserSea = false, isVoyageView = false }: { isUserSea?: boolean; isVoyageView?: boolean }) {
+export function LiveSceneSync({ isUserSea = false }: { isUserSea?: boolean; isVoyageView?: boolean }) {
   const snapshot = useLiveData();
   const seaControls = useSeaControls();
   const skyControls = useSkyControls();
-  // The sun high in both views, on the data's day and at its place, so the ship is seen in full colour;
-  // the hour the user sets replaces it
-  const hourUtc = skyControls.hourUtc ?? (isVoyageView ? VOYAGE_HOUR_UTC : ONTOLOGY_DEFAULT_HOUR_UTC);
+  // In Live data the sun follows the cockpit's own clock (the demo's, see DEMO_START_HOUR_UTC), so the
+  // time shown and the sky agree; in the Ontology it is high, at its default hour. The user's hour wins
+  const hourUtc = skyControls.hourUtc ?? (isUserSea ? ONTOLOGY_DEFAULT_HOUR_UTC : null);
   const speedKnots = snapshot?.navigation.speedOverGroundKn ?? null;
   const shaftRpm = snapshot?.systems.propulsion.shaftRpm ?? null;
   const windSpeedKn = snapshot?.navigation.trueWind.speedKn ?? null;
+  // The sea's height as the data reports it, for the scene to raise its waves to; null when it does not
+  const dataWaveHeightM = snapshot?.sea.isWaveHeightRecorded ? snapshot.sea.significantWaveHeightM : null;
   const windFromDeg = snapshot?.navigation.trueWind.fromDeg ?? null;
   const headingDeg = snapshot?.navigation.headingDeg ?? null;
-  const observedAt = snapshot?.observedAt ?? null;
+  // The clock the cockpit shows: the snapshot's own stamp, not the recording's moment
+  const observedAt = snapshot?.timestamp ?? null;
   const latitude = snapshot?.navigation.position?.latitude ?? null;
   const longitude = snapshot?.navigation.position?.longitude ?? null;
 
@@ -50,15 +52,16 @@ export function LiveSceneSync({ isUserSea = false, isVoyageView = false }: { isU
     liveSceneOverrides.propellerRpm = shaftRpm;
     liveSceneOverrides.wind = isUserSea
       ? {
-          speedMs: userSpeed ?? dataSpeedMs ?? DEFAULT_SEA.speedMs,
+          // A light breeze of its own, not the voyage's wind: the ship to look at, not the weather
+          speedMs: userSpeed ?? ONTOLOGY_WIND_KN * METRES_PER_SECOND_PER_KNOT,
           fromRelativeDeg: userSide ?? dataSide ?? DEFAULT_SEA.fromRelativeDeg,
-          // Taken at once only once the user has moved a slider; until then the data's, as in Live data
+          // Taken at once only once the user has moved a slider; until then the data's side, as in Live data
           isUserSet: userSpeed !== null || userSide !== null,
         }
       : dataSpeedMs !== null && dataSide !== null
-        ? { speedMs: dataSpeedMs, fromRelativeDeg: dataSide }
+        ? { speedMs: dataSpeedMs, fromRelativeDeg: dataSide, significantWaveHeightM: dataWaveHeightM }
         : null;
-  }, [speedKnots, shaftRpm, isUserSea, userSpeed, userSide, dataSpeedMs, dataSide]);
+  }, [speedKnots, shaftRpm, isUserSea, userSpeed, userSide, dataSpeedMs, dataSide, dataWaveHeightM]);
 
   // The sun: where the data's moment puts it, or the hour the user set on that day (the time now without data)
   useEffect(() => {
@@ -68,8 +71,9 @@ export function LiveSceneSync({ isUserSea = false, isVoyageView = false }: { isU
     }
     const position = latitude !== null && longitude !== null ? { latitude, longitude } : null;
     const { azimuthDeg, elevationDeg } = sunForClock(observedAt, hourUtc, position);
-    liveSceneOverrides.sun = { elevationDeg, azimuthDeg, headingDeg: headingDeg ?? 0 };
-  }, [observedAt, hourUtc, latitude, longitude, headingDeg]);
+    // The Ontology's ship is turned for the light, not the voyage's heading
+    liveSceneOverrides.sun = { elevationDeg, azimuthDeg, headingDeg: isUserSea ? ONTOLOGY_SUN_HEADING_DEG : (headingDeg ?? 0) };
+  }, [observedAt, hourUtc, latitude, longitude, headingDeg, isUserSea]);
 
   useEffect(
     () => () => {

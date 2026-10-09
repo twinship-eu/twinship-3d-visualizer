@@ -109,6 +109,12 @@ function besideShip(rect: LayoutRect, anchorX: number, side: "left" | "right", s
   return edge - GAP_FROM_SHIP - rect.width;
 }
 
+/** A panel this share of the scene's width, near its foot, is a bar the cards stay above. */
+const WIDE_PANEL_SHARE = 0.4;
+/** How near the foot such a bar must reach, and the gap kept above it, in px. */
+const FLOOR_REACH_PX = 40;
+const FLOOR_GAP_PX = 8;
+
 /**
  * Where each card goes: at its part's height, out beside the ship's outline
  * on the side nearer the part — each as far out as the ship is wide there,
@@ -122,6 +128,15 @@ export function layoutCards(
   bounds: { width: number; height: number },
   shipSlices: LayoutRect[]
 ) {
+  // A bar across the scene's foot (the replay and navigation): the cards' room ends above it, so the
+  // stacking cannot push one under it — pushed out of it alone, the next round of stacking undid it
+  const floor = Math.min(
+    bounds.height,
+    ...avoid
+      .filter((panel) => panel.width > bounds.width * WIDE_PANEL_SHARE && panel.y + panel.height > bounds.height - FLOOR_REACH_PX)
+      .map((panel) => panel.y - FLOOR_GAP_PX)
+  );
+  bounds = { width: bounds.width, height: floor };
   // The ship's side nearer each part, as the camera has turned it: its own side without the outline
   const left = Math.min(...shipSlices.map((slice) => slice.x));
   const right = Math.max(...shipSlices.map((slice) => slice.x + slice.width));

@@ -18,7 +18,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   Radio_NEW: "Radio",
   Container: "Container",
   Container_LP: "Container",
-  Truck: "Truck",
+  Truck: "Truck with trailer",
   Crane: "Crane",
   Crane_LP: "Crane",
   Crane_lp: "Crane",

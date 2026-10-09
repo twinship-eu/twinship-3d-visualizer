@@ -27,7 +27,7 @@ export function LogSceneOverlay({ isLogOpen, onToggleLog }: Props) {
         onClick={onToggleLog}
         aria-pressed={isLogOpen}
         title={isLogOpen ? "Close the event log" : "Open the event log"}
-        className="pointer-events-auto absolute top-[60%] right-0 flex cursor-pointer flex-col items-center gap-2 rounded-l-xl border border-r-0 border-glass-line bg-glass px-2.5 py-4 text-accent-ink backdrop-blur hover:brightness-110"
+        className="pointer-events-auto absolute top-[60%] right-0 hidden cursor-pointer lg:flex flex-col items-center gap-2 rounded-l-xl border border-r-0 border-glass-line bg-glass px-2.5 py-4 text-accent-ink backdrop-blur hover:brightness-110"
       >
         <ListChecks className="size-4" aria-hidden />
         <span className="text-xs font-semibold tracking-[0.14em] [writing-mode:vertical-rl]">EVENT LOG</span>

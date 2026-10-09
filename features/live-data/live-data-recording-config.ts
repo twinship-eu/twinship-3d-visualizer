@@ -45,6 +45,7 @@ export const RECORDING_COLUMNS = {
   distanceToGo: "FV-RR-1.TWINSHIP-DISTANCE-TO-GO-IN-NM",
   trueWindSpeed: "FV-RR-1.TWINSHIP-TRUE-WIND-SPEED-IN-KN",
   trueWindFrom: "FV-RR-1.TWINSHIP-TRUE-WIND-DIRECTION-IN-DEG",
+  significantWaveHeight: "FV-RR-1.TWINSHIP-SIGNIFICANT-WAVE-HEIGHT-IN-M",
   gensetSpeed: ["FV-GN-1.TWINSHIP-DIESEL-ENGINE-SPEED-IN-REV-PER-MIN", "FV-GN-2.TWINSHIP-DIESEL-ENGINE-SPEED-IN-REV-PER-MIN"],
   gensetLoad: ["FV-GN-1.TWINSHIP-LOAD-PERCENTAGE", "FV-GN-2.TWINSHIP-LOAD-PERCENTAGE"],
   gensetFuel: ["FV-GN-1.TWINSHIP-FUEL-CONSUMPTION-RATE-IN-MT_PER_HR", "FV-GN-2.TWINSHIP-FUEL-CONSUMPTION-RATE-IN-MT_PER_HR"],
@@ -66,6 +67,9 @@ export const RECORDING_COLUMNS = {
     "FV-WASP-2.TWINSHIP-WASP-POWER-REDUCTION-EFFICIENCY-PERCENTAGE",
   ],
   sailFanSpeed: ["FV-WASP-1.TWINSHIP-WASP-FAN-SPEED-IN-REV_PER_MIN", "FV-WASP-2.TWINSHIP-WASP-FAN-SPEED-IN-REV_PER_MIN"],
+  // Not in the knowledge graph: the truck's and the crane's own ids, proposed
+  reeferTemp: "TRK-1.TWINSHIP-REEFER-TEMPERATURE-IN-°C",
+  craneHydraulic: "CRN-1.TWINSHIP-HYDRAULIC-PRESSURE-IN-BAR",
 } as const;
 
 /** The sensors of the catalogue a column reads, by the sensor's id. */
@@ -92,4 +96,6 @@ export const RECORDED_COMPONENT_PARTS: [idPrefix: string, partLabel: string][] =
   ["FV-WASP-", "WAPS"],
   ["FV-RR-", "Base Hull"],
   ["SG-", "Base Hull"],
+  ["TRK-", "Truck with trailer"],
+  ["CRN-", "Crane"],
 ];

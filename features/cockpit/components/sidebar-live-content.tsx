@@ -23,7 +23,12 @@ export function sidebarReadingFor({ isOntologyMode, isVoyageView }: View) {
  * Under the tree: nothing in Ontology; the alarms in Live data —
  * under way too, in Voyage, above the voyage's summary.
  */
-export function SidebarFooter({ isOntologyMode, isVoyageView, onOpenAlarm }: View & { onOpenAlarm: (alarm: Alarm) => void }) {
+export function SidebarFooter({
+  isOntologyMode,
+  isVoyageView,
+  onOpenAlarm,
+  onOpenLog,
+}: View & { onOpenAlarm: (alarm: Alarm) => void; onOpenLog?: () => void }) {
   // The warnings are Live data's: nothing of them in the Ontology
   if (isOntologyMode) return null;
   if (isVoyageView) {
@@ -34,5 +39,5 @@ export function SidebarFooter({ isOntologyMode, isVoyageView, onOpenAlarm }: Vie
       </>
     );
   }
-  return <AlarmsEventsList onOpen={onOpenAlarm} />;
+  return <AlarmsEventsList onOpen={onOpenAlarm} onOpenLog={onOpenLog} />;
 }

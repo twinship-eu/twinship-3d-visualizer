@@ -1,8 +1,8 @@
 "use client";
 
-import { MessageCircle, Ship, TriangleAlert } from "lucide-react";
+import { Activity, MessageCircle, Ship, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getActiveAlarms, useLiveData, usePlayback } from "@/features/live-data/hooks/use-live-data";
+import { getActiveAlarms, getActiveAnomalies, useLiveData, usePlayback } from "@/features/live-data/hooks/use-live-data";
 import { formatElapsed, formatUtcTime } from "@/features/live-data/lib/format-readings";
 import type { Alarm, LiveSnapshot } from "@/features/live-data/live-data-types";
 import { COCKPIT_BRAND, type CockpitPanel, type ViewerMode } from "../cockpit-config";
@@ -46,6 +46,7 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm, panel, onPanelC
   const isReplaying = playback.viewedAt !== null && playback.latest !== null;
   const activeAlarms = getActiveAlarms(snapshot);
   const activeAlarmCount = activeAlarms.length;
+  const activeAnomalies = getActiveAnomalies(snapshot);
   const isLive = mode === "live";
 
   return (
@@ -87,6 +88,18 @@ export function CockpitTopBar({ mode, onModeChange, onOpenAlarm, panel, onPanelC
             <Icon className="size-[18px]" aria-hidden />
           </button>
         ))}
+
+      {isLive && activeAnomalies[0] && (
+        <button
+          type="button"
+          onClick={() => onOpenAlarm(activeAnomalies[0])}
+          aria-label={`${activeAnomalies.length} behaviour anomal${activeAnomalies.length === 1 ? "y" : "ies"}`}
+          className="flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-anomaly px-2.5 text-[13px] font-bold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Activity className="size-4" aria-hidden />
+          {activeAnomalies.length}
+        </button>
+      )}
 
       {isLive && activeAlarms[0] && (
         <button

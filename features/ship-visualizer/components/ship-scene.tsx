@@ -5,10 +5,12 @@ import { LoadingRing } from "@/features/3d-scene/components/loading-ring";
 import type { CalloutDefinition } from "@/features/cockpit/callouts/callout-config";
 import type { LiveView } from "@/features/cockpit/cockpit-config";
 import { LiveSceneProjectors } from "@/features/cockpit/components/live-scene-layers";
+import { OntologyAttitude } from "@/features/cockpit/components/ontology-attitude";
 import { LiveSceneSync } from "@/features/cockpit/voyage/live-scene-sync";
-import { VoyageSceneOverlay } from "@/features/cockpit/voyage/voyage-scene-overlay";
+import { LiveUnderWay, VoyageSceneOverlay } from "@/features/cockpit/voyage/voyage-scene-overlay";
 import { SeaControlsCard } from "@/features/3d-scene/components/sea-controls-card";
 import { IS_SCENE_INSPECTOR_ENABLED } from "@/features/3d-scene/lib/3d-scene-config";
+import { IS_SINGLE_LIVE_VIEW_ENABLED } from "@/features/cockpit/cockpit-config";
 import { getBridgeState } from "@/features/bridge/lib/bridge-store";
 import type { useShipModel } from "../hooks/use-ship-model";
 import type { ShipTreeNode } from "../ship-visualizer-types";
@@ -59,10 +61,14 @@ export function ShipScene({ model, selectedNode, hoveredNode, onHover, onSelectB
         overlay={
           <>
             {/* The environment is the data's: the ship's speed, its propellers, the wind — the sea the user's in the Ontology */}
-            <LiveSceneSync isUserSea={live === null} isVoyageView={live?.isVoyageView ?? false} />
+            <LiveSceneSync isUserSea={live === null} isVoyageView={live !== null && (IS_SINGLE_LIVE_VIEW_ENABLED || live.isVoyageView)} />
             {/* The sea and the hour to play with: a testing aid, flagged off in the production build */}
             {live === null && IS_SCENE_INSPECTOR_ENABLED && <SeaControlsCard />}
+            {/* The ship's attitude as the scene draws it, top right; a part's details open under it */}
+            {live === null && <OntologyAttitude />}
             {live?.isVoyageView && <VoyageSceneOverlay />}
+            {/* One Live view: the ship under way from its data's start, as the Voyage view had it */}
+            {IS_SINGLE_LIVE_VIEW_ENABLED && live && <LiveUnderWay />}
           </>
         }
       >

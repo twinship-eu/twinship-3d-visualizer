@@ -91,7 +91,12 @@ export const UNSELECTED_PART_OPACITY = 0.35;
 /** Opacity of a hovered part when a different part is selected (0 = invisible, 1 = opaque). */
 export const HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED = 0.85;
 
-/** Default camera position when viewing the full ship. */
+/**
+ * Default camera position when viewing the full ship: off its port bow (+x
+ * is port, the bow at +z) and above the deck — the bow towards the camera,
+ * on the left. The Ontology puts the sun ahead of the camera
+ * (ONTOLOGY_SUN_HEADING_DEG).
+ */
 export const DEFAULT_CAMERA_POSITION: [number, number, number] = [60, 30, 60];
 
 /** Default camera target (look-at point) when viewing the full ship. */
@@ -168,7 +173,7 @@ export const PROPELLER_SPIN_DIRECTIONS: readonly [number, number] = [1, -1];
 export const SHIP_TREE_SECTIONS = [
   { id: "hull", label: "Hull" },
   { id: "superstructure", label: "Superstructure" },
-  { id: "deck", label: "Deck equipment" },
+  { id: "deck", label: "Cargo" },
   { id: "propeller", label: "Propeller system" },
   { id: "energy", label: "Energy system" },
   { id: "windAssisted", label: "Wind assisted propulsion system" },

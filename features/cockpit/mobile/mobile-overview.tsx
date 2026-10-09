@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronRight, TriangleAlert } from "lucide-react";
+import { Activity, ChevronRight, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getActiveAlarms, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
+import { getActiveAlarms, getActiveAnomalies, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import { findSensor } from "@/features/live-data/live-data-sensors";
 import type { Alarm } from "@/features/live-data/live-data-types";
 import { SYSTEM_CARDS, systemsInWarning } from "../cockpit-systems";
@@ -17,7 +17,7 @@ const OVERVIEW_COMPONENTS: { label: string; dotClass: string }[] = [
   { label: "Engine", dotClass: "bg-system-energy" },
   { label: "WAPS", dotClass: "bg-system-hull" },
   { label: "Propellers", dotClass: "bg-system-propeller" },
-  { label: "Truck", dotClass: "bg-system-deck" },
+  { label: "Truck with trailer", dotClass: "bg-system-deck" },
   { label: "Crane", dotClass: "bg-system-deck" },
 ];
 /** The hull card's reading on the phone: its bending stress, as in the design. */
@@ -44,6 +44,22 @@ export function MobileOverview({ onOpenAlarm, onOpenComponent }: Props) {
 
   return (
     <div className="flex flex-col gap-5 px-4 pt-4 pb-6 lg:hidden">
+      {/* Behaviour anomalies — a group's, the ship's — orange-red, before the limit warning */}
+      {getActiveAnomalies(snapshot).map((anomaly) => (
+        <button
+          key={anomaly.id}
+          type="button"
+          onClick={() => onOpenAlarm(anomaly)}
+          className="flex cursor-pointer items-center gap-4 rounded-2xl border border-anomaly-line bg-anomaly-soft px-4 py-3.5 text-left"
+        >
+          <Activity className="size-7 shrink-0 text-anomaly" aria-hidden />
+          <span className="flex min-w-0 grow flex-col">
+            <span className="text-base font-bold text-anomaly-ink">{anomaly.title}</span>
+            <span className="text-sm text-ink-2">{anomaly.detail} · tap to review</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-ink-2" aria-hidden />
+        </button>
+      ))}
       {first && (
         <button
           type="button"
@@ -96,10 +112,30 @@ export function MobileOverview({ onOpenAlarm, onOpenComponent }: Props) {
         </div>
       </section>
 
+      <ComponentList labels={OVERVIEW_COMPONENTS} onOpenComponent={onOpenComponent} />
+    </div>
+  );
+}
+
+/** Every component, for the Components tab: the overview's, and the hull's own parts. */
+const ALL_COMPONENTS: { label: string; dotClass: string }[] = [
+  ...OVERVIEW_COMPONENTS.slice(0, 1),
+  { label: "Hull top towers", dotClass: "bg-system-hull" },
+  { label: "Control room", dotClass: "bg-system-hull" },
+  { label: "Radio", dotClass: "bg-system-hull" },
+  ...OVERVIEW_COMPONENTS.slice(1),
+];
+
+/** A list of components, each with its live state and opening its sheet. */
+function ComponentList({ labels, onOpenComponent }: { labels: { label: string; dotClass: string }[]; onOpenComponent: (label: string) => void }) {
+  const snapshot = useLiveData();
+  if (!snapshot) return null;
+  const activeAlarms = getActiveAlarms(snapshot);
+  return (
       <section className="flex flex-col gap-1">
         <h2 className={SECTION_LABEL_CLASS}>COMPONENTS</h2>
         <ul className="flex flex-col">
-          {OVERVIEW_COMPONENTS.map(({ label, dotClass }) => {
+          {labels.map(({ label, dotClass }) => {
             const hasAlarm = activeAlarms.some((alarm) => alarm.componentLabel === label);
             const reading = componentReading(label, snapshot, hasAlarm);
             return (
@@ -123,6 +159,14 @@ export function MobileOverview({ onOpenAlarm, onOpenComponent }: Props) {
           })}
         </ul>
       </section>
+  );
+}
+
+/** Below lg, the Components tab under the scene: every component, each opening its live sheet. */
+export function MobileComponents({ onOpenComponent }: { onOpenComponent: (label: string) => void }) {
+  return (
+    <div className="flex flex-col gap-5 px-4 pt-4 pb-6 lg:hidden">
+      <ComponentList labels={ALL_COMPONENTS} onOpenComponent={onOpenComponent} />
     </div>
   );
 }

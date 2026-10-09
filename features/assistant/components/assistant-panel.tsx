@@ -9,7 +9,10 @@ import { clearHighlights, startNewConversation, takePendingQuestion, useAssistan
 import { AssistantMessageItem } from "./assistant-message-item";
 
 type Props = {
-  onClose: () => void;
+  /** Omitted on the phone's Ask tab, which the tab bar closes. */
+  onClose?: () => void;
+  /** The phone's Ask tab: shown below lg, in the page, rather than beside the scene at lg. */
+  isPhonePage?: boolean;
   onOpenLog: () => void;
   onOpenComponent: (label: string) => void;
 };
@@ -33,7 +36,7 @@ function Thinking() {
  * sensor data, in words — it answers from the live data, the event log and
  * the ontology, and lights up what it talks about on the ship.
  */
-export function AssistantPanel({ onClose, onOpenLog, onOpenComponent }: Props) {
+export function AssistantPanel({ onClose, onOpenLog, onOpenComponent, isPhonePage = false }: Props) {
   const { messages, highlights } = useAssistantState();
   const { events } = useEventLog();
   const { send, isThinking } = useSendQuestion();
@@ -61,7 +64,14 @@ export function AssistantPanel({ onClose, onOpenLog, onOpenComponent }: Props) {
   };
 
   return (
-    <aside aria-label="Ship assistant" className="hidden w-[420px] shrink-0 flex-col border-l border-line bg-surface text-ink lg:flex">
+    <aside
+      aria-label="Ship assistant"
+      className={
+        isPhonePage
+          ? "flex h-[calc(100dvh-25rem)] min-h-[420px] flex-col bg-surface text-ink lg:hidden"
+          : "hidden w-[420px] shrink-0 flex-col border-l border-line bg-surface text-ink lg:flex"
+      }
+    >
       <header className="flex shrink-0 items-center gap-3 border-b border-line px-5 py-4">
         <span className="flex size-10 items-center justify-center rounded-lg bg-accent-soft text-accent-ink">
           <MessageCircle className="size-5" aria-hidden />
@@ -83,9 +93,11 @@ export function AssistantPanel({ onClose, onOpenLog, onOpenComponent }: Props) {
           <Plus className="size-4" aria-hidden />
           New chat
         </button>
-        <button type="button" onClick={onClose} aria-label="Close the assistant" className={ICON_BUTTON_CLASS}>
-          <X className="size-4" aria-hidden />
-        </button>
+        {onClose && (
+          <button type="button" onClick={onClose} aria-label="Close the assistant" className={ICON_BUTTON_CLASS}>
+            <X className="size-4" aria-hidden />
+          </button>
+        )}
       </header>
 
       {/* Pinned under the header, not over the scene: what the answer lit up on the ship */}

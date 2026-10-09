@@ -1,4 +1,4 @@
-import { findSensor } from "@/features/live-data/live-data-sensors";
+import { findSensor, sensorsOf } from "@/features/live-data/live-data-sensors";
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 
 /** A reading the time series drawer plots: what it is, in what, and where it comes from in a snapshot. */
@@ -11,7 +11,7 @@ export type TimeSeriesDefinition = {
   limit?: number;
 };
 
-const sensorSeries = (sensorId: string): TimeSeriesDefinition => {
+export const sensorSeries = (sensorId: string): TimeSeriesDefinition => {
   const sensor = findSensor(sensorId);
   return {
     id: sensorId,
@@ -40,3 +40,9 @@ export function seriesFor(sensorId: string | undefined) {
 export const VALUE_TICKS = 4;
 /** Ticks on the time axis. */
 export const TIME_TICKS = 4;
+
+/** The tabs for a component: its own sensors first, then the sea and the speed. */
+export function seriesForComponent(componentLabel: string) {
+  const own = sensorsOf(componentLabel).map((sensor) => sensorSeries(sensor.id));
+  return [...own, ...STANDING_SERIES.filter((series) => series.id === "wave-height" || series.id === "speed")];
+}

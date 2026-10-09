@@ -71,15 +71,15 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
       "Radio and antenna systems used for ship-to-ship and ship-to-shore communication.",
     parameters: [],
   },
-  Truck: {
-    title: "Truck",
-    tags: ["Deck equipment"],
-    description: "A refrigerated truck carried on the RoRo deck: cargo, its reefer unit monitored.",
+  "Truck with trailer": {
+    title: "Truck with trailer",
+    tags: ["Cargo"],
+    description: "A refrigerated truck with trailer carried on the RoRo deck: cargo, its reefer unit monitored.",
     parameters: [],
   },
   Crane: {
     title: "Crane",
-    tags: ["Deck equipment"],
+    tags: ["Cargo"],
     description: "Deck crane used for handling cargo and equipment on board.",
     parameters: [],
   },

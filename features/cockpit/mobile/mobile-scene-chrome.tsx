@@ -3,8 +3,9 @@
 import { ChevronLeft, Maximize2, Minimize2 } from "lucide-react";
 import { activeAlarmOn, useLiveData } from "@/features/live-data/hooks/use-live-data";
 import { formatBearing, formatElapsed, formatKnots } from "@/features/live-data/lib/format-readings";
+import { etaHours, formatHours } from "../lib/voyage-math";
 
-const CHIP_CLASS = "rounded-lg bg-glass px-2.5 py-1.5 font-mono text-[13px] font-semibold text-ink backdrop-blur";
+const CHIP_CLASS = "shrink-0 rounded-lg bg-glass px-2 py-1.5 font-mono text-[12px] font-semibold whitespace-nowrap text-ink tabular-nums backdrop-blur";
 const BUTTON_CLASS =
   "pointer-events-auto flex size-11 cursor-pointer items-center justify-center rounded-xl border border-glass-line bg-glass text-ink backdrop-blur";
 
@@ -13,7 +14,7 @@ type CardProps = {
   onToggleExpanded: () => void;
 };
 
-/** Below lg, on the scene's card: the ship's speed, heading and roll, and the way to a full-screen view. */
+/** Below lg, on the scene's card: the ship's speed, heading, roll and ETA, and the way to a full-screen view. */
 export function MobileSceneCardChrome({ isExpanded, onToggleExpanded }: CardProps) {
   const snapshot = useLiveData();
 
@@ -28,10 +29,11 @@ export function MobileSceneCardChrome({ isExpanded, onToggleExpanded }: CardProp
         {isExpanded ? <Minimize2 className="size-5" aria-hidden /> : <Maximize2 className="size-5" aria-hidden />}
       </button>
       {snapshot && !isExpanded && (
-        <div className="absolute bottom-3 left-3 flex gap-2">
+        <div className="absolute right-3 bottom-3 left-3 flex gap-1.5 overflow-hidden">
           <span className={CHIP_CLASS}>{formatKnots(snapshot.navigation.speedOverGroundKn)}</span>
           <span className={CHIP_CLASS}>HDG {formatBearing(snapshot.navigation.headingDeg)}</span>
           <span className={CHIP_CLASS}>roll {snapshot.systems.hull.rollDeg.toFixed(1)}°</span>
+          <span className={CHIP_CLASS}>ETA {formatHours(etaHours(snapshot.voyage, snapshot.navigation.speedOverGroundKn))}</span>
         </div>
       )}
     </div>

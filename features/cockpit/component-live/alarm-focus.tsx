@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BellOff, BookOpen, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AnomalyScope } from "@/features/anomalies/components/anomaly-scope";
 import { acknowledgeAlarm, silenceAlarm, useAlarmSilences } from "@/features/live-data/hooks/use-live-data";
 import { formatElapsed, formatUtcTime } from "@/features/live-data/lib/format-readings";
 import { findSensor, sensorState } from "@/features/live-data/live-data-sensors";
@@ -40,6 +41,15 @@ export function AlarmFocus({ alarm, snapshot, history, isCompact = false, childr
   return (
     <div className="flex min-h-0 grow flex-col">
       <div className="flex min-h-0 grow flex-col gap-5 overflow-y-auto px-6 py-5 text-sm">
+        {/* One part, one sensor past its limit: the first of the three scopes */}
+        <div className="flex flex-col gap-2">
+          <AnomalyScope scope="component" isBehaviour={false} />
+          <p className="text-[13px] text-ink-2">
+            <b className="text-ink">One part: </b>
+            {alarm.componentLabel}
+            {sensor ? `, sensor ${sensor.id}, crossed its warning limit.` : " crossed its warning limit."}
+          </p>
+        </div>
         <section className="flex flex-col gap-3 rounded-xl border border-warn-line bg-warn-soft p-4">
           <h3 className="flex items-center gap-2 text-base font-bold text-warn-ink">
             <TriangleAlert className="size-5 shrink-0 text-warn" aria-hidden />

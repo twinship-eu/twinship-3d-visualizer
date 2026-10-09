@@ -12,7 +12,7 @@ export const COMPONENT_SYSTEMS: Record<string, SystemId> = {
   Engine: "energy",
   Propellers: "propulsion",
   WAPS: "windAssist",
-  Truck: "deck",
+  "Truck with trailer": "deck",
   Crane: "deck",
 };
 
@@ -22,7 +22,7 @@ export const COMPONENT_OBJECT_NAMES: Record<string, string> = {
   "Hull top towers": "Base_Top",
   "Control room": "ControlRoom",
   Radio: "Radio_NEW",
-  Truck: "Truck",
+  "Truck with trailer": "Truck",
   Crane: "Crane",
   Propellers: "Propellers",
   Engine: "Engine",
@@ -116,7 +116,7 @@ export const SYSTEM_CARDS: SystemCard[] = [
   },
   {
     id: "deck",
-    title: "Deck equipment",
+    title: "Cargo",
     dotClass: "bg-system-deck",
     strokeClass: "stroke-system-deck",
     value: (snapshot) => snapshot.systems.deck.reeferTempC,

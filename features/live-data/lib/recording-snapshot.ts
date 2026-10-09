@@ -10,9 +10,10 @@ type Pair = readonly [string, string];
  * The simulated snapshot with the recording's readings in it, wherever the
  * recording has them: what it does not record stays simulated.
  *
- * Roll, pitch, heave and the sea's wave height stay the scene's: the scene
- * raises its sea from the recorded wind and rides the ship on it, and the
- * instruments show the ship as it is seen.
+ * Roll, pitch and heave stay the scene's: the scene rides the ship on its
+ * sea, and the instruments show the ship as it is seen. The wave height is
+ * the recording's where it has one — the scene raises its sea to it — and
+ * the scene's otherwise.
  */
 export function withRecordedReadings(snapshot: LiveSnapshot, read: RecordingReader): LiveSnapshot {
   const or = (column: string, fallback: number) => read.number(column) ?? fallback;
@@ -37,6 +38,7 @@ export function withRecordedReadings(snapshot: LiveSnapshot, read: RecordingRead
   const [fan1, fan2] = each(COLUMNS.sailFanSpeed);
   // Metric tons an hour, the ontology's unit (twFuelConsumptionRateInMTPerHr): both gensets' together
   const fuelTph = sum(COLUMNS.gensetFuel, systems.energy.fuelTph);
+  const recordedWaveHeight = read.number(COLUMNS.significantWaveHeight);
   const recordedSensors = Object.entries(RECORDED_SENSORS).flatMap(([sensorId, column]) => {
     const reading = read.number(column);
     return reading === undefined ? [] : [[sensorId, reading] as const];
@@ -91,7 +93,14 @@ export function withRecordedReadings(snapshot: LiveSnapshot, read: RecordingRead
         meanDraftM: (draftForeM + draftAftM) / 2,
         trimM: draftAftM - draftForeM,
       },
+      deck: {
+        ...systems.deck,
+        reeferTempC: or(COLUMNS.reeferTemp, systems.deck.reeferTempC),
+        craneHydraulicBar: or(COLUMNS.craneHydraulic, systems.deck.craneHydraulicBar),
+      },
     },
+    sea:
+      recordedWaveHeight === undefined ? snapshot.sea : { significantWaveHeightM: recordedWaveHeight, isWaveHeightRecorded: true },
     sensors: { ...snapshot.sensors, ...Object.fromEntries(recordedSensors) },
   };
 }

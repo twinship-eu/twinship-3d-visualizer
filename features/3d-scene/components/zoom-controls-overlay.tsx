@@ -1,13 +1,10 @@
 "use client";
 
-import {
-  DEFAULT_CAMERA_POSITION,
-  DEFAULT_CAMERA_TARGET,
-} from "@/features/ship-visualizer/ship-visualizer-config";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three/webgpu";
 import { Anchor, Navigation, RotateCw, Ship, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { homeCameraPose } from "../lib/compass-camera-pose";
 import { useCameraMotion } from "./camera-motion-context";
 import { useShipVoyage } from "./ship-voyage-context";
 import {
@@ -87,9 +84,11 @@ export function ZoomControlsBridge() {
   }, [camera, controls]);
 
   const resetZoom = useCallback(() => {
-    camera.position.set(...DEFAULT_CAMERA_POSITION);
+    // The ship's default view; in Live data the one the camera holds to its bearing, for the heading now
+    const pose = homeCameraPose();
+    camera.position.set(...pose.position);
     if (controls && "target" in controls) {
-      controls.target.set(...DEFAULT_CAMERA_TARGET);
+      controls.target.set(...pose.target);
       controls.update();
     }
   }, [camera, controls]);
@@ -140,12 +139,58 @@ export function ZoomControlsBridge() {
   return null;
 }
 
+const BUTTON_CLASS =
+  "flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9";
+
+/** The camera's buttons and the ship's: zoom, reset, ride with the ship, under way or at anchor. */
+function ZoomControlButtons({ actions }: { actions: ZoomActions }) {
+  const { isRidingShip, setIsRidingShip } = useCameraMotion();
+  const { isTraveling, setIsTraveling } = useShipVoyage();
+  const divider = <div className="h-px w-6 bg-line" aria-hidden />;
+
+  return (
+    <div
+      className="pointer-events-auto flex flex-col items-center gap-0.5 rounded-lg border border-glass-line bg-glass p-[3px] text-ink backdrop-blur"
+    >
+      <button type="button" aria-label="Zoom in" onClick={actions.zoomIn} className={BUTTON_CLASS}>
+        <ZoomIn className="h-4 w-4" aria-hidden />
+      </button>
+      <button type="button" aria-label="Zoom out" onClick={actions.zoomOut} className={BUTTON_CLASS}>
+        <ZoomOut className="h-4 w-4" aria-hidden />
+      </button>
+      {divider}
+      <button type="button" aria-label="Reset zoom" onClick={actions.resetZoom} className={BUTTON_CLASS}>
+        <RotateCw className="h-4 w-4" aria-hidden />
+      </button>
+      {divider}
+      <button
+        type="button"
+        aria-label="Ride with the ship"
+        aria-pressed={isRidingShip}
+        title={isRidingShip ? "Stop riding with the ship" : "Ride with the ship"}
+        onClick={() => setIsRidingShip(!isRidingShip)}
+        className={cn(BUTTON_CLASS, isRidingShip && "bg-accent text-white hover:bg-accent")}
+      >
+        <Ship className="h-4 w-4" aria-hidden />
+      </button>
+      <button
+        type="button"
+        aria-label={isTraveling ? "Stop the ship" : "Set the ship under way"}
+        aria-pressed={isTraveling}
+        title={isTraveling ? "Stop the ship" : "Set the ship under way"}
+        onClick={() => setIsTraveling(!isTraveling)}
+        className={cn(BUTTON_CLASS, isTraveling && "bg-accent text-white hover:bg-accent")}
+      >
+        {isTraveling ? <Navigation className="h-4 w-4" aria-hidden /> : <Anchor className="h-4 w-4" aria-hidden />}
+      </button>
+    </div>
+  );
+}
+
+
 /** Fixed DOM overlay; render outside Canvas so it does not move with zoom. */
 export function ZoomControlsOverlay({ isHiddenBelowLg = false }: { isHiddenBelowLg?: boolean }) {
   const actions = useZoomControls();
-  const { isRidingShip, setIsRidingShip } = useCameraMotion();
-  const { isTraveling, setIsTraveling } = useShipVoyage();
-
   if (!actions) return null;
 
   return (
@@ -161,65 +206,7 @@ export function ZoomControlsOverlay({ isHiddenBelowLg = false }: { isHiddenBelow
       aria-label="Zoom controls"
       data-callout-avoid
     >
-      <div className="pointer-events-auto flex flex-col items-center gap-0.5 rounded-lg border border-glass-line bg-glass p-[3px] text-ink backdrop-blur">
-        <button
-          type="button"
-          aria-label="Zoom in"
-          onClick={actions.zoomIn}
-          className="flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9"
-        >
-          <ZoomIn className="h-4 w-4" aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Zoom out"
-          onClick={actions.zoomOut}
-          className="flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9"
-        >
-          <ZoomOut className="h-4 w-4" aria-hidden />
-        </button>
-        <div className="h-px w-6 bg-line" aria-hidden />
-        <button
-          type="button"
-          aria-label="Reset zoom"
-          onClick={actions.resetZoom}
-          className="flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9"
-        >
-          <RotateCw className="h-4 w-4" aria-hidden />
-        </button>
-        <div className="h-px w-6 bg-line" aria-hidden />
-        <button
-          type="button"
-          aria-label="Ride with the ship"
-          aria-pressed={isRidingShip}
-          title={isRidingShip ? "Stop riding with the ship" : "Ride with the ship"}
-          onClick={() => setIsRidingShip(!isRidingShip)}
-          className={cn(
-            "flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9",
-            isRidingShip && "bg-accent text-white hover:bg-accent"
-          )}
-        >
-          <Ship className="h-4 w-4" aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label={isTraveling ? "Stop the ship" : "Set the ship under way"}
-          aria-pressed={isTraveling}
-          title={isTraveling ? "Stop the ship" : "Set the ship under way"}
-          onClick={() => setIsTraveling(!isTraveling)}
-          className={cn(
-            "flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9",
-            isTraveling && "bg-accent text-white hover:bg-accent"
-          )}
-        >
-          {isTraveling ? (
-            <Navigation className="h-4 w-4" aria-hidden />
-          ) : (
-            <Anchor className="h-4 w-4" aria-hidden />
-          )}
-        </button>
-
-      </div>
+      <ZoomControlButtons actions={actions} />
     </div>
   );
 }

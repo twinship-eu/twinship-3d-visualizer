@@ -4,7 +4,7 @@ import { Sun, Waves } from "lucide-react";
 import { useLiveData } from "@/features/live-data/hooks/use-live-data";
 import { SEASCAPE_WIND_LIMITS } from "../lib/seascape-config";
 import { describeSunHeight, sunForClock } from "../lib/sun-for-clock";
-import { followDataSky, ONTOLOGY_DEFAULT_HOUR_UTC, setSkyHour, useSkyControls } from "../lib/sky-controls-store";
+import { followDataSky, ONTOLOGY_DEFAULT_HOUR_UTC, ONTOLOGY_WIND_KN, setSkyHour, useSkyControls } from "../lib/sky-controls-store";
 import { DEFAULT_SEA, followDataSea, setSeaWavesFrom, setSeaWindSpeed, useSeaControls } from "../lib/sea-controls-store";
 
 const METRES_PER_SECOND_PER_KNOT = 0.514444;
@@ -58,7 +58,8 @@ export function SeaControlsCard() {
   // The Ontology opens at a high sun, whatever the data's clock; the user's hour replaces it
   const hour = sky.hourUtc ?? ONTOLOGY_DEFAULT_HOUR_UTC;
   const sun = sunForClock(snapshot?.observedAt ?? null, hour, snapshot?.navigation.position ?? null);
-  const speedMs = controls.speedMs ?? data?.speedMs ?? DEFAULT_SEA.speedMs;
+  // The Ontology's own light breeze, as the sea takes it (LiveSceneSync): not the data's
+  const speedMs = controls.speedMs ?? ONTOLOGY_WIND_KN * METRES_PER_SECOND_PER_KNOT;
   const side = controls.fromRelativeDeg ?? data?.fromRelativeDeg ?? DEFAULT_SEA.fromRelativeDeg;
   const isUsersOwn = controls.speedMs !== null || controls.fromRelativeDeg !== null || sky.hourUtc !== null;
 
@@ -70,7 +71,7 @@ export function SeaControlsCard() {
       <header className="flex items-center gap-2">
         <Waves className="size-4 text-accent-ink" aria-hidden />
         <h2 className="grow text-[11px] font-semibold tracking-[0.12em] text-muted">SEA</h2>
-        <span className="text-[11px] text-muted">{isUsersOwn ? "set by you" : data ? "from live data" : "default"}</span>
+        <span className="text-[11px] text-muted">{isUsersOwn ? "set by you" : "default"}</span>
       </header>
 
       <label className="flex flex-col gap-1.5 text-[13px]">

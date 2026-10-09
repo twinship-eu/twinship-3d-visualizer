@@ -61,6 +61,57 @@ export type Alarm = {
   relatedSensorIds?: string[];
   /** When it cleared — its reading back within limits — ms since the epoch; absent while it lasts. */
   clearedAt?: number;
+  /**
+   * What raised it: a sensor past its limit ("limit", the default), or a
+   * behaviour the ship's model does not expect while every sensor is inside
+   * its limits ("behaviour") — see `anomaly`.
+   */
+  kind?: AlarmKind;
+  /** How much of the ship it concerns: one component (the default), a group that works together, or the whole ship. */
+  scope?: AlarmScope;
+  /** A behaviour anomaly's own account: what is off, and where. */
+  anomaly?: BehaviourAnomaly;
+};
+
+export type AlarmKind = "limit" | "behaviour";
+export type AlarmScope = "component" | "group" | "ship";
+
+/** A reading as the ship's model expects it, and as it is. */
+export type ModelComparison = { label: string; model: string; actual: string };
+/** A share of an anomaly, and which way: what drives it, or a group that contributes. */
+export type AnomalyShare = { label: string; note: string; share: number };
+/** A likely cause, by pattern match, and how likely. */
+export type AnomalyCause = { title: string; detail: string; share: number };
+
+/**
+ * A behaviour anomaly: every sensor inside its limits, but together they do
+ * not fit the model — in a group of components that work together (it may
+ * span ontology systems), or in the ship as a whole.
+ */
+export type BehaviourAnomaly = {
+  /** The group's name ("Propulsion chain") or the vessel's. */
+  name: string;
+  /** The components involved, by their labels in the tree; in a chain, in its order. */
+  members: string[];
+  /** Whether the members form a chain, drawn linked on the ship (engine → shaft → propellers). */
+  isChain: boolean;
+  /** The ontology systems involved, by their section ids (the tree tags them). */
+  systemIds: string[];
+  /** The banner's line: what is off. */
+  summary: string;
+  /** Why it is flagged on the group or the ship, in a sentence or two. */
+  why: string;
+  /** The anomaly score now, 0 to 1, and from which it is raised. */
+  score: number;
+  threshold: number;
+  /** Now against the model: the balance it is judged on. */
+  comparisons: ModelComparison[];
+  /** A line under the comparisons. */
+  comparisonNote: string;
+  /** What drives it (a group), or the groups that contribute (the whole ship), each a share. */
+  shares: AnomalyShare[];
+  causes: AnomalyCause[];
+  nextSteps: string[];
 };
 
 /** What the operator did about an alarm from the cockpit, and when (ms since the epoch). */
@@ -118,7 +169,7 @@ export type ShipSystems = {
     rollPeriodS: number;
   };
   deck: {
-    /** Reefer container temperature, °C. */
+    /** The truck's reefer trailer temperature, °C. */
     reeferTempC: number;
     /** The crane's state, as it reports it: "Stowed", "Working"… */
     craneState: string;
@@ -169,7 +220,12 @@ export type LiveSnapshot = {
   systems: ShipSystems;
   voyage: VoyageState;
   /** The sea round the ship. */
-  sea: { significantWaveHeightM: number };
+  /**
+   * The sea's significant wave height, m: the data's when it reports one
+   * (`isWaveHeightRecorded`), which the scene's sea is then raised to; else
+   * the height of the sea the scene raised from the wind.
+   */
+  sea: { significantWaveHeightM: number; isWaveHeightRecorded?: boolean };
   /** Every sensor's latest reading, by its id (see the sensor catalogue). */
   sensors: Record<string, number>;
   /** Active alarms first, then the logged events, newest first within each. */

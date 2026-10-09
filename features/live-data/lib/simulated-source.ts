@@ -12,6 +12,7 @@ import {
   SIMULATION_PULL,
   SIMULATION_RATE_HZ,
   SIMULATION_START_POSITION,
+  demoNow,
 } from "../live-data-config";
 import { createMockAlarms } from "../live-data-mock";
 import { SENSORS } from "../live-data-sensors";
@@ -52,6 +53,20 @@ const HEAVE_PEAK_KEPT = 0.96;
  */
 function attitudeFromScene() {
   return { rollDeg: shipMotion.roll * DEGREES_PER_RADIAN, pitchDeg: -shipMotion.pitch * DEGREES_PER_RADIAN };
+}
+
+/** The heave's recent peak, faded each reading: the amplitude reported. */
+let heavePeak = 0;
+
+/**
+ * The hull's motion as the scene has it now — roll, pitch and the heave's
+ * amplitude — taken a reading at a time. Also what a replayed moment shows:
+ * its snapshots were kept before the scene's sea moved, and the motion is the
+ * ship's on the screen, not the data's.
+ */
+export function sceneHullMotion() {
+  heavePeak = Math.max(Math.abs(shipMotion.heave), heavePeak * HEAVE_PEAK_KEPT);
+  return { ...attitudeFromScene(), heaveM: heavePeak };
 }
 
 /** Sensors fitted per component, from the catalogue. */
@@ -96,11 +111,10 @@ export function createSimulatedSource(): LiveDataSource {
   }
 
   function start(onSnapshot: (snapshot: LiveSnapshot) => void) {
-    const startedAt = Date.now();
+    const startedAt = demoNow();
     alarms = createMockAlarms(startedAt);
     const sensors = Object.fromEntries(SENSORS.map((sensor) => [sensor.id, sensor.simulated.value]));
     let waveHeight: number = SIMULATED_WAVE_HEIGHT.value;
-    let heavePeak = 0;
     const state: SimulatedState = {
       heading: base.headingDeg.value,
       courseOffset: base.courseOffsetDeg.value,
@@ -152,14 +166,13 @@ export function createSimulatedSource(): LiveDataSource {
           fanRpm: [fans[0], fans[1]],
         },
         hull: {
-          ...attitudeFromScene(),
+          ...sceneHullMotion(),
           meanDraftM: (readings.draftForeM + readings.draftAftM) / 2,
           draftForeM: readings.draftForeM,
           draftAftM: readings.draftAftM,
           trimM: readings.draftAftM - readings.draftForeM,
           slammingPerHour: readings.slammingPerHour,
           ballastPct: readings.ballastPct,
-          heaveM: (heavePeak = Math.max(Math.abs(shipMotion.heave), heavePeak * HEAVE_PEAK_KEPT)),
           rollPeriodS: readings.rollPeriodS,
         },
         deck: {
@@ -191,7 +204,7 @@ export function createSimulatedSource(): LiveDataSource {
       // The route shortens with the way made good, until the ship arrives
       state.distanceToGo = Math.max(0, state.distanceToGo - (state.speedOverGround * intervalSeconds) / SECONDS_PER_HOUR);
 
-      const now = Date.now();
+      const now = demoNow();
       onSnapshot({
         timestamp: now,
         observedAt: now,

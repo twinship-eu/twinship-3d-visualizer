@@ -3,7 +3,8 @@ import { ShipTreeNode } from "../ship-visualizer-types";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { Box3, Group, Mesh, Vector3 } from "three/webgpu";
-import { CAMERA_TRANSITION_DURATION_S, DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET } from "../ship-visualizer-config";
+import { CAMERA_TRANSITION_DURATION_S } from "../ship-visualizer-config";
+import { homeCameraPose } from "@/features/3d-scene/lib/compass-camera-pose";
 import { easeOutCubic, getMatchingMeshUuids } from "../lib/3d-model";
 import { CAMERA_FIT_PADDING, MIN_CAMERA_DISTANCE } from "../lib/constants";
 import { SEASCAPE_SURFACE_LEVEL_Y } from "@/features/3d-scene/lib/seascape-config";
@@ -52,16 +53,10 @@ export default function CameraFitToSelection({
     if (resetPending.current && targetObj) {
       startPosition.current.copy(camera.position);
       startTarget.current.copy(targetObj);
-      endPosition.current.set(
-        DEFAULT_CAMERA_POSITION[0],
-        DEFAULT_CAMERA_POSITION[1],
-        DEFAULT_CAMERA_POSITION[2]
-      );
-      endTarget.current.set(
-        DEFAULT_CAMERA_TARGET[0],
-        DEFAULT_CAMERA_TARGET[1],
-        DEFAULT_CAMERA_TARGET[2]
-      );
+      // The default view; in Live data the one held to the camera's bearing, for the heading now
+      const home = homeCameraPose();
+      endPosition.current.set(...home.position);
+      endTarget.current.set(...home.target);
       progress.current = 0;
       animating.current = true;
       resetPending.current = false;

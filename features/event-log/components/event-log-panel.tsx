@@ -11,6 +11,7 @@ import type { LogEvent } from "../event-log-types";
 import { useEventLog } from "../hooks/use-event-log";
 import { downloadText, toCsv } from "../lib/export-csv";
 import { selectLogEvent, setTimeSeriesOpen, useEventLogState } from "../lib/event-log-store";
+import { openAnomaly } from "@/features/anomalies/lib/anomaly-store";
 import { EventRow } from "./event-row";
 
 type Props = {
@@ -75,6 +76,11 @@ export function EventLogPanel({ systemId, onFocus, onShowWholeShip, onAsk, onClo
       )
     );
   const select = (event: LogEvent) => {
+    // A behaviour anomaly opens as itself: its panel, its members on the ship
+    if (event.kind === "anomaly" && event.alarmId) {
+      openAnomaly(event.alarmId);
+      return;
+    }
     const isOpen = event.id === selectedEventId;
     selectLogEvent(isOpen ? null : event.id);
     // The ship focuses on the event's component, with its callout; closing it, or a system event, shows the whole ship again

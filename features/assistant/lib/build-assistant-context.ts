@@ -69,6 +69,8 @@ function alarmLines({ alarms }: LiveSnapshot) {
         alarm.likelyCause && `  likely cause: ${alarm.likelyCause}`,
         alarm.recommendedActions?.length && `  recommended actions: ${alarm.recommendedActions.map((action) => `${action.title} (${action.prediction})`).join("; ")}`,
         alarm.relatedSensorIds?.length && `  related sensors: ${alarm.relatedSensorIds.join(", ")}`,
+        alarm.anomaly &&
+          `  BEHAVIOUR ANOMALY (${alarm.scope}): ${alarm.anomaly.summary}. Every sensor is inside its limits. Members: ${alarm.anomaly.members.join(", ")}. Score ${alarm.anomaly.score.toFixed(2)} (threshold ${alarm.anomaly.threshold}). Now vs model: ${alarm.anomaly.comparisons.map((row) => `${row.label} ${row.actual} (model ${row.model})`).join("; ")}. Drivers: ${alarm.anomaly.shares.map((share) => `${share.label} ${share.note} ${share.share}%`).join("; ")}. Likely causes: ${alarm.anomaly.causes.map((cause) => `${cause.title} ${cause.share}%`).join("; ")}.`,
       ]
         .filter(Boolean)
         .join("\n")

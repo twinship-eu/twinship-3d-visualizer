@@ -1,3 +1,6 @@
+import { ONTOLOGY_SUN_HEADING_DEG } from "@/features/3d-scene/lib/sky-controls-store";
+import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET } from "@/features/ship-visualizer/ship-visualizer-config";
+import { offBowBearingDeg } from "@/features/3d-scene/lib/compass-camera-pose";
 import { formatBearing } from "@/features/live-data/lib/format-readings";
 import type { SystemCard } from "./cockpit-systems";
 import { currentKn, fuelPerMileKg } from "./lib/voyage-math";
@@ -79,6 +82,16 @@ export const VOYAGE_CAMERA = {
   /** Straight down over the ship; a little aft, so the orbit controls keep their bearing. */
   topDown: { position: [0, 230, -18] as [number, number, number], target: [0, 0, 0] as [number, number, number] },
 } as const;
+
+/**
+ * Live data's camera: the Ontology's own view — its pose, and the compass
+ * bearing it looks towards there (the heading the Ontology sets its ship on,
+ * plus where its camera looks off the bow; the sun ahead of it) — the stage
+ * the ship then turns on to its real heading, held as it turns
+ * (SceneCompassCamera).
+ */
+export const LIVE_CAMERA_POSE = { position: DEFAULT_CAMERA_POSITION, target: DEFAULT_CAMERA_TARGET };
+export const LIVE_CAMERA_BEARING_DEG = ONTOLOGY_SUN_HEADING_DEG + offBowBearingDeg(LIVE_CAMERA_POSE);
 
 /** The hour the Voyage view shows the sun at, UTC: a mid-morning sun, the ship lit from the side it is seen from. */
 export const VOYAGE_HOUR_UTC = 10 + 5 / 60;

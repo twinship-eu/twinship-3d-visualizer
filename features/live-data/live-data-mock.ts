@@ -64,7 +64,7 @@ const MOCK_ALARMS: (Omit<Alarm, "raisedAt"> & { minutesAgo: number })[] = [
     id: "crane-stowed",
     componentLabel: "Crane",
     title: "Crane stowed & locked",
-    detail: "Deck equipment",
+    detail: "Cargo",
     severity: "resolved",
     minutesAgo: 27,
     isAcknowledged: true,

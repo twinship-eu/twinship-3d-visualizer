@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { activeAlarmOn, useLiveData } from "@/features/live-data/hooks/use-live-data";
 import { sensorsOf, sensorState, type SensorDefinition, type SensorState } from "@/features/live-data/live-data-sensors";
 import { subscribeToAnchors } from "../callouts/callout-anchors";
+import { COMPONENT_LIVE } from "./component-live-config";
 import { sensorAnchors } from "./sensor-anchor-projector";
 
 const DOT_CLASSES: Record<SensorState, string> = {
@@ -15,12 +16,16 @@ const DOT_CLASSES: Record<SensorState, string> = {
 
 /** How far the focused sensor's card sits from its dot, in CSS pixels: below and to the side. */
 const CARD_OFFSET = { x: -130, y: 170 };
+/** How many of the component's live readings its card shows: the panel has the rest. */
+const CARD_READINGS = 4;
 
 /**
  * Over the scene, with a component selected in Live data: a dot on each of
  * its sensors, coloured by how its reading stands against its limits, and a
- * card for the one in focus — the alarm's, or the highest reading — linked
- * to it by a line. A legend underneath.
+ * card linked by a line to the one in focus — the alarm's, or the highest
+ * reading. With an alarm the card is the alarm's reading against its
+ * limits; otherwise the component's own: its main live readings, the focused
+ * sensor's among them. A legend underneath.
  */
 export function SensorOverlay({ componentLabel }: { componentLabel: string }) {
   const snapshot = useLiveData();
@@ -70,6 +75,8 @@ export function SensorOverlay({ componentLabel }: { componentLabel: string }) {
   const focusReading = focus ? (snapshot.sensors[focus.id] ?? 0) : 0;
   const focusState = focus ? sensorState(focus, focusReading) : "normal";
   const isAlarmFocus = !!alarm;
+  // The component's own main readings, where its live panel defines them
+  const liveReadings = COMPONENT_LIVE[componentLabel]?.readings.slice(0, CARD_READINGS);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 hidden lg:block" aria-label={`${componentLabel} sensors`}>
@@ -104,7 +111,7 @@ export function SensorOverlay({ componentLabel }: { componentLabel: string }) {
             isAlarmFocus ? "border-warn-line" : "border-glass-line"
           )}
         >
-          <span className="text-[13px] font-semibold">{isAlarmFocus ? focus.shortName : focus.name}</span>
+          <span className="text-[13px] font-semibold">{isAlarmFocus ? focus.shortName : liveReadings ? componentLabel : focus.name}</span>
           {isAlarmFocus ? (
             <span className="flex items-baseline gap-2">
               <span className="font-mono text-2xl font-semibold text-warn">
@@ -117,6 +124,15 @@ export function SensorOverlay({ componentLabel }: { componentLabel: string }) {
                 {focus.unit}
               </span>
             </span>
+          ) : liveReadings ? (
+            <dl className="mt-1 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+              {liveReadings.map((reading) => (
+                <div key={reading.label} className="contents">
+                  <dt className="text-ink-2">{reading.label}</dt>
+                  <dd className="text-right font-mono text-[13px] font-semibold tabular-nums">{reading.format(reading.value(snapshot))}</dd>
+                </div>
+              ))}
+            </dl>
           ) : (
             <span className="text-ink-2">
               {focus.quantity}{" "}
@@ -129,7 +145,7 @@ export function SensorOverlay({ componentLabel }: { componentLabel: string }) {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-4 flex items-center gap-4 rounded-lg border border-glass-line bg-glass px-4 py-2 text-xs text-ink-2 backdrop-blur">
+      <div className="absolute bottom-4 left-[72px] flex items-center gap-4 rounded-lg border border-glass-line bg-glass px-4 py-2 text-xs text-ink-2 backdrop-blur">
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-ok" aria-hidden /> Normal
         </span>

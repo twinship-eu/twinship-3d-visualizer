@@ -1,12 +1,61 @@
 import { PLAYBACK_WINDOW_MINUTES } from "../live-data-config";
-import { RECORDING_OPENS_AFTER_FIRST_WARNING_MS } from "../live-data-recording-config";
+import { RECORDED_SENSORS, RECORDING_OPENS_AFTER_FIRST_WARNING_MS } from "../live-data-recording-config";
+import { SENSORS } from "../live-data-sensors";
 import { alarmsUpTo, findEpisodes, type AlarmEpisode, type PlaybackLoop } from "./recorded-alarms";
+import { anomaliesAt } from "./recorded-anomalies";
 import { loadRecording, readRecordingAt } from "./recording";
 import { withRecordedReadings } from "./recording-snapshot";
 import { createSimulatedSource } from "./simulated-source";
 import type { Alarm, LiveDataSource, LiveSnapshot, Recording } from "../live-data-types";
 
 const PLAYBACK_WINDOW_MS = PLAYBACK_WINDOW_MINUTES * 60_000;
+/**
+ * The hull's motion for the past kept before the scene's sea moved: the
+ * scene's own size of it under way (roll, pitch in degrees, heave in m) and
+ * the encounter period of pitch and heave, s. The roll's period is the snapshot's.
+ */
+const PAST_MOTION = { rollDeg: 0.35, pitchDeg: 1.0, heaveM: 0.6, pitchPeriodS: 7.4 } as const;
+
+/** Periods, s, of the two waves a simulated sensor's past wanders on: unrelated, so it never repeats soon. */
+const PAST_SENSOR_PERIODS_S = [97, 23] as const;
+
+/**
+ * A kept moment's sensors the recording does not have, wandering about their
+ * reading as the simulation's do: kept from the first snapshot alone, they
+ * were one value the whole past through — a flat line on their trends.
+ */
+function pastSensors(snapshot: LiveSnapshot, recording: Recording): LiveSnapshot["sensors"] {
+  const seconds = snapshot.timestamp / 1000;
+  const sensors = { ...snapshot.sensors };
+  SENSORS.forEach((sensor, index) => {
+    const column = RECORDED_SENSORS[sensor.id];
+    if ((column && recording.values[column]) || sensors[sensor.id] === undefined) return;
+    const [slow, quick] = PAST_SENSOR_PERIODS_S;
+    const wander = 0.7 * Math.sin((2 * Math.PI * seconds) / slow + index) + 0.3 * Math.sin((2 * Math.PI * seconds) / quick + 2 * index);
+    sensors[sensor.id] = sensor.simulated.value + sensor.simulated.spread * wander;
+  });
+  return sensors;
+}
+
+/** A kept moment as the scene and the simulation would have had it: the hull's motion (roll on its period, pitch and heave on theirs), the unrecorded sensors wandering. */
+function withPastMotion(snapshot: LiveSnapshot, recording: Recording): LiveSnapshot {
+  const seconds = snapshot.timestamp / 1000;
+  const { hull } = snapshot.systems;
+  const pitchPhase = (2 * Math.PI * seconds) / PAST_MOTION.pitchPeriodS;
+  return {
+    ...snapshot,
+    sensors: pastSensors(snapshot, recording),
+    systems: {
+      ...snapshot.systems,
+      hull: {
+        ...hull,
+        rollDeg: PAST_MOTION.rollDeg * Math.sin((2 * Math.PI * seconds) / hull.rollPeriodS),
+        pitchDeg: PAST_MOTION.pitchDeg * Math.sin(pitchPhase + 1),
+        heaveM: PAST_MOTION.heaveM * (0.8 + 0.2 * Math.abs(Math.sin(pitchPhase / 5))),
+      },
+    },
+  };
+}
 
 /** Active alarms first, then the logged events; newest first within each. */
 function byUrgency(first: Alarm, second: Alarm) {
@@ -47,6 +96,8 @@ function createPlayback(recording: Recording, startedAt: number) {
   return {
     at,
     alarmsAt,
+    /** A loop's mapping of the recording's moments to the viewer's. */
+    toViewerTime: (index: number) => loop(index).toViewerTime,
     /** The viewer's moment of the recording's start: before it, the recording has no past to give. */
     recordedSince: startedAt - (opensAt - first),
   };
@@ -82,7 +133,12 @@ export function createRecordedSource(): LiveDataSource {
         .alarmsAt(snapshot.timestamp, moment, index)
         .map((alarm) => (acknowledged.has(alarm.id) ? { ...alarm, isAcknowledged: true } : alarm))
         .sort(byUrgency);
-      return { ...withRecordedReadings(snapshot, readRecordingAt(played, moment)), observedAt: moment, alarms };
+      const read = { ...withRecordedReadings(snapshot, readRecordingAt(played, moment)), observedAt: moment };
+      // The behaviour anomalies of the demo, on the recording's timeline, judged on its readings
+      const anomalies = anomaliesAt(played, moment, { index, toViewerTime: current.toViewerTime(index) }, read).map((alarm) =>
+        acknowledged.has(alarm.id) ? { ...alarm, isAcknowledged: true } : alarm
+      );
+      return { ...read, alarms: [...anomalies.filter((alarm) => !alarm.isAcknowledged), ...alarms, ...anomalies.filter((alarm) => alarm.isAcknowledged)] };
     }
 
     /**
@@ -95,7 +151,7 @@ export function createRecordedSource(): LiveDataSource {
       const intervalMs = 1000 / first.rateHz;
       const past: LiveSnapshot[] = [];
       for (let moment = since; moment < first.timestamp; moment += intervalMs) {
-        past.push(play({ ...first, timestamp: moment }, played));
+        past.push(withPastMotion(play({ ...first, timestamp: moment }, played), played));
       }
       return past;
     }

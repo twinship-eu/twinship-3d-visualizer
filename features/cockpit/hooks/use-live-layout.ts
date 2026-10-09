@@ -4,7 +4,7 @@ import { getSectionIdOf } from "@/features/ship-visualizer/lib/section-colors";
 import { SHIP_TREE_SECTIONS } from "@/features/ship-visualizer/ship-visualizer-config";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { SYSTEMS_CALLOUTS, VOYAGE_CALLOUTS } from "../callouts/callout-config";
-import type { LiveView, ViewerMode } from "../cockpit-config";
+import { IS_SINGLE_LIVE_VIEW_ENABLED, type LiveView, type ViewerMode } from "../cockpit-config";
 
 type Inputs = {
   mode: ViewerMode;
@@ -19,7 +19,8 @@ export function useLiveLayout({ mode, liveView, isShowingCallouts, selectedNode,
   const isOntologyMode = mode === "ontology";
   /** In Live data with a component selected: its live panel, sensors and trends. */
   const liveSelection = isOntologyMode ? null : selectedNode;
-  const isVoyageView = !isOntologyMode && liveView === "voyage" && liveSelection === null;
+  // One Live view: the Systems view's layout, never the Voyage one
+  const isVoyageView = !IS_SINGLE_LIVE_VIEW_ENABLED && !isOntologyMode && liveView === "voyage" && liveSelection === null;
   const liveSelectionSection = liveSelection
     ? SHIP_TREE_SECTIONS.find(
         (section) => section.id === getSectionIdOf(liveSelection) && section.id !== liveSelection.id

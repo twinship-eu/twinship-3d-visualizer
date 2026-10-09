@@ -10,7 +10,7 @@ const SKELETON_SECTIONS = [
   { label: "Ship model", childCount: 1 },
   { label: "Hull", childCount: 4 },
   { label: "Superstructure", childCount: 3 },
-  { label: "Deck equipment", childCount: 3 },
+  { label: "Cargo", childCount: 3 },
   { label: "Propulsion", childCount: 3 },
 ] as const;
 

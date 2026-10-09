@@ -1,6 +1,7 @@
-import { LIVE_HISTORY_LENGTH, PLAYBACK_HISTORY_LENGTH } from "../live-data-config";
+import { demoNow, LIVE_HISTORY_LENGTH, PLAYBACK_HISTORY_LENGTH } from "../live-data-config";
 import type { LiveDataSource, LiveSnapshot, OperatorAction } from "../live-data-types";
 import { createRecordedSource } from "./recorded-source";
+import { sceneHullMotion } from "./simulated-source";
 
 /** Where the viewer is in time: live, or a moment of the kept history. */
 export type Playback = {
@@ -40,6 +41,8 @@ function createLiveDataStore(source: LiveDataSource) {
   let stop: (() => void) | null = null;
   // What the getters hand out, rebuilt only when it changes: React compares them by identity
   let viewedSnapshot: LiveSnapshot | null = null;
+  /** The kept snapshot the viewed one is made from. */
+  let viewedSource: LiveSnapshot | null = null;
   let viewedHistory: LiveSnapshot[] = [];
   let playback: Playback = { viewedAt: null, oldest: null, latest: null, isPlaying: true };
   /**
@@ -53,8 +56,13 @@ function createLiveDataStore(source: LiveDataSource) {
   function refresh() {
     const index = viewedAt === null ? history.length - 1 : indexAt(history, viewedAt);
     const snapshot = history[index] ?? null;
-    if (snapshot !== viewedSnapshot) {
-      viewedSnapshot = snapshot;
+    // A moment replayed: the hull's motion is the scene's now — the ship on the
+    // screen — not the kept snapshot's, kept from before the sea moved
+    const isReplayed = viewedAt !== null && index < history.length - 1;
+    if (snapshot !== viewedSource || isReplayed) {
+      viewedSource = snapshot;
+      viewedSnapshot =
+        snapshot && isReplayed ? { ...snapshot, systems: { ...snapshot.systems, hull: { ...snapshot.systems.hull, ...sceneHullMotion() } } } : snapshot;
       viewedHistory = history.slice(Math.max(0, index - (LIVE_HISTORY_LENGTH - 1)), index + 1);
     }
     playback = {
@@ -123,24 +131,26 @@ function createLiveDataStore(source: LiveDataSource) {
 
   /** The latest moment of the data: the operator acts on the ship as it is now. */
   function latestMoment() {
-    return history[history.length - 1]?.timestamp ?? Date.now();
+    return history[history.length - 1]?.timestamp ?? demoNow();
   }
 
   function recordAction(action: OperatorAction) {
     operatorActions = [...operatorActions, action];
   }
 
-  /** Acknowledges an alarm, and shows it at once rather than with the next snapshot. */
+  /**
+   * Acknowledges an alarm, and shows it at once rather than with the next
+   * snapshot — in every kept snapshot too, so a replay viewed or playing
+   * shows it acknowledged, not as it was before the operator acted.
+   */
   function acknowledgeAlarm(alarmId: string) {
     source.acknowledgeAlarm(alarmId);
     recordAction({ kind: "acknowledged", alarmId, at: latestMoment() });
-    const latest = history[history.length - 1];
-    if (!latest) return;
-    const acknowledged = {
-      ...latest,
-      alarms: latest.alarms.map((alarm) => (alarm.id === alarmId ? { ...alarm, isAcknowledged: true } : alarm)),
-    };
-    history = [...history.slice(0, -1), acknowledged];
+    history = history.map((snapshot) =>
+      snapshot.alarms.some((alarm) => alarm.id === alarmId && !alarm.isAcknowledged)
+        ? { ...snapshot, alarms: snapshot.alarms.map((alarm) => (alarm.id === alarmId ? { ...alarm, isAcknowledged: true } : alarm)) }
+        : snapshot
+    );
     refresh();
   }
 

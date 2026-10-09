@@ -33,6 +33,7 @@ const SECONDARY_BUTTON_CLASS =
 const DOT_CLASS: Record<LogEvent["kind"], string> = {
   alarm: "bg-alarm",
   warning: "bg-warn",
+  anomaly: "bg-anomaly",
   info: "bg-accent",
   operator: "bg-system-propeller",
   cleared: "bg-ok",

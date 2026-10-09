@@ -1,5 +1,5 @@
 /** What kind of entry of the event log: its severity chip and its filter tab. */
-export type EventKind = "alarm" | "warning" | "info" | "operator" | "cleared" | "system";
+export type EventKind = "alarm" | "warning" | "anomaly" | "info" | "operator" | "cleared" | "system";
 
 /**
  * An entry of the event log: something the ship's data or its operator did,

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
+import { openAnomaly } from "@/features/anomalies/lib/anomaly-store";
 import { getAlarmBadges, subscribeToBadgePositions, subscribeToBadges, type AlarmBadge } from "./alarm-badge-anchors";
 
 const NO_BADGES: AlarmBadge[] = [];
@@ -11,7 +12,10 @@ const getServerBadges = () => NO_BADGES;
 const BADGE_CLASSES: Record<AlarmBadge["state"], string> = {
   warning: "bg-warn text-alarm-badge-ink shadow-[0_0_14px_var(--color-warn)]",
   alarm: "bg-alarm text-white shadow-[0_0_14px_var(--color-alarm)]",
+  anomaly: "bg-anomaly text-black shadow-[0_0_18px_var(--color-anomaly)] animate-pulse",
 };
+const BADGE_NAMES: Record<AlarmBadge["state"], string> = { warning: "warning", alarm: "alarm", anomaly: "behaviour anomaly" };
+
 /** How far above the part's top the badge sits, in CSS pixels. */
 const BADGE_LIFT_PX = 10;
 
@@ -51,9 +55,9 @@ export function AlarmBadges({ onOpenComponent }: Props) {
             badgeRefs.current[index] = element;
           }}
           type="button"
-          onClick={() => onOpenComponent(badge.componentLabel)}
-          aria-label={`${badge.componentLabel}: ${badge.state === "alarm" ? "alarm" : "warning"} — open`}
-          title={`${badge.componentLabel} · ${badge.state === "alarm" ? "alarm" : "warning"}`}
+          onClick={() => (badge.alarmId ? openAnomaly(badge.alarmId) : onOpenComponent(badge.componentLabel))}
+          aria-label={`${badge.componentLabel}: ${BADGE_NAMES[badge.state]} — open`}
+          title={`${badge.componentLabel} · ${BADGE_NAMES[badge.state]}`}
           style={{ visibility: "hidden" }}
           className={cn(
             "pointer-events-auto absolute top-0 left-0 flex size-7 cursor-pointer items-center justify-center rounded-full text-base leading-none font-black",

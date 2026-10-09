@@ -19,7 +19,7 @@ const READINGS: Record<string, (snapshot: LiveSnapshot) => ComponentReading> = {
   "Control room": () => ({ text: "OK", tone: "ok" }),
   Radio: () => ({ text: "VHF OK", tone: "ok" }),
   Superstructure: () => ({ text: "OK", tone: "ok" }),
-  Truck: (snapshot) => ({ text: `${snapshot.systems.deck.reeferTempC.toFixed(1)} °C`, tone: "value" }),
+  "Truck with trailer": (snapshot) => ({ text: `${snapshot.systems.deck.reeferTempC.toFixed(1)} °C`, tone: "value" }),
   Crane: (snapshot) => ({ text: snapshot.systems.deck.craneState, tone: "value" }),
   Propellers: (snapshot) => ({ text: `${snapshot.systems.propulsion.shaftRpm.toFixed(0)} rpm`, tone: "value" }),
   Engine: (snapshot) => ({ text: `${snapshot.systems.energy.engineLoadPct.toFixed(0)}% load`, tone: "value" }),
@@ -31,7 +31,7 @@ const VOYAGE_SECTION_READINGS: Record<string, (snapshot: LiveSnapshot) => Compon
   "Ship model": (snapshot) => READINGS["TwinShip VESSEL"](snapshot),
   Hull: (snapshot) => ({ text: `roll ${snapshot.systems.hull.rollDeg.toFixed(1)}°`, tone: "value" }),
   Superstructure: () => ({ text: "OK", tone: "ok" }),
-  "Deck equipment": () => ({ text: "Secured", tone: "value" }),
+  Cargo: () => ({ text: "Secured", tone: "value" }),
   "Propeller system": (snapshot) => ({ text: `${snapshot.systems.propulsion.shaftRpm.toFixed(0)} rpm`, tone: "value" }),
   "Energy system": (snapshot) => ({ text: `${snapshot.systems.energy.fuelTph.toFixed(2)} t/h`, tone: "value" }),
   "Wind assisted propulsion system": (snapshot) => ({

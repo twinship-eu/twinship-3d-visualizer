@@ -51,6 +51,10 @@
   --color-warn-ink: var(--cp-warn-text);
   --color-warn-soft: var(--cp-warn-bg);
   --color-warn-line: var(--cp-warn-line);
+  --color-anomaly: var(--cp-anomaly);
+  --color-anomaly-ink: var(--cp-anomaly-text);
+  --color-anomaly-soft: var(--cp-anomaly-bg);
+  --color-anomaly-line: var(--cp-anomaly-line);
   --color-alarm: var(--cp-alarm);
   --color-alarm-soft: var(--cp-alarm-bg);
   --color-sim: var(--cp-sim);
@@ -143,6 +147,11 @@
   --cp-warn-text: #fcd58a;
   --cp-warn-bg: rgba(245, 165, 36, 0.12);
   --cp-warn-line: rgba(245, 181, 68, 0.5);
+  /* Behaviour anomalies: a danger orange-red, apart from the amber of a limit and the red of an alarm */
+  --cp-anomaly: #fb6b3a;
+  --cp-anomaly-text: #fdba8c;
+  --cp-anomaly-bg: rgba(251, 107, 58, 0.12);
+  --cp-anomaly-line: rgba(251, 107, 58, 0.5);
   --cp-alarm: #f87171;
   --cp-alarm-bg: rgba(248, 113, 113, 0.14);
   --cp-sim: #c4b5fd;
@@ -184,6 +193,10 @@
   --cp-warn-text: #92400e;
   --cp-warn-bg: rgba(245, 158, 11, 0.12);
   --cp-warn-line: rgba(217, 119, 6, 0.45);
+  --cp-anomaly: #ea4f1a;
+  --cp-anomaly-text: #b03a10;
+  --cp-anomaly-bg: rgba(234, 79, 26, 0.1);
+  --cp-anomaly-line: rgba(234, 79, 26, 0.45);
   --cp-alarm: #dc2626;
   --cp-alarm-bg: rgba(220, 38, 38, 0.1);
   --cp-sim: #6d28d9;

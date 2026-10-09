@@ -382,6 +382,33 @@ export function fullyDevelopedFetch(windSpeed: number) {
   return Math.min((FULLY_DEVELOPED_FETCH * speed * speed) / GRAVITY, MAX_STORM_FETCH);
 }
 
+/** The shortest fetch searched for a reported wave height, in metres: a sea hardly begun. */
+const MIN_FETCH = 1_000;
+/** Halvings of the fetch range searched: to well under a centimetre of Hs. */
+const FETCH_SEARCH_STEPS = 32;
+
+/**
+ * The fetch at which a wind raises a given significant wave height, in
+ * metres: for a sea reported (measured, or a hindcast), so the waves drawn
+ * are the height reported — and, the fetch law keeping height and length
+ * together, the length that goes with it. A sea shorter than the wind's
+ * least gets the least fetch; one taller than its fully developed sea, that
+ * sea (the rest would be swell, which the wind does not raise).
+ */
+export function fetchForWaveHeight(windSpeed: number, significantHeight: number) {
+  const heightAt = (fetch: number) => windSeaState({ speed: windSpeed, fromDegrees: 0, fetch }).significantHeight;
+  let low = MIN_FETCH;
+  let high = fullyDevelopedFetch(windSpeed);
+  if (significantHeight >= heightAt(high)) return high;
+  if (significantHeight <= heightAt(low)) return low;
+  for (let step = 0; step < FETCH_SEARCH_STEPS; step++) {
+    const middle = Math.sqrt(low * high);
+    if (heightAt(middle) < significantHeight) low = middle;
+    else high = middle;
+  }
+  return Math.sqrt(low * high);
+}
+
 /**
  * JONSWAP's two parameters for a wind — see `windSeaState` for the laws —
  * and how much of the sea it raises (0 for no wind, 1 above MIN_WIND_SPEED).

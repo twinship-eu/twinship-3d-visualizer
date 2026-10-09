@@ -40,6 +40,22 @@ export const DEFAULT_LIVE_VIEW: LiveView = "systems";
 export const LIVE_VIEW_PARAM = "live";
 /** Whether the Systems view shows its callouts over the scene (`?callouts=false` for a clean view). */
 export const CALLOUTS_PARAM = "callouts";
+/** Whether the Live view shows its navigation layer in the bar under the ship (`?nav=false` to hide it). */
+export const NAVIGATION_PARAM = "nav";
+/**
+ * The SHOW bar's Navigation toggle. Off: the navigation layer always shows —
+ * the heading at the top, the attitude top right, wind and route in the bar —
+ * and the ship is stopped from the zoom controls' anchor button instead.
+ */
+export const IS_NAVIGATION_TOGGLE_ENABLED = false;
+/**
+ * Live data as one view (the design's "Live view"): the components and the
+ * navigation as two layers over one ship, no Systems/Voyage split. Off brings
+ * the two views back.
+ */
+export const IS_SINGLE_LIVE_VIEW_ENABLED = true;
+/** The bridge camera: "optional, for later" in the design. Kept, flagged off. */
+export const IS_BRIDGE_VIEW_ENABLED = false;
 
 /**
  * What each level of autonomy the ship reports means, for the top bar's

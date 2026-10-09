@@ -50,9 +50,12 @@ export function MotionCard({ snapshot }: { snapshot: LiveSnapshot }) {
 /** Pixels the horizon moves per degree of pitch, in the 100-unit disc. */
 const HORIZON_PX_PER_DEG = 4;
 
+/** The ship's attitude: roll and pitch in degrees, the heave's amplitude in m, the roll's period in s. */
+export type Attitude = { rollDeg: number; pitchDeg: number; heaveM: number; rollPeriodS: number };
+
 /** Roll and pitch on an artificial horizon, with heave and the roll's period. */
-export function AttitudeCard({ snapshot }: { snapshot: LiveSnapshot }) {
-  const { rollDeg, pitchDeg, heaveM, rollPeriodS } = snapshot.systems.hull;
+export function AttitudeCard({ attitude }: { attitude: Attitude }) {
+  const { rollDeg, pitchDeg, heaveM, rollPeriodS } = attitude;
 
   return (
     <section className={`${CARD_CLASS} w-[252px] gap-3`} aria-label="Attitude">

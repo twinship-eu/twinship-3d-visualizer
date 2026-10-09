@@ -40,10 +40,20 @@ export function useOperatorActions(): OperatorAction[] {
   return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getOperatorActions, getServerActions);
 }
 
-/** Alarms and warnings not yet acknowledged: what the badges count. */
+/** Whether an alarm is a behaviour anomaly (a group's or the ship's), not a sensor past its limit. */
+export const isBehaviourAnomaly = (alarm: Alarm) => alarm.kind === "behaviour";
+
+/** Limit alarms and warnings not yet acknowledged: what the amber badges count, and what lights a component. */
 export function getActiveAlarms(snapshot: LiveSnapshot | null): Alarm[] {
   return (snapshot?.alarms ?? []).filter(
-    (alarm) => !alarm.isAcknowledged && (alarm.severity === "alarm" || alarm.severity === "warning")
+    (alarm) => !isBehaviourAnomaly(alarm) && !alarm.isAcknowledged && (alarm.severity === "alarm" || alarm.severity === "warning")
+  );
+}
+
+/** Behaviour anomalies not yet acknowledged: what the orange-red badge counts. */
+export function getActiveAnomalies(snapshot: LiveSnapshot | null): Alarm[] {
+  return (snapshot?.alarms ?? []).filter(
+    (alarm) => isBehaviourAnomaly(alarm) && !alarm.isAcknowledged && (alarm.severity === "alarm" || alarm.severity === "warning")
   );
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { EventLogPanel } from "@/features/event-log/components/event-log-panel";
 import { LogSceneOverlay } from "@/features/event-log/components/log-scene-overlay";
 import { LogBesideShipNote, LogNodeCount } from "@/features/event-log/components/log-sidebar";
@@ -8,7 +9,7 @@ import { useEventLog } from "@/features/event-log/hooks/use-event-log";
 import { SYSTEMS_CALLOUTS, VOYAGE_CALLOUTS, type CalloutDefinition } from "../callouts/callout-config";
 import { AssistantEvidenceStrip } from "@/features/assistant/components/assistant-evidence-strip";
 import { AssistantPanel } from "@/features/assistant/components/assistant-panel";
-import { askAssistant, useAssistantState } from "@/features/assistant/lib/assistant-store";
+import { askAssistant, clearHighlights, useAssistantState } from "@/features/assistant/lib/assistant-store";
 import { getSectionIdOf } from "@/features/ship-visualizer/lib/section-colors";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import type { CockpitPanel } from "../cockpit-config";
@@ -41,6 +42,13 @@ export function useCockpitPanels({ isOntologyMode, onOpenComponent, onClearSelec
   const isLogOpen = openPanel === "log";
   const isAssistantOpen = openPanel === "assistant";
   const highlighted = new Set(highlights.map((highlight) => highlight.component));
+  // The chat closed (however: its ×, the top bar's button, another panel, a component opened):
+  // what its answer pointed out on the ship goes with it. The conversation stays, for opening again
+  const wasAssistantOpen = useRef(isAssistantOpen);
+  useEffect(() => {
+    if (wasAssistantOpen.current && !isAssistantOpen) clearHighlights();
+    wasAssistantOpen.current = isAssistantOpen;
+  }, [isAssistantOpen]);
   // The event the log has selected: its component gets its callout on the ship, pinned to it
   const { selectedEventId } = useEventLogState();
   const { events } = useEventLog();
@@ -70,8 +78,8 @@ export function useCockpitPanels({ isOntologyMode, onOpenComponent, onClearSelec
     ask,
     showOnShip,
     /** The callouts give way to the assistant's highlights, as the design has it, and to the log. */
-    hidesCallouts: isLogOpen || (isAssistantOpen && highlights.length > 0),
-    /** While the log is open: the callout of the selected event's component only, pinned to it on the ship. */
+    hidesCallouts: isAssistantOpen && highlights.length > 0,
+    /** While the log has an event selected: its component's callout only, pinned to it on the ship (the layer toggle governs otherwise). */
     logCallouts: focusedCallout ? [focusedCallout] : null,
     /**
      * While the log is open, the tree filters it and counts its events; while

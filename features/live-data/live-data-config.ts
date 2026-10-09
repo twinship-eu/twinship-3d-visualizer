@@ -6,6 +6,25 @@
 /** Snapshots per second: the design's 1 Hz. */
 export const SIMULATION_RATE_HZ = 1;
 
+/**
+ * The demo's clock: the data is played as if it were this hour of the day,
+ * UTC, when the page opened — so the time the cockpit shows and the sun in
+ * the sky agree (a mid-morning sun, the ship in full colour). The date stays
+ * today's. Null plays it at the viewer's own clock.
+ */
+export const DEMO_START_HOUR_UTC: number | null = 10 + 5 / 60;
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
+/** How far the demo's clock is from the viewer's, in ms: fixed when the page loads. */
+const DEMO_CLOCK_OFFSET_MS = (() => {
+  if (DEMO_START_HOUR_UTC === null) return 0;
+  const now = Date.now();
+  const timeOfDay = ((now % MS_PER_DAY) + MS_PER_DAY) % MS_PER_DAY;
+  return DEMO_START_HOUR_UTC * MS_PER_HOUR - timeOfDay;
+})();
+/** Now, on the demo's clock: what every snapshot is stamped with. */
+export const demoNow = () => Date.now() + DEMO_CLOCK_OFFSET_MS;
+
 /** Where the simulated values sit, and how far each wanders from it: at about the design speed, as the sample recording. */
 export const SIMULATION_BASELINE = {
   headingDeg: { value: 87, spread: 1.2 },

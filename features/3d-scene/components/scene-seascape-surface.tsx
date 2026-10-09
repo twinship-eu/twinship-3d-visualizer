@@ -52,7 +52,7 @@ import { createShipMotionSolver } from "../lib/seascape-ship-motion";
 import { createWaveProbes } from "../lib/seascape-wave-probes";
 import { createFftOcean } from "../lib/seascape-fft-ocean";
 import { createFftSurfaceNodes } from "../lib/seascape-fft-surface";
-import { fullyDevelopedFetch } from "../lib/seascape-wind-waves";
+import { fetchForWaveHeight, fullyDevelopedFetch } from "../lib/seascape-wind-waves";
 import {
   applyWindSeaState,
   createSeascapeSurfaceNodes,
@@ -237,9 +237,20 @@ const SPEED_CHANGE_TIME = 6;
 /** Metres per second in a knot. */
 const METRES_PER_SECOND_PER_KNOT = 0.514444;
 
-/** The wind, with the fetch it has over open ocean: the speed alone sets the sea. */
-function windAt(speed: number, fromDegrees: number) {
-  return { speed, fromDegrees, fetch: fullyDevelopedFetch(speed) };
+/** Steps the data's wave height is taken in, m: a new sea for each, not one every frame. */
+const WAVE_HEIGHT_STEP_M = 0.1;
+
+/**
+ * The wind, and the fetch it has: the one that raises the wave height the
+ * data reports, when it does; else the open ocean's, where the speed alone
+ * sets the sea.
+ */
+function windAt(speed: number, fromDegrees: number, significantWaveHeightM?: number | null) {
+  const fetch =
+    significantWaveHeightM === undefined || significantWaveHeightM === null
+      ? fullyDevelopedFetch(speed)
+      : fetchForWaveHeight(speed, Math.max(Math.round(significantWaveHeightM / WAVE_HEIGHT_STEP_M), 1) * WAVE_HEIGHT_STEP_M);
+  return { speed, fromDegrees, fetch: Math.round(fetch) };
 }
 
 /** The wind the sea starts with. */
@@ -400,6 +411,9 @@ function createSeaSurface(canUseCompute: boolean) {
     /** The data's wind speed averaged (LIVE_WIND_AVERAGING_S), and the one the sea was raised by, m/s: null until it gives one. */
     liveWindAverage: null as number | null,
     liveWindRaised: null as number | null,
+    /** What the wind below was worked out from, and the wind: its fetch is searched for, not taken each frame. */
+    windInputs: null as string | null,
+    wind: null as ReturnType<typeof windAt> | null,
   };
 }
 
@@ -591,7 +605,15 @@ export function SceneSeascapeSurface() {
         : SEASCAPE_WIND.speed;
     if (IS_SCENE_INSPECTOR_ENABLED) SEASCAPE_TUNING.windSpeed = windSpeed;
     const windFrom = IS_SCENE_INSPECTOR_ENABLED ? SEASCAPE_TUNING.windFromDegrees : SEASCAPE_WIND.fromDegrees;
-    const wind = windAt(windSpeed, windFrom);
+    // Raised to the data's wave height when it has one; the wind's own sea otherwise. Only worked out
+    // anew when the wind or the height steps, not every frame
+    const reportedHeight = liveWind?.significantWaveHeightM ?? null;
+    const windInputs = `${windSpeed}|${windFrom}|${reportedHeight === null ? "-" : Math.round(reportedHeight / WAVE_HEIGHT_STEP_M)}`;
+    if (windInputs !== sea.windInputs) {
+      sea.windInputs = windInputs;
+      sea.wind = windAt(windSpeed, windFrom, reportedHeight);
+    }
+    const wind = sea.wind ?? windAt(windSpeed, windFrom, reportedHeight);
 
     // The side the data's wind comes from, off the bow — head-on without it.
     // Set at once the first time, then followed slowly: never seen turning

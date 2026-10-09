@@ -136,6 +136,28 @@ function rowEvents(history: LiveSnapshot[]): Draft[] {
   });
 }
 
+/** The behaviour anomalies, each where it was raised: a group's or the ship's, not one sensor's. */
+function anomalyEvents(alarms: Alarm[]): Draft[] {
+  return alarms.flatMap((alarm) =>
+    alarm.kind === "behaviour" && alarm.anomaly
+      ? [
+          {
+            id: `${alarm.id}:raised`,
+            at: alarm.raisedAt,
+            kind: "anomaly" as const,
+            componentLabel: null,
+            subject: alarm.scope === "ship" ? "whole ship" : `group · ${alarm.anomaly.members.join(" → ")}`,
+            title: alarm.title,
+            value: `score ${alarm.anomaly.score.toFixed(2)}`,
+            status: alarm.isAcknowledged ? "Acknowledged" : "Active · unack",
+            isAttention: !alarm.isAcknowledged,
+            alarmId: alarm.id,
+          },
+        ]
+      : []
+  );
+}
+
 /**
  * The event log: every row of the recording, newest first — each with its
  * readings, a warning where one is past its limit — what the operator did,
@@ -155,6 +177,7 @@ export function buildEventLog(history: LiveSnapshot[], actions: OperatorAction[]
       status: "Running",
     },
     ...rowEvents(history),
+    ...anomalyEvents(latest.alarms),
     ...operatorEvents(actions, latest.alarms),
   ];
   return drafts

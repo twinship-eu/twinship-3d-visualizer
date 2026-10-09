@@ -17,8 +17,17 @@ const BUTTON_CLASS =
 type Props = {
   /** In Voyage: the route's line over the track — origin, progress, destination — as of the moment viewed. */
   showsRoute?: boolean;
+  /** After the replay, in the same bar: the navigation layer's readouts. */
+  trailing?: React.ReactNode;
+  /**
+   * Only as wide as its contents, the track a set length: the Live view's
+   * bar. Its parent is then the container the trailing readouts give way by.
+   */
+  isCompact?: boolean;
   className?: string;
 };
+/** The compact bar's track, CSS pixels. */
+const COMPACT_TRACK_CLASS = "w-[200px] shrink-0";
 
 /**
  * Over the scene's foot: the kept data, to go back through and play again.
@@ -28,7 +37,7 @@ type Props = {
  * then. The warnings raised are marked on it. In Voyage it carries the route
  * too, so there is one bar for both.
  */
-export function PlaybackTimeline({ showsRoute = false, className }: Props) {
+export function PlaybackTimeline({ showsRoute = false, trailing, isCompact = false, className }: Props) {
   const { viewedAt, oldest, latest, isPlaying } = usePlayback();
   const snapshot = useLiveData();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -66,7 +75,8 @@ export function PlaybackTimeline({ showsRoute = false, className }: Props) {
     <div
       data-callout-avoid
       className={cn(
-        "pointer-events-auto hidden flex-col gap-1 rounded-[10px] border border-glass-line bg-glass px-2 py-1.5 text-ink backdrop-blur lg:flex",
+        !isCompact && "@container",
+        "pointer-events-auto hidden flex-col gap-1 overflow-hidden rounded-[10px] border border-glass-line bg-glass px-2 py-1.5 text-ink backdrop-blur lg:flex",
         className ?? "absolute bottom-4 left-1/2 z-20 w-[min(720px,calc(100%-10rem))] -translate-x-1/2"
       )}
     >
@@ -99,7 +109,7 @@ export function PlaybackTimeline({ showsRoute = false, className }: Props) {
           <FastForward className="size-4" aria-hidden />
         </button>
         {/* The moment shown, as a clock: where the eye looks first */}
-        <span className="w-[60px] shrink-0 text-center font-mono text-xs font-semibold">{formatUtcTime(viewed)}</span>
+        <span className="w-[60px] shrink-0 text-center font-mono text-xs font-semibold tabular-nums">{formatUtcTime(viewed)}</span>
         <div
           ref={trackRef}
           role="slider"
@@ -118,7 +128,10 @@ export function PlaybackTimeline({ showsRoute = false, className }: Props) {
           }}
           onPointerDown={scrub}
           onPointerMove={scrub}
-          className="relative mx-1 h-6 grow cursor-pointer touch-none focus-visible:outline-none"
+          className={cn(
+            "relative mx-1 h-6 cursor-pointer touch-none focus-visible:outline-none",
+            isCompact ? COMPACT_TRACK_CLASS : "min-w-[120px] grow"
+          )}
         >
           <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-track">
             <div className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${shareOf(viewed) * 100}%` }} />
@@ -142,13 +155,21 @@ export function PlaybackTimeline({ showsRoute = false, className }: Props) {
             aria-hidden
           />
         </div>
-        {isLive ? (
-          <span className="shrink-0 pr-2 text-xs font-bold tracking-[0.1em] text-ok">LIVE</span>
-        ) : (
-          <button type="button" onClick={() => viewLiveDataAt(null)} className="shrink-0 cursor-pointer pr-2 font-mono text-xs font-semibold text-warn hover:text-ink">
-            −{formatElapsed(viewed, latest)} · live
-          </button>
-        )}
+        {/* One fixed width for LIVE and for "−17:00 · live": the track does not jump between them */}
+        <span className="flex w-[104px] shrink-0 justify-end pr-2">
+          {isLive ? (
+            <span className="text-xs font-bold tracking-[0.1em] text-ok">LIVE</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => viewLiveDataAt(null)}
+              className="cursor-pointer font-mono text-xs font-semibold whitespace-nowrap text-warn tabular-nums hover:text-ink"
+            >
+              −{formatElapsed(viewed, latest)} · live
+            </button>
+          )}
+        </span>
+        {trailing}
       </div>
     </div>
   );
