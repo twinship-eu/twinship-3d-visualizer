@@ -1,0 +1,56 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e5]:
+    - generic:
+      - button "180 FPS" [ref=f1e17] [cursor=pointer]:
+        - generic [ref=f1e18]:
+          - generic [ref=f1e19]: "180"
+          - generic [ref=f1e20]: FPS
+      - generic [ref=f1e27]:
+        - generic [ref=f1e29]:
+          - generic [ref=f1e30]:
+            - button "⋮⋮ Performance" [ref=f1e31]
+            - button "Console" [ref=f1e32]
+          - generic [ref=f1e33]:
+            - button "Switch to Right Side" [ref=f1e34] [cursor=pointer]
+            - button [ref=f1e37] [cursor=pointer]
+            - button "-" [ref=f1e40] [cursor=pointer]
+        - generic [ref=f1e44]:
+          - generic [ref=f1e45]:
+            - generic [ref=f1e46]: Name
+            - generic [ref=f1e47]: CPU
+            - generic [ref=f1e48]: GPU
+            - generic [ref=f1e49]: Total
+          - generic [ref=f1e51] [cursor=pointer]:
+            - generic [ref=f1e52]:
+              - generic [ref=f1e53]: "-"
+              - text: Graph Stats
+            - generic [ref=f1e54]: 180 FPS
+          - generic [ref=f1e63]:
+            - generic [ref=f1e64] [cursor=pointer]:
+              - generic [ref=f1e65]:
+                - generic [ref=f1e66]: "-"
+                - text: Frame Stats
+              - generic [ref=f1e67]: "0.32"
+              - generic [ref=f1e69]: "0.16"
+              - generic [ref=f1e71]: "0.49"
+            - generic [ref=f1e73]:
+              - generic [ref=f1e74]:
+                - generic [ref=f1e75] [cursor=pointer]:
+                  - generic [ref=f1e76]:
+                    - generic [ref=f1e77]: "-"
+                    - generic [ref=f1e78]: Scene
+                  - generic [ref=f1e79]: "0.32"
+                  - generic [ref=f1e81]: "0.16"
+                  - generic [ref=f1e83]: "0.49"
+                - generic [ref=f1e87]:
+                  - generic [ref=f1e88]: Output Color Transform
+                  - generic [ref=f1e90]: "0.11"
+                  - generic [ref=f1e92]: "0.07"
+                  - generic [ref=f1e94]: "0.17"
+              - generic [ref=f1e97]:
+                - generic [ref=f1e98]: Miscellaneous & Idle
+                - generic [ref=f1e99]: "5.01"
+                - generic [ref=f1e101]: "-"
+                - generic [ref=f1e103]: "5.01"
+  - button "Open Next.js Dev Tools" [ref=f1e12] [cursor=pointer]
+  - alert [ref=f1e16]
