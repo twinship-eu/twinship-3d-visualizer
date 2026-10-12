@@ -24,6 +24,7 @@ import { splitPropellersIntoSpinners } from "../lib/propellers";
 import { SHIP_MATERIAL_TUNING } from "@/features/3d-scene/lib/scene-material-tuning";
 import { Mesh, MeshStandardMaterial } from "three/webgpu";
 import { withKtx2Textures } from "../lib/ktx2-loader";
+import { applyFrontDepth, frontDepthNodeId, restoreFrontDepth } from "../lib/front-depth";
 import CameraFitToSelection from "./camera-fit-to-section";
 import ShipFlagCloth from "./ship-flag";
 import SpinningPropellers from "./spinning-propellers";
@@ -108,6 +109,9 @@ export default function GltfShipModel({
 
   useEffect(() => {
     if (!cloned) return;
+    // A new selection: the last part's own materials back before the ship's are dimmed, then a
+    // hidden part lifted in front. Only hovering: the lifted part's copies are kept
+    if (frontDepthNodeId() !== (selectedStructureNode?.id ?? null)) restoreFrontDepth();
     applySelectionOpacity(
       cloned,
       selectedStructureNode,
@@ -115,7 +119,9 @@ export default function GltfShipModel({
       UNSELECTED_PART_OPACITY,
       HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED
     );
+    applyFrontDepth(cloned, selectedStructureNode);
   }, [cloned, selectedStructureNode, hoveredStructureNode]);
+  useEffect(() => () => restoreFrontDepth(), [cloned]);
 
   useEffect(() => {
     if (!cloned) return;
