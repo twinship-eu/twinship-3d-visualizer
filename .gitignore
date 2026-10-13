@@ -47,3 +47,6 @@ node_modules
 # Raw Blender export of the ship, the rebuild source for twinship-engine.glb.
 # ~240 MB, well past GitHub's 100 MB per-file limit.
 public/ship/twinship-engine-raw*.glb
+
+# Playwright MCP session dumps (screenshots, snapshots, console logs)
+.playwright-mcp/

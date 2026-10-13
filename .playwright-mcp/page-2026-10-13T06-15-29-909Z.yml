@@ -1,5 +1,0 @@
-- generic [active] [ref=e1]:
-  - link "Back to ship" [ref=e7] [cursor=pointer]:
-    - /url: /
-  - button "Open Next.js Dev Tools" [ref=e15] [cursor=pointer]
-  - alert [ref=e19]

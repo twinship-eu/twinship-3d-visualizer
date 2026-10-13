@@ -1,6 +1,0 @@
-[     109ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[     125ms] [LOG] [Fast Refresh] done in 116ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[     190ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[     201ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[     309ms] [WARNING] THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[     312ms] [WARNING] The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127 @ http://localhost:3000/_next/static/chunks/node_modules_three_build_three_webgpu_0b895824.js:54718
