@@ -46,9 +46,12 @@ export function ShipVisualizer() {
   const [assemblyTargets, setAssemblyTargets] = useState<Float32Array | null>(
     null
   );
-  const loading = useModelLoadProgress(isModelReady, assemblyTargets !== null);
-
   const renderedModelPath = selectedModelPath;
+  const loading = useModelLoadProgress(
+    renderedModelPath,
+    isModelReady,
+    assemblyTargets !== null
+  );
 
   useEffect(() => {
     setModelTree(null);
