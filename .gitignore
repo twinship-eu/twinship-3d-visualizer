@@ -53,3 +53,6 @@ public/ship/TwinShip_UPDATE*.glb
 
 # Vessel recordings that must not be committed (e.g. partner data): see scripts/convert-timeseries.py
 public/live-data/*.local.json
+
+# Playwright MCP session dumps (screenshots, snapshots, console logs)
+.playwright-mcp/

@@ -1,10 +1,14 @@
 "use client";
 
 import { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
-import { SHIP_TREE_SECTION_MAX_HEIGHT_PX } from "@/features/ship-visualizer/ship-visualizer-config";
+import {
+  INSPECTABLE_NODE_ROUTES,
+  SHIP_TREE_SECTION_MAX_HEIGHT_PX,
+} from "@/features/ship-visualizer/ship-visualizer-config";
 import { getSectionDotClass } from "@/features/ship-visualizer/lib/section-colors";
 import { cn } from "@/lib/utils";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, ScanSearchIcon } from "lucide-react";
+import Link from "next/link";
 
 const SHIP_MODEL_SECTION_ID = "ship-model" as const;
 
@@ -45,6 +49,7 @@ export default function TreeNode({
   const isSelected = selectedNodeId === node.id;
   const isVisible = getIsVisible(node.id);
   const isShipModelSection = node.id === SHIP_MODEL_SECTION_ID;
+  const inspectRoute = INSPECTABLE_NODE_ROUTES[node.label];
 
   return (
     <div className={cn("select-none", isSection && "mt-1 first:mt-0")}>
@@ -66,6 +71,18 @@ export default function TreeNode({
         />
         <span className="min-w-0 flex-1 truncate">{node.label}</span>
         {renderReading?.(node)}
+        {inspectRoute && (
+          <Link
+            href={inspectRoute}
+            className="shrink-0 rounded p-0.5 text-accent hover:bg-btn"
+            aria-label={`Inspect ${node.label}`}
+            title={`Inspect ${node.label}`}
+            // The row selects on click; this only navigates
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ScanSearchIcon className="size-4" />
+          </Link>
+        )}
         {hasChildren && !isShipModelSection && (
           <button
             type="button"

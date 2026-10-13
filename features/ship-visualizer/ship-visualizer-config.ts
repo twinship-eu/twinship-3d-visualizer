@@ -198,3 +198,11 @@ export const DEFAULT_SECTION_DOT_CLASS = "bg-muted";
 
 /** Section IDs whose elements cannot be selected. */
 export const NON_SELECTABLE_SECTION_IDS: readonly string[] = [];
+
+/**
+ * Components that have a page of their own to inspect them in, by the label
+ * the explorer shows. Their tree row gets a button that opens it.
+ */
+export const INSPECTABLE_NODE_ROUTES: Readonly<Record<string, string>> = {
+  Engine: "/engine",
+};

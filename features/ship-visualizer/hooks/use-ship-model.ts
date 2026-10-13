@@ -24,7 +24,7 @@ export function useShipModel(onModelLoaded: () => void) {
   const [visibleNodeIds, setVisibleNodeIds] = useState<Record<string, boolean>>({});
   const [assemblyTargets, setAssemblyTargets] = useState<Float32Array | null>(null);
   const isModelReady = modelTree !== null;
-  const loading = useModelLoadProgress(isModelReady, assemblyTargets !== null);
+  const loading = useModelLoadProgress(modelPath, isModelReady,assemblyTargets !== null);
 
   /** Shows another model: its tree is unknown until it has loaded. */
   const setModelPath = useCallback(
