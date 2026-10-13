@@ -37,8 +37,15 @@ export const ENGINE_CAMERA = {
 export const ENGINE_LIGHTS = {
   KEY: 1.5,
   FILL: 0.5,
-  /** Flat fill, for devices that skip the sky probe and so have no reflections. */
+  /** Faint flat fill, so no face goes fully black. Phones use the ship scene's stronger set instead. */
   AMBIENT: 0.15,
+  /**
+   * Substitute for the sky probe on the devices that skip it (`?forceNoEnv`
+   * previews it on desktop). Softer than the ship scene's: the engine's paint is
+   * light grey and indoors-lit, where the ship's set washes it out to white.
+   */
+  NO_PROBE_AMBIENT: 0.8,
+  NO_PROBE_HEMISPHERE: 2,
   /** Key light position, as multiples of the engine radius. */
   KEY_POSITION: [2, 3, 2],
   /** Fill light position, opposite the key. */

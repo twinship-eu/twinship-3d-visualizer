@@ -23,6 +23,16 @@ export type ModelLoadProgress = {
 };
 
 /**
+ * Models whose loading sequence has played to the end in this page session.
+ *
+ * Module scope, so it outlives the visualizer: coming back from another route
+ * (the engine viewer) remounts the scene, but the model is already in
+ * `useGLTF`'s cache and the user has already watched it assemble once, so the
+ * ring is skipped and the ship is shown at once.
+ */
+const SHOWN_MODEL_PATHS = new Set<string>();
+
+/**
  * Drives the loading ring through fill → converge → hold → reveal.
  *
  * The fill repeats in whole cycles of `FILL_MS` and only hands over at a cycle
@@ -32,18 +42,22 @@ export type ModelLoadProgress = {
  * repeating animation rather than a progress meter: a percent-driven sweep would
  * stall part-way and never reach a boundary to hand over on.
  *
- * Consequence worth knowing: every visit costs at least one full cycle plus the
- * ending, even when the model is already cached.
+ * Consequence worth knowing: the first visit costs at least one full cycle plus
+ * the ending, even when the model is already cached. Later visits in the same
+ * session start at "done" (see SHOWN_MODEL_PATHS).
  *
  * Load failure needs no handling here. `useGLTF` throws during render and the
  * ring sits inside the scene's existing error boundary, so that boundary takes
  * the viewport and the ring with it.
  */
 export function useModelLoadProgress(
+  modelPath: string,
   isModelReady: boolean,
   hasAssemblyTargets: boolean
 ): ModelLoadProgress {
-  const [phase, setPhase] = useState<LoadingRingPhase>("filling");
+  const [phase, setPhase] = useState<LoadingRingPhase>(() =>
+    SHOWN_MODEL_PATHS.has(modelPath) ? "done" : "filling"
+  );
   /** Bumped at the end of a fill cycle that could not hand over, to start another. */
   const [fillCycle, setFillCycle] = useState(0);
 
@@ -87,19 +101,24 @@ export function useModelLoadProgress(
 
   useEffect(() => {
     if (phase !== "revealing") return;
-    const timer = window.setTimeout(
-      () => setPhase("done"),
-      LOADING_RING_TIMING.REVEAL_MS
-    );
+    const timer = window.setTimeout(() => {
+      SHOWN_MODEL_PATHS.add(modelPath);
+      setPhase("done");
+    }, LOADING_RING_TIMING.REVEAL_MS);
     return () => window.clearTimeout(timer);
-  }, [phase]);
+  }, [phase, modelPath]);
 
-  // A new load — switching model variants — restarts the whole sequence.
+  // A new load — switching model variants — restarts the whole sequence,
+  // unless that model was already shown this session.
   useEffect(() => {
     if (isModelReady) return;
+    if (SHOWN_MODEL_PATHS.has(modelPath)) {
+      setPhase("done");
+      return;
+    }
     setPhase("filling");
     setFillCycle((cycle) => cycle + 1);
-  }, [isModelReady]);
+  }, [isModelReady, modelPath]);
 
   return {
     phase,

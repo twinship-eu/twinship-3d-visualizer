@@ -1,0 +1,4 @@
+- generic [ref=f1e1]:
+  - link "Back to ship" [ref=f1e7] [cursor=pointer]:
+    - /url: /
+  - button "Open Next.js Dev Tools" [ref=f1e15] [cursor=pointer]

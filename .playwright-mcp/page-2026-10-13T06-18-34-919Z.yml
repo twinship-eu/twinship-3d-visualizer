@@ -1,0 +1,9 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - button "Open components panel" [ref=f2e4]
+    - generic "Stage touch controls" [ref=f2e85]:
+      - generic [ref=f2e86]: Tap to select
+      - generic [ref=f2e94]: Drag to rotate
+      - generic [ref=f2e100]: Two fingers to pan
+      - generic [ref=f2e108]: Pinch to zoom
+  - button "Open Next.js Dev Tools" [ref=f2e119] [cursor=pointer]

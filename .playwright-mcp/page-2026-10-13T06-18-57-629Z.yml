@@ -1,0 +1,301 @@
+- generic [active] [ref=f2e1]:
+  - button "Open Next.js Dev Tools" [ref=f2e119] [cursor=pointer]
+  - alert [ref=f2e668]
+  - generic [ref=f2e763]:
+    - generic [ref=f2e765]:
+      - generic [ref=f2e766]:
+        - heading "Ontology Explorer" [level=2] [ref=f2e773]
+        - searchbox "Search ship components" [ref=f2e775]
+      - generic [ref=f2e776]:
+        - generic [ref=f2e777]:
+          - generic [ref=f2e778] [cursor=pointer]:
+            - button "Collapse" [ref=f2e779]
+            - generic [ref=f2e783]: Ship model
+          - generic [ref=f2e784]: TwinShip VESSEL
+        - generic [ref=f2e790]:
+          - generic [ref=f2e791] [cursor=pointer]:
+            - button "Collapse" [ref=f2e792]
+            - generic [ref=f2e796]: Hull
+            - button "Hide section" [ref=f2e797]
+          - generic [ref=f2e801]:
+            - generic [ref=f2e802]: Base Hull
+            - generic [ref=f2e807]: Hull top towers
+            - generic [ref=f2e812]: Control room
+            - generic [ref=f2e817]: Radio
+        - generic [ref=f2e822]: Superstructure
+        - generic [ref=f2e827]:
+          - generic [ref=f2e828] [cursor=pointer]:
+            - button "Collapse" [ref=f2e829]
+            - generic [ref=f2e833]: Deck equipment
+            - button "Hide section" [ref=f2e834]
+          - generic [ref=f2e838]:
+            - generic [ref=f2e839]: Container
+            - generic [ref=f2e844]: Crane
+        - generic [ref=f2e849]:
+          - generic [ref=f2e850] [cursor=pointer]:
+            - button "Collapse" [ref=f2e851]
+            - generic [ref=f2e855]: Propeller system
+            - button "Hide section" [ref=f2e856]
+          - generic [ref=f2e860]: Propellers
+        - generic [ref=f2e866]:
+          - generic [ref=f2e867] [cursor=pointer]:
+            - button "Collapse" [ref=f2e868]
+            - generic [ref=f2e872]: Energy system
+            - button "Hide section" [ref=f2e873]
+          - generic [ref=f2e879] [cursor=pointer]:
+            - generic [ref=f2e882]: Engine
+            - link "Inspect Engine" [ref=f2e883]:
+              - /url: /engine
+        - generic [ref=f2e891]:
+          - generic [ref=f2e892] [cursor=pointer]:
+            - button "Collapse" [ref=f2e893]
+            - generic [ref=f2e897]: Wind assisted propulsion system
+            - button "Hide section" [ref=f2e898]
+          - generic [ref=f2e902]: WAPS
+    - generic [ref=f2e909]:
+      - generic [ref=f2e911]:
+        - generic:
+          - button "177 FPS" [ref=f2e913] [cursor=pointer]:
+            - button "Parameters" [ref=f2e915]
+            - generic [ref=f2e921]:
+              - generic [ref=f2e922]: "177"
+              - generic [ref=f2e923]: FPS
+          - generic [ref=f2e933]:
+            - generic [ref=f2e934]:
+              - generic [ref=f2e936] [cursor=pointer]:
+                - generic [ref=f2e937]: "-"
+                - text: Atmosphere
+              - generic [ref=f2e938]:
+                - generic [ref=f2e940] [cursor=pointer]:
+                  - generic [ref=f2e941]: horizonColor
+                  - textbox [ref=f2e945]: "#a9c9e4"
+                - generic [ref=f2e947] [cursor=pointer]:
+                  - generic [ref=f2e948]: hazeStart
+                  - generic [ref=f2e951]:
+                    - slider [ref=f2e952]: "600"
+                    - spinbutton [ref=f2e953]: "600"
+                - generic [ref=f2e955] [cursor=pointer]:
+                  - generic [ref=f2e956]: hazeEnd
+                  - generic [ref=f2e959]:
+                    - slider [ref=f2e960]: "1550"
+                    - spinbutton [ref=f2e961]: "1550"
+                - generic [ref=f2e963] [cursor=pointer]:
+                  - generic [ref=f2e964]: skyHazeHeight
+                  - generic [ref=f2e967]:
+                    - slider [ref=f2e968]: "0.15"
+                    - spinbutton [ref=f2e969]: "0.15"
+            - generic [ref=f2e970]:
+              - generic [ref=f2e972] [cursor=pointer]:
+                - generic [ref=f2e973]: "-"
+                - text: Seascape
+              - generic [ref=f2e974]:
+                - generic [ref=f2e976] [cursor=pointer]:
+                  - generic [ref=f2e977]: windSpeed
+                  - generic [ref=f2e980]:
+                    - slider [ref=f2e981]: "10"
+                    - spinbutton [ref=f2e982]: "10"
+                - generic [ref=f2e984] [cursor=pointer]:
+                  - generic [ref=f2e985]: windFromDegrees
+                  - generic [ref=f2e988]:
+                    - slider [ref=f2e989]: "225"
+                    - spinbutton [ref=f2e990]: "225"
+                - generic [ref=f2e991]: antiAliasing
+                - generic [ref=f2e1000] [cursor=pointer]:
+                  - generic [ref=f2e1001]: reflectivity
+                  - generic [ref=f2e1004]:
+                    - slider [ref=f2e1005]: "0.5"
+                    - spinbutton [ref=f2e1006]: "0.5"
+                - generic [ref=f2e1008] [cursor=pointer]:
+                  - generic [ref=f2e1009]: deepColor
+                  - textbox [ref=f2e1013]: "#003b6b"
+                - generic [ref=f2e1015] [cursor=pointer]:
+                  - generic [ref=f2e1016]: lightColor
+                  - textbox [ref=f2e1020]: "#42e6b5"
+                - generic [ref=f2e1022] [cursor=pointer]:
+                  - generic [ref=f2e1023]: foamAmount
+                  - generic [ref=f2e1026]:
+                    - slider [ref=f2e1027]: "0.6"
+                    - spinbutton [ref=f2e1028]: "0.6"
+                - generic [ref=f2e1030] [cursor=pointer]:
+                  - generic [ref=f2e1031]: foamColor
+                  - textbox [ref=f2e1035]: "#e6f0f4"
+                - generic [ref=f2e1037] [cursor=pointer]:
+                  - generic [ref=f2e1038]: foamTexture
+                  - combobox [ref=f2e1042]:
+                    - option "lace" [selected]
+                    - option "bubbles"
+                - generic [ref=f2e1044] [cursor=pointer]:
+                  - generic [ref=f2e1045]: subsurfaceColor
+                  - textbox [ref=f2e1049]: "#00d2e0"
+                - generic [ref=f2e1051] [cursor=pointer]:
+                  - generic [ref=f2e1052]: subsurfaceStrength
+                  - generic [ref=f2e1055]:
+                    - slider [ref=f2e1056]: "0.25"
+                    - spinbutton [ref=f2e1057]: "0.25"
+                - generic [ref=f2e1059] [cursor=pointer]:
+                  - generic [ref=f2e1060]: scatterColor
+                  - textbox [ref=f2e1064]: "#0f8aa0"
+                - generic [ref=f2e1066] [cursor=pointer]:
+                  - generic [ref=f2e1067]: scatterStrength
+                  - generic [ref=f2e1070]:
+                    - slider [ref=f2e1071]: "0"
+                    - spinbutton [ref=f2e1072]: "0"
+                - generic [ref=f2e1074] [cursor=pointer]:
+                  - generic [ref=f2e1075]: shininess
+                  - generic [ref=f2e1078]:
+                    - slider [ref=f2e1079]: "600"
+                    - spinbutton [ref=f2e1080]: "600"
+                - generic [ref=f2e1082] [cursor=pointer]:
+                  - generic [ref=f2e1083]: gridSegments
+                  - combobox [ref=f2e1087]:
+                    - option "160" [selected]
+                    - option "320"
+                    - option "480"
+                    - option "640"
+                - generic [ref=f2e1089] [cursor=pointer]:
+                  - generic [ref=f2e1090]: shipSpeedKnots
+                  - generic [ref=f2e1093]:
+                    - slider [ref=f2e1094]: "18"
+                    - spinbutton [ref=f2e1095]: "18"
+                - generic [ref=f2e1097] [cursor=pointer]:
+                  - generic [ref=f2e1098]: contactFoamDistance
+                  - generic [ref=f2e1101]:
+                    - slider [ref=f2e1102]: "1"
+                    - spinbutton [ref=f2e1103]: "1"
+                - generic [ref=f2e1104]: wireframe
+            - generic [ref=f2e1112]:
+              - generic [ref=f2e1114] [cursor=pointer]:
+                - generic [ref=f2e1115]: "-"
+                - text: Lights
+              - generic [ref=f2e1116]:
+                - generic [ref=f2e1118] [cursor=pointer]:
+                  - generic [ref=f2e1119]: sun
+                  - generic [ref=f2e1122]:
+                    - slider [ref=f2e1123]: "4"
+                    - spinbutton [ref=f2e1124]: "4"
+                - generic [ref=f2e1126] [cursor=pointer]:
+                  - generic [ref=f2e1127]: ambient
+                  - generic [ref=f2e1130]:
+                    - slider [ref=f2e1131]: "2.5"
+                    - spinbutton [ref=f2e1132]: "2.5"
+                - generic [ref=f2e1134] [cursor=pointer]:
+                  - generic [ref=f2e1135]: ambientColor
+                  - textbox [ref=f2e1139]: "#ffffff"
+                - generic [ref=f2e1141] [cursor=pointer]:
+                  - generic [ref=f2e1142]: hemisphere
+                  - generic [ref=f2e1145]:
+                    - slider [ref=f2e1146]: "5.05"
+                    - spinbutton [ref=f2e1147]: "5.05"
+                - generic [ref=f2e1149] [cursor=pointer]:
+                  - generic [ref=f2e1150]: hemisphereSky
+                  - textbox [ref=f2e1154]: "#ffffff"
+                - generic [ref=f2e1156] [cursor=pointer]:
+                  - generic [ref=f2e1157]: hemisphereGround
+                  - textbox [ref=f2e1161]: "#5a6a5c"
+                - generic [ref=f2e1163] [cursor=pointer]:
+                  - generic [ref=f2e1164]: fill
+                  - generic [ref=f2e1167]:
+                    - slider [ref=f2e1168]: "1.5"
+                    - spinbutton [ref=f2e1169]: "1.5"
+                - generic [ref=f2e1171] [cursor=pointer]:
+                  - generic [ref=f2e1172]: fillColor
+                  - textbox [ref=f2e1176]: "#cfe4ff"
+                - generic [ref=f2e1178] [cursor=pointer]:
+                  - generic [ref=f2e1179]: exposure
+                  - generic [ref=f2e1182]:
+                    - slider [ref=f2e1183]: "0.6"
+                    - spinbutton [ref=f2e1184]: "0.6"
+                - generic [ref=f2e1186] [cursor=pointer]:
+                  - generic [ref=f2e1187]: metalnessScale
+                  - generic [ref=f2e1190]:
+                    - slider [ref=f2e1191]: "0.35"
+                    - spinbutton [ref=f2e1192]: "0.35"
+            - generic [ref=f2e1193]:
+              - generic [ref=f2e1195] [cursor=pointer]:
+                - generic [ref=f2e1196]: "-"
+                - text: Weather
+              - generic [ref=f2e1197]:
+                - generic [ref=f2e1199] [cursor=pointer]:
+                  - generic [ref=f2e1200]: cloudCover
+                  - generic [ref=f2e1203]:
+                    - slider [ref=f2e1204]: "0.15"
+                    - spinbutton [ref=f2e1205]: "0.15"
+                - generic [ref=f2e1207] [cursor=pointer]:
+                  - generic [ref=f2e1208]: rain
+                  - generic [ref=f2e1211]:
+                    - slider [ref=f2e1212]: "0"
+                    - spinbutton [ref=f2e1213]: "0"
+                - generic [ref=f2e1215] [cursor=pointer]:
+                  - generic [ref=f2e1216]: snow
+                  - generic [ref=f2e1219]:
+                    - slider [ref=f2e1220]: "0"
+                    - spinbutton [ref=f2e1221]: "0"
+            - generic [ref=f2e1222]:
+              - generic [ref=f2e1224] [cursor=pointer]:
+                - generic [ref=f2e1225]: "-"
+                - text: Camera
+              - generic [ref=f2e1226]: followShip
+            - generic [ref=f2e1235]:
+              - generic [ref=f2e1237] [cursor=pointer]:
+                - generic [ref=f2e1238]: "-"
+                - text: Bloom
+              - generic [ref=f2e1239]:
+                - generic [ref=f2e1240]: bloom
+                - generic [ref=f2e1249] [cursor=pointer]:
+                  - generic [ref=f2e1250]: strength
+                  - generic [ref=f2e1253]:
+                    - slider [ref=f2e1254]: "0.05"
+                    - spinbutton [ref=f2e1255]: "0.05"
+                - generic [ref=f2e1257] [cursor=pointer]:
+                  - generic [ref=f2e1258]: radius
+                  - generic [ref=f2e1261]:
+                    - slider [ref=f2e1262]: "0.4"
+                    - spinbutton [ref=f2e1263]: "0.4"
+                - generic [ref=f2e1265] [cursor=pointer]:
+                  - generic [ref=f2e1266]: threshold
+                  - generic [ref=f2e1269]:
+                    - slider [ref=f2e1270]: "0"
+                    - spinbutton [ref=f2e1271]: "0"
+          - generic [ref=f2e1274]:
+            - generic [ref=f2e1275]:
+              - button "Parameters" [ref=f2e1276]
+              - button "Performance" [ref=f2e1277]
+              - button "Console" [ref=f2e1278]
+            - generic [ref=f2e1279]:
+              - button [ref=f2e1280] [cursor=pointer]
+              - button "-" [ref=f2e1283] [cursor=pointer]
+      - generic "Zoom controls":
+        - generic [ref=f2e1286]:
+          - button "Zoom in" [ref=f2e1287] [cursor=pointer]
+          - button "Zoom out" [ref=f2e1291] [cursor=pointer]
+          - button "Reset zoom" [ref=f2e1296] [cursor=pointer]
+          - button "Ride with the ship" [ref=f2e1301] [cursor=pointer]
+          - button "Set the ship under way" [ref=f2e1306] [cursor=pointer]
+      - generic: WebGPU
+      - generic:
+        - generic:
+          - generic: draw calls
+          - generic: "27"
+        - generic:
+          - generic: triangles
+          - generic: 228,198
+        - generic:
+          - generic: geometries
+          - generic: "24"
+        - generic:
+          - generic: textures
+          - generic: "50"
+        - generic:
+          - generic: raycast ms/s
+          - generic: "0"
+        - generic:
+          - generic: raycasts/s
+          - generic: "0"
+      - generic "Stage interaction controls":
+        - generic: Click to select
+        - generic: Drag to rotate
+        - generic: Right-drag to pan
+        - generic: Scroll to zoom
+        - generic:
+          - generic: Esc
+          - text: Deselect

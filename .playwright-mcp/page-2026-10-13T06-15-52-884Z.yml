@@ -1,0 +1,59 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - generic:
+        - button "175 FPS" [ref=e19] [cursor=pointer]:
+          - generic [ref=e20]:
+            - generic [ref=e21]: "175"
+            - generic [ref=e22]: FPS
+        - generic [ref=e29]:
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - button "⋮⋮ Performance" [ref=e33]
+              - button "Console" [ref=e34]
+            - generic [ref=e35]:
+              - button "Switch to Right Side" [ref=e36] [cursor=pointer]
+              - button [ref=e39] [cursor=pointer]
+              - button "-" [ref=e42] [cursor=pointer]
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e48]: Name
+              - generic [ref=e49]: CPU
+              - generic [ref=e50]: GPU
+              - generic [ref=e51]: Total
+            - generic [ref=e53] [cursor=pointer]:
+              - generic [ref=e54]:
+                - generic [ref=e55]: "-"
+                - text: Graph Stats
+              - generic [ref=e56]: 175 FPS
+            - generic [ref=e65]:
+              - generic [ref=e66] [cursor=pointer]:
+                - generic [ref=e67]:
+                  - generic [ref=e68]: "-"
+                  - text: Frame Stats
+                - generic [ref=e69]: "0.30"
+                - generic [ref=e71]: "0.13"
+                - generic [ref=e73]: "0.44"
+              - generic [ref=e75]:
+                - generic [ref=e76]:
+                  - generic [ref=e77] [cursor=pointer]:
+                    - generic [ref=e78]:
+                      - generic [ref=e79]: "-"
+                      - generic [ref=e80]: Scene
+                    - generic [ref=e81]: "0.30"
+                    - generic [ref=e83]: "0.13"
+                    - generic [ref=e85]: "0.44"
+                  - generic [ref=e89]:
+                    - generic [ref=e90]: Output Color Transform
+                    - generic [ref=e92]: "0.11"
+                    - generic [ref=e94]: "0.07"
+                    - generic [ref=e96]: "0.17"
+                - generic [ref=e99]:
+                  - generic [ref=e100]: Miscellaneous & Idle
+                  - generic [ref=e101]: "4.96"
+                  - generic [ref=e103]: "-"
+                  - generic [ref=e105]: "4.96"
+    - link "Back to ship" [ref=e7] [cursor=pointer]:
+      - /url: /
+  - button "Open Next.js Dev Tools" [ref=e15] [cursor=pointer]
+  - alert [ref=e107]

@@ -1,0 +1,58 @@
+- generic [ref=f2e1]:
+  - button "Open Next.js Dev Tools" [ref=f2e119] [cursor=pointer]
+  - alert [ref=f2e668]
+  - generic [ref=f2e670]:
+    - generic [ref=f2e672]:
+      - generic:
+        - button "126 FPS" [ref=f2e674] [cursor=pointer]:
+          - generic [ref=f2e675]:
+            - generic [ref=f2e676]: "126"
+            - generic [ref=f2e677]: FPS
+        - generic [ref=f2e684]:
+          - generic [ref=f2e686]:
+            - generic [ref=f2e687]:
+              - button "Performance" [ref=f2e688]
+              - button "Console" [ref=f2e689]
+            - generic [ref=f2e690]:
+              - button [ref=f2e691] [cursor=pointer]
+              - button "-" [ref=f2e694] [cursor=pointer]
+          - generic [ref=f2e698]:
+            - generic [ref=f2e699]:
+              - generic [ref=f2e700]: Name
+              - generic [ref=f2e701]: CPU
+              - generic [ref=f2e702]: GPU
+              - generic [ref=f2e703]: Total
+            - generic [ref=f2e705] [cursor=pointer]:
+              - generic [ref=f2e706]:
+                - generic [ref=f2e707]: "-"
+                - text: Graph Stats
+              - generic [ref=f2e708]: 126 FPS
+            - generic [ref=f2e717]:
+              - generic [ref=f2e718] [cursor=pointer]:
+                - generic [ref=f2e719]:
+                  - generic [ref=f2e720]: "-"
+                  - text: Frame Stats
+                - generic [ref=f2e721]: "1.75"
+                - generic [ref=f2e723]: "0.13"
+                - generic [ref=f2e725]: "1.88"
+              - generic [ref=f2e727]:
+                - generic [ref=f2e728]:
+                  - generic [ref=f2e729] [cursor=pointer]:
+                    - generic [ref=f2e730]:
+                      - generic [ref=f2e731]: "-"
+                      - generic [ref=f2e732]: Scene
+                    - generic [ref=f2e733]: "1.75"
+                    - generic [ref=f2e735]: "0.13"
+                    - generic [ref=f2e737]: "1.88"
+                  - generic [ref=f2e741]:
+                    - generic [ref=f2e742]: Output Color Transform
+                    - generic [ref=f2e744]: "0.16"
+                    - generic [ref=f2e746]: "0.07"
+                    - generic [ref=f2e748]: "0.23"
+                - generic [ref=f2e751]:
+                  - generic [ref=f2e752]: Miscellaneous & Idle
+                  - generic [ref=f2e753]: "4.22"
+                  - generic [ref=f2e755]: "-"
+                  - generic [ref=f2e757]: "4.22"
+    - link "Back to ship" [ref=f2e759] [cursor=pointer]:
+      - /url: /
