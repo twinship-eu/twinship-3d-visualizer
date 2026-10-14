@@ -13,6 +13,7 @@ import {
   WATER_PLANE_SIZE,
   WATER_RESOLUTION_SCALE,
 } from "../lib/3d-scene-config";
+import { canUseWaterReflections } from "../lib/webgpu-renderer";
 
 /** Height of the ocean plane, below the ship's own vertical offset. */
 const WATER_Y = -5;
@@ -51,7 +52,8 @@ function SceneWaterMesh() {
  * the scene's environment probe instead of by a second render of the scene.
  *
  * Drops the `Scene [ Reflector ]` pass entirely, which is what makes it worth
- * having — the ship stops being rasterised twice per frame.
+ * having — the ship stops being rasterised twice per frame. On phones this is
+ * also the path that avoids the flickering triangles at the water's screen edge.
  */
 function FlatWaterMesh() {
   const material = useMemo(() => {
@@ -74,7 +76,12 @@ function FlatWaterMesh() {
 }
 
 export function SceneWater() {
-  if (!IS_WATER_REFLECTION_ENABLED) {
+  // Read once: UA does not change for the life of the page. Same pattern as
+  // the mobile no-env lighting branch inside the Canvas.
+  const useReflections =
+    IS_WATER_REFLECTION_ENABLED && canUseWaterReflections();
+
+  if (!useReflections) {
     return <FlatWaterMesh />;
   }
 
