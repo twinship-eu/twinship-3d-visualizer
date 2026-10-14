@@ -4,13 +4,14 @@
  */
 
 /**
- * The recording the viewer plays: the sample, or the one named by
- * NEXT_PUBLIC_LIVE_RECORDING_URL — e.g. in .env.local, for a recording that
- * cannot be shared, kept as public/live-data/*.local.json (neither committed).
+ * The recording the viewer plays: the futuristic vessel's trip (futRoRo,
+ * Rotterdam → Immingham) — synthetic data, so it can be deployed — or the one
+ * named by NEXT_PUBLIC_LIVE_RECORDING_URL. Only this vessel's data is ever
+ * committed: a real ship's recording stays out, as public/live-data/*.local.json.
  * None there, the simulation plays.
  */
 export const RECORDING_URL =
-  process.env.NEXT_PUBLIC_LIVE_RECORDING_URL || "/live-data/futuristic-vessel-timeseries.json";
+  process.env.NEXT_PUBLIC_LIVE_RECORDING_URL || "/live-data/futroro-trip.json";
 
 /**
  * Where Live data asks for each snapshot's readings, as it would ask the

@@ -10,6 +10,7 @@
  */
 import { float, texture, uniform, vec2, vec4 } from "three/tsl";
 import { DepthTexture, FloatType, LessEqualCompare, LinearFilter, Matrix4, RenderTarget, Vector2, type DirectionalLight, type Node } from "three/webgpu";
+import { canRenderShadows } from "./webgpu-renderer";
 
 /** How far in front of the caster's depth a point must be to be lit, in the map's 0-1 depth: kills acne on the flat water. */
 const DEPTH_BIAS = 0.0006;
@@ -48,6 +49,9 @@ export function updateSeaShadow(light: DirectionalLight) {
 
 /** How much of the sun reaches a point in the world: 0 in the ship's shadow, 1 in the sun, soft at the edge. */
 export function seaSunVisibility(position: Node<"vec3">) {
+  // No shadow map on this device (phones: see canRenderShadows): the sea in full sun, and no lookup built —
+  // on a phone's WebGPU the stand-in's comparison gets a plain sampler, and the sea's shader would not compile
+  if (!canRenderShadows()) return float(1.0);
   const clip = uniforms.matrix.mul(vec4(position, 1.0));
   const coord = clip.xyz.div(clip.w);
   // WebGPU's texture origin is the top: the map's y runs the other way
