@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { liveDataStore, type Playback } from "../lib/live-data-store";
 import type { Alarm, LiveSnapshot, OperatorAction } from "../live-data-types";
 
@@ -60,6 +60,14 @@ export function getActiveAnomalies(snapshot: LiveSnapshot | null): Alarm[] {
 /** Where the viewer is in time, and how far back the history reaches: for the timeline. */
 export function usePlayback(): Playback {
   return useSyncExternalStore(liveDataStore.subscribe, liveDataStore.getPlayback, getServerPlayback);
+}
+
+/** Tells the live data whether it is on screen: while not (the Ontology), its readings are not requested. */
+export function useLiveDataViewed(isViewed: boolean) {
+  useEffect(() => {
+    liveDataStore.setIsViewed(isViewed);
+    return () => liveDataStore.setIsViewed(false);
+  }, [isViewed]);
 }
 
 /** Views a moment of the kept history — paused there, or playing on from it — or the live data again with null. */

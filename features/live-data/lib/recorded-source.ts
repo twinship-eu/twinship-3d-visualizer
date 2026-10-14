@@ -1,9 +1,9 @@
 import { PLAYBACK_WINDOW_MINUTES } from "../live-data-config";
-import { RECORDED_SENSORS, RECORDING_OPENS_AFTER_FIRST_WARNING_MS } from "../live-data-recording-config";
+import { LIVE_READINGS_INTERVAL_MS, RECORDED_SENSORS, RECORDING_OPENS_AFTER_FIRST_WARNING_MS } from "../live-data-recording-config";
 import { SENSORS } from "../live-data-sensors";
 import { alarmsUpTo, findEpisodes, type AlarmEpisode, type PlaybackLoop } from "./recorded-alarms";
 import { anomaliesAt } from "./recorded-anomalies";
-import { loadRecording, readRecordingAt } from "./recording";
+import { fetchRowsBetween, loadRecording, readRecordingAt, type RecordingRows } from "./recording";
 import { withRecordedReadings } from "./recording-snapshot";
 import { createSimulatedSource } from "./simulated-source";
 import type { Alarm, LiveDataSource, LiveSnapshot, Recording } from "../live-data-types";
@@ -113,6 +113,8 @@ function createPlayback(recording: Recording, startedAt: number) {
 export function createRecordedSource(): LiveDataSource {
   const simulated = createSimulatedSource();
   const acknowledged = new Set<string>();
+  /** Live data on screen: only then are the readings asked of the server; otherwise read from the loaded recording. */
+  let isViewed = false;
 
   function start(onSnapshot: (snapshot: LiveSnapshot) => void, onHistory?: (snapshots: LiveSnapshot[]) => void) {
     /** Undefined while it loads; null when there is none. */
@@ -126,14 +128,15 @@ export function createRecordedSource(): LiveDataSource {
         console.error("The ship's recording could not be read: the simulation plays instead.", error);
       });
 
-    function play(snapshot: LiveSnapshot, played: Recording) {
+    /** A moment played: its readings from `rows`, the server's around it, or the whole recording's. */
+    function play(snapshot: LiveSnapshot, played: Recording, rows: RecordingRows = played) {
       const current = (playback ??= createPlayback(played, snapshot.timestamp));
       const { moment, index } = current.at(snapshot.timestamp);
       const alarms = current
         .alarmsAt(snapshot.timestamp, moment, index)
         .map((alarm) => (acknowledged.has(alarm.id) ? { ...alarm, isAcknowledged: true } : alarm))
         .sort(byUrgency);
-      const read = { ...withRecordedReadings(snapshot, readRecordingAt(played, moment)), observedAt: moment };
+      const read = { ...withRecordedReadings(snapshot, readRecordingAt(rows, moment)), observedAt: moment };
       // The behaviour anomalies of the demo, on the recording's timeline, judged on its readings
       const anomalies = anomaliesAt(played, moment, { index, toViewerTime: current.toViewerTime(index) }, read).map((alarm) =>
         acknowledged.has(alarm.id) ? { ...alarm, isAcknowledged: true } : alarm
@@ -157,17 +160,56 @@ export function createRecordedSource(): LiveDataSource {
     }
 
     let hasSentPast = false;
-    return simulated.start((snapshot) => {
+    /** The latest snapshot sent: a request answered after a later one's is dropped. */
+    let sentUpTo = -Infinity;
+    /** Whether the server's readings failed, and the loaded recording's are read instead: said once, not every second. */
+    let isReadingLocally = false;
+    const requests = new AbortController();
+    /** The stretch of the recording last fetched, from (included) to (excluded), and its rows. */
+    let fetched: { from: number; to: number; rows: RecordingRows } | null = null;
+
+    function send(snapshot: LiveSnapshot, played: Recording, rows: RecordingRows) {
+      if (requests.signal.aborted || snapshot.timestamp <= sentUpTo) return;
+      sentUpTo = snapshot.timestamp;
+      const now = play(snapshot, played, rows);
+      if (!hasSentPast) {
+        hasSentPast = true;
+        onHistory?.(pastOf(snapshot, played));
+      }
+      onSnapshot(now);
+    }
+
+    const stopSimulated = simulated.start((snapshot) => {
       // Nothing until the recording is known to be there or not: no simulated second before it
       if (recording === undefined) return;
       if (!recording) return onSnapshot(snapshot);
-      const now = play(snapshot, recording);
-      if (!hasSentPast) {
-        hasSentPast = true;
-        onHistory?.(pastOf(snapshot, recording));
-      }
-      onSnapshot(now);
+      const played = recording;
+      const { moment } = (playback ??= createPlayback(played, snapshot.timestamp)).at(snapshot.timestamp);
+      // Not on screen (the Ontology): no requests, the loaded recording read instead
+      if (!isViewed) return send(snapshot, played, played);
+      // Read from the stretch fetched last while the moment is in it
+      if (fetched && moment >= fetched.from && moment < fetched.to) return send(snapshot, played, fetched.rows);
+      // The readings of the next LIVE_READINGS_INTERVAL_MS asked of the server, as of the ship's stream
+      const to = moment + LIVE_READINGS_INTERVAL_MS;
+      fetchRowsBetween(moment, to, requests.signal).then(
+        (rows) => {
+          isReadingLocally = false;
+          fetched = { from: moment, to, rows };
+          send(snapshot, played, rows);
+        },
+        (error: unknown) => {
+          if (requests.signal.aborted) return;
+          if (!isReadingLocally) console.error("The server's readings could not be fetched: the loaded recording is read instead.", error);
+          isReadingLocally = true;
+          send(snapshot, played, played);
+        }
+      );
     });
+
+    return () => {
+      requests.abort();
+      stopSimulated();
+    };
   }
 
   function acknowledgeAlarm(alarmId: string) {
@@ -175,5 +217,13 @@ export function createRecordedSource(): LiveDataSource {
     simulated.acknowledgeAlarm(alarmId);
   }
 
-  return { origin: "recorded", rateHz: simulated.rateHz, start, acknowledgeAlarm };
+  return {
+    origin: "recorded",
+    rateHz: simulated.rateHz,
+    start,
+    acknowledgeAlarm,
+    setIsViewed: (viewed: boolean) => {
+      isViewed = viewed;
+    },
+  };
 }

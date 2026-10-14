@@ -1,4 +1,4 @@
-import { RECORDING_URL } from "../live-data-recording-config";
+import { LIVE_READINGS_URL, RECORDING_URL } from "../live-data-recording-config";
 import type { Recording, RecordingColumn, RecordingLimit } from "../live-data-types";
 import type { SensorState } from "../live-data-sensors";
 
@@ -15,7 +15,10 @@ export function turnBetween(fromDeg: number, toDeg: number) {
   return ((((toDeg - fromDeg) % 360) + 540) % 360) - 180;
 }
 
-function isRecording(data: unknown): data is Recording {
+/** Rows of a recording: their moments and readings, without the columns' description. */
+export type RecordingRows = Pick<Recording, "times" | "values">;
+
+export function isRecording(data: unknown): data is Recording {
   if (typeof data !== "object" || data === null) return false;
   const { columns, times, values } = data as Partial<Recording>;
   return Array.isArray(columns) && Array.isArray(times) && times.length >= 2 && typeof values === "object";
@@ -47,12 +50,42 @@ function rowAt(times: number[], moment: number) {
   return low;
 }
 
+/** The recording's rows from the one at or before `from` to the one after `to`: all `readRecordingAt` needs to read it in between. */
+export function rowsBetween(recording: RecordingRows, from: number, to: number): RecordingRows {
+  const { times } = recording;
+  const first = rowAt(times, from);
+  const last = Math.min(rowAt(times, to) + 1, times.length - 1);
+  const pick = <T,>(cells: T[]) => cells.slice(first, last + 1);
+  return {
+    times: pick(times),
+    values: Object.fromEntries(Object.entries(recording.values).map(([column, cells]) => [column, pick(cells)])),
+  };
+}
+
+function isRecordingRows(data: unknown): data is RecordingRows {
+  if (typeof data !== "object" || data === null) return false;
+  const { times, values } = data as Partial<RecordingRows>;
+  return Array.isArray(times) && times.length >= 1 && typeof values === "object" && values !== null;
+}
+
+/**
+ * The recording's rows over a stretch of it, from the server, as a ship's
+ * stream would send its readings.
+ */
+export async function fetchRowsBetween(from: number, to: number, signal: AbortSignal): Promise<RecordingRows> {
+  const response = await fetch(`${LIVE_READINGS_URL}?from=${Math.round(from)}&to=${Math.round(to)}`, { cache: "no-store", signal });
+  if (!response.ok) throw new Error(`Readings ${LIVE_READINGS_URL}: ${response.status} ${response.statusText}`);
+  const data: unknown = await response.json();
+  if (!isRecordingRows(data)) throw new Error(`Readings ${LIVE_READINGS_URL}: not a recording's rows`);
+  return data;
+}
+
 /**
  * The readings at a moment of the recording: numbers interpolated between
  * the rows either side, texts as last recorded. A cell with no reading gives
  * undefined, and so does a column the recording does not have.
  */
-export function readRecordingAt(recording: Recording, moment: number): RecordingReader {
+export function readRecordingAt(recording: RecordingRows, moment: number): RecordingReader {
   const { times, values } = recording;
   const row = rowAt(times, moment);
   const next = Math.min(row + 1, times.length - 1);

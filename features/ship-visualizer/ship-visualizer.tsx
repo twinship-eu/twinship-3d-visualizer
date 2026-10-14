@@ -21,6 +21,7 @@ import { MobileHeader } from "@/features/cockpit/mobile/mobile-header";
 import { MobileSceneCardChrome, MobileSelectionChrome } from "@/features/cockpit/mobile/mobile-scene-chrome";
 import { MobileTabBar } from "@/features/cockpit/mobile/mobile-tab-bar";
 import { MobileTabContent } from "@/features/cockpit/mobile/mobile-tab-content";
+import { useLiveDataViewed } from "@/features/live-data/hooks/use-live-data";
 import type { Alarm } from "@/features/live-data/live-data-types";
 import { SceneBottomStrip } from "./components/scene-bottom-strip";
 import { ShipScene } from "./components/ship-scene";
@@ -35,6 +36,7 @@ import type { ShipTreeNode } from "./ship-visualizer-types";
 
 export function ShipVisualizer() {
   const { mode, setMode } = useViewerMode();
+  useLiveDataViewed(mode === "live");
   const liveView = useLiveView();
   const mobile = useMobileTab({ setMode: (next) => void setMode(next) });
   /** Below lg: the scene's card opened full screen. */

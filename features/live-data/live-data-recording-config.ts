@@ -13,6 +13,15 @@ export const RECORDING_URL =
   process.env.NEXT_PUBLIC_LIVE_RECORDING_URL || "/live-data/futuristic-vessel-timeseries.json";
 
 /**
+ * Where Live data asks for each snapshot's readings, as it would ask the
+ * ship's stream: the server reads them from the recording (app/api/live/readings).
+ */
+export const LIVE_READINGS_URL = "/api/live/readings";
+
+/** How much of the recording one request for readings covers, ms: Live data asks this often, not every snapshot. */
+export const LIVE_READINGS_INTERVAL_MS = 2000;
+
+/**
  * Playback opens this long after the recording's first warning, as the
  * simulation opens with its warning raised: the cockpit starts on the story.
  * From the recording's start when it has none.

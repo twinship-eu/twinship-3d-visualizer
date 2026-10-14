@@ -3,12 +3,14 @@
 import { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import {
   INSPECTABLE_NODE_ROUTES,
+  RETURN_QUERY_PARAM,
   SHIP_TREE_SECTION_MAX_HEIGHT_PX,
 } from "@/features/ship-visualizer/ship-visualizer-config";
 import { getSectionDotClass } from "@/features/ship-visualizer/lib/section-colors";
 import { cn } from "@/lib/utils";
 import { EyeIcon, EyeOffIcon, ScanSearchIcon } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const SHIP_MODEL_SECTION_ID = "ship-model" as const;
 
@@ -50,6 +52,9 @@ export default function TreeNode({
   const isVisible = getIsVisible(node.id);
   const isShipModelSection = node.id === SHIP_MODEL_SECTION_ID;
   const inspectRoute = INSPECTABLE_NODE_ROUTES[node.label];
+  // The ship page's query goes with it, for "Back to ship" to come back to it
+  const shipQuery = useSearchParams().toString();
+  const inspectHref = inspectRoute && (shipQuery ? `${inspectRoute}?${new URLSearchParams({ [RETURN_QUERY_PARAM]: shipQuery })}` : inspectRoute);
 
   return (
     <div className={cn("select-none", isSection && "mt-1 first:mt-0")}>
@@ -73,7 +78,7 @@ export default function TreeNode({
         {renderReading?.(node)}
         {inspectRoute && (
           <Link
-            href={inspectRoute}
+            href={inspectHref}
             className="shrink-0 rounded p-0.5 text-accent hover:bg-btn"
             aria-label={`Inspect ${node.label}`}
             title={`Inspect ${node.label}`}

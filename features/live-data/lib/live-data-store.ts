@@ -164,6 +164,8 @@ function createLiveDataStore(source: LiveDataSource) {
     getKeptHistory: () => history,
     getOperatorActions: () => operatorActions,
     viewAt,
+    /** Whether Live data is on screen: the source asks its server for readings only then. */
+    setIsViewed: (isViewed: boolean) => source.setIsViewed?.(isViewed),
     acknowledgeAlarm,
     silenceAlarm,
   };

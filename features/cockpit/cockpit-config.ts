@@ -76,3 +76,8 @@ export type CockpitPanel = (typeof COCKPIT_PANELS)[number];
 export const PANEL_PARAM = "panel";
 /** The event log's system filter, by the tree section's id. */
 export const LOG_SYSTEM_PARAM = "logSystem";
+
+/** The phone's four places, as the design has them: the live view, the components, the event log, the assistant. */
+export const MOBILE_TABS = ["live", "components", "log", "ask"] as const;
+/** The phone's tab, in the URL: the live view, the default, leaves it clean. */
+export const MOBILE_TAB_PARAM = "tab";

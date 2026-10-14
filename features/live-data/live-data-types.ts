@@ -271,4 +271,6 @@ export type LiveDataSource = {
   start: (onSnapshot: (snapshot: LiveSnapshot) => void, onHistory?: (snapshots: LiveSnapshot[]) => void) => () => void;
   /** Tells the ship an alarm has been seen: it stays in the log, no longer active. */
   acknowledgeAlarm: (alarmId: string) => void;
+  /** Whether the live data is being looked at: a source that asks a server for it asks only then. */
+  setIsViewed?: (isViewed: boolean) => void;
 };

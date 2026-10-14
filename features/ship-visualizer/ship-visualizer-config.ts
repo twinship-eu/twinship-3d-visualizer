@@ -206,3 +206,10 @@ export const NON_SELECTABLE_SECTION_IDS: readonly string[] = [];
 export const INSPECTABLE_NODE_ROUTES: Readonly<Record<string, string>> = {
   Engine: "/engine",
 };
+
+/**
+ * The inspect page's parameter for the ship page's query, as it was when the
+ * inspect button was pressed: its "Back to ship" opens the ship as it was left
+ * (the view, the tab, the panel open).
+ */
+export const RETURN_QUERY_PARAM = "from";

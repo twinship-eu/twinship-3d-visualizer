@@ -44,12 +44,12 @@ export function AssistantPanel({ onClose, onOpenLog, onOpenComponent, isPhonePag
   const messagesRef = useRef<HTMLDivElement>(null);
   const hasSentPending = useRef(false);
 
-  // Opened, a new conversation — with the question asked from elsewhere, if one was, sent once
+  // Opened, the conversation goes on where it was — with the question asked from elsewhere, if one was, sent once.
+  // Only "New chat" starts another.
   useEffect(() => {
     if (hasSentPending.current) return;
     hasSentPending.current = true;
     const question = takePendingQuestion();
-    startNewConversation();
     if (question) void send(question);
   }, [send]);
 

@@ -3,9 +3,10 @@
 import { LayoutGrid, List, MessageCircle, Ship } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveAlarms, getActiveAnomalies, useLiveData } from "@/features/live-data/hooks/use-live-data";
+import type { MOBILE_TABS } from "../cockpit-config";
 
-/** The phone's four places, as the design has them: the live view, the components, the event log, the assistant. */
-export type MobileTab = "live" | "components" | "log" | "ask";
+/** The phone's four places: see MOBILE_TABS. */
+export type MobileTab = (typeof MOBILE_TABS)[number];
 
 const TABS: { id: MobileTab; label: string; icon: typeof Ship }[] = [
   { id: "live", label: "Live", icon: LayoutGrid },
