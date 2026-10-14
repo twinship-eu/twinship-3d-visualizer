@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, MessageCircle, Plus, X } from "lucide-react";
 import { useEventLog } from "@/features/event-log/hooks/use-event-log";
-import { ASSISTANT_DISCLAIMER, SUGGESTED_QUESTIONS } from "../assistant-config";
+import { ASSISTANT_DISCLAIMER, ASSISTANT_REQUEST_LIMITS, SUGGESTED_QUESTIONS } from "../assistant-config";
 import { useSendQuestion } from "../hooks/use-send-question";
 import { clearHighlights, startNewConversation, takePendingQuestion, useAssistantState } from "../lib/assistant-store";
 import { AssistantMessageItem } from "./assistant-message-item";
@@ -153,6 +153,7 @@ export function AssistantPanel({ onClose, onOpenLog, onOpenComponent, isPhonePag
           <input
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            maxLength={ASSISTANT_REQUEST_LIMITS.QUESTION_CHARS}
             placeholder="Ask about alarms, components or sensor data…"
             aria-label="Your question"
             className="h-12 min-w-0 grow rounded-lg border border-line bg-card px-3.5 text-[14px] outline-none placeholder:text-muted focus:border-accent-line"

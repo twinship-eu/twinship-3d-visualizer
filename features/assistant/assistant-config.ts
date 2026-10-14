@@ -26,6 +26,25 @@ export const ASSISTANT_NUM_CTX = 8192;
 /** How long to wait for an answer, in ms. */
 export const ASSISTANT_TIMEOUT_MS = 90_000;
 
+/**
+ * The route's limits, the site being open to anyone: questions per computer
+ * (by its address) a minute and a day, and for everyone together a day — the
+ * Ollama key's ceiling, whatever the addresses.
+ */
+export const ASSISTANT_RATE_LIMITS = {
+  PER_CLIENT_PER_MINUTE: { max: 6, windowMs: 60_000 },
+  PER_CLIENT_PER_DAY: { max: 60, windowMs: 24 * 60 * 60_000 },
+  ALL_CLIENTS_PER_DAY: { max: 1000, windowMs: 24 * 60 * 60_000 },
+} as const;
+
+/** The most a request may carry: its body, the ship's data, a question, an earlier answer, in characters. */
+export const ASSISTANT_REQUEST_LIMITS = {
+  BODY_BYTES: 64_000,
+  CONTEXT_CHARS: 30_000,
+  QUESTION_CHARS: 1000,
+  ANSWER_CHARS: 6000,
+} as const;
+
 /** Turns of the conversation sent with each question: the data is in the prompt anyway. */
 export const HISTORY_TURNS = 6;
 /** Event log entries in the prompt, newest first. */

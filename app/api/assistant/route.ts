@@ -1,12 +1,16 @@
 import {
   ASSISTANT_NUM_CTX,
+  ASSISTANT_RATE_LIMITS,
+  ASSISTANT_REQUEST_LIMITS,
   ASSISTANT_TEMPERATURE,
   ASSISTANT_TIMEOUT_MS,
   DEFAULT_ASSISTANT_MODEL,
   DEFAULT_OLLAMA_CHAT_URL,
+  HISTORY_TURNS,
 } from "@/features/assistant/assistant-config";
 import type { AssistantRequest } from "@/features/assistant/assistant-types";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/features/assistant/lib/assistant-prompt";
+import { clientAddress, createRateLimiter } from "@/features/assistant/lib/rate-limit";
 
 /** Ollama's /api/chat reply, the parts read. */
 type OllamaChatResponse = { message?: { content?: string }; response?: string; error?: string };
@@ -24,6 +28,66 @@ function isAssistantRequest(body: unknown): body is AssistantRequest {
     Array.isArray(messages) &&
     messages.every((message) => (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
   );
+}
+
+/** Why a request carries more than the viewer ever sends, or null when it does not. */
+function oversized({ messages, context }: AssistantRequest): string | null {
+  const { CONTEXT_CHARS, QUESTION_CHARS, ANSWER_CHARS } = ASSISTANT_REQUEST_LIMITS;
+  // The turns kept, and the question
+  if (messages.length > HISTORY_TURNS + 1) return "Too many turns of conversation.";
+  if (context.length > CONTEXT_CHARS) return "The ship's data is too long.";
+  const isTooLong = (message: AssistantRequest["messages"][number]) =>
+    message.content.length > (message.role === "user" ? QUESTION_CHARS : ANSWER_CHARS);
+  if (messages.some(isTooLong)) return `A question may be at most ${QUESTION_CHARS} characters.`;
+  return null;
+}
+
+/** Questions per computer, a minute and a day. */
+const perClient = createRateLimiter([ASSISTANT_RATE_LIMITS.PER_CLIENT_PER_MINUTE, ASSISTANT_RATE_LIMITS.PER_CLIENT_PER_DAY]);
+/** Questions from everyone together, a day. */
+const allClients = createRateLimiter([ASSISTANT_RATE_LIMITS.ALL_CLIENTS_PER_DAY]);
+const ALL_CLIENTS_KEY = "all";
+
+/** "Try again in 40 s", or in minutes or hours when it is that long. */
+function waitFor(seconds: number) {
+  if (seconds < 120) return `${seconds} s`;
+  if (seconds < 2 * 3600) return `${Math.ceil(seconds / 60)} min`;
+  return `${Math.ceil(seconds / 3600)} h`;
+}
+
+const tooMany = (retryAfterS: number, error: string) =>
+  Response.json({ error: `${error} Try again in ${waitFor(retryAfterS)}.` }, { status: 429, headers: { "Retry-After": String(retryAfterS) } });
+
+/** The request's limits: its size, then this computer's questions, then everyone's. A response when one is exceeded. */
+async function checkLimits(request: Request): Promise<{ body: AssistantRequest } | { error: Response }> {
+  const length = Number(request.headers.get("content-length"));
+  if (length > ASSISTANT_REQUEST_LIMITS.BODY_BYTES) return { error: failure(413, "The request is too large.") };
+  const text = await request.text();
+  if (text.length > ASSISTANT_REQUEST_LIMITS.BODY_BYTES) return { error: failure(413, "The request is too large.") };
+
+  const body: unknown = (() => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  })();
+  if (!isAssistantRequest(body)) return { error: failure(400, "Expected { messages, context }.") };
+  const tooLarge = oversized(body);
+  if (tooLarge) return { error: failure(413, tooLarge) };
+
+  const address = clientAddress(request);
+  const client = perClient.take(address);
+  if (!client.isAllowed) {
+    console.warn(`Ship assistant: ${address} is over its limit of questions.`);
+    return { error: tooMany(client.retryAfterS, "Too many questions from this computer.") };
+  }
+  const everyone = allClients.take(ALL_CLIENTS_KEY);
+  if (!everyone.isAllowed) {
+    console.warn("Ship assistant: today's questions for everyone are used up.");
+    return { error: tooMany(everyone.retryAfterS, "The assistant has answered all the questions it can today.") };
+  }
+  return { body };
 }
 
 const failure = (status: number, error: string) => Response.json({ error }, { status });
@@ -105,8 +169,9 @@ function replyObject(content: string): Record<string, unknown> | null {
  * answer is asked for again, in words, and put in.
  */
 export async function POST(request: Request) {
-  const body: unknown = await request.json().catch(() => null);
-  if (!isAssistantRequest(body)) return failure(400, "Expected { messages, context }.");
+  const checked = await checkLimits(request);
+  if ("error" in checked) return checked.error;
+  const { body } = checked;
 
   const conversation: ChatMessage[] = [{ role: "system", content: `${ASSISTANT_SYSTEM_PROMPT}\n\n${body.context}` }, ...body.messages];
   const first = await chat(conversation, true);
