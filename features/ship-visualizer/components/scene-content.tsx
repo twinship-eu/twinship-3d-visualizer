@@ -128,6 +128,9 @@ export default function Ship({
     // ...and how much of it is the waves': none while lifted for inspection
     shipMotion.waveY =
       displayMode === "animated" || displayMode === "transitioning-to-animated" ? shipMotion.heave : 0;
+    // ...and the attitude it was drawn at
+    shipMotion.shownPitch = group.rotation.x;
+    shipMotion.shownRoll = group.rotation.z;
 
     // The ship fades up as the loading ring's particles fade off it, so the
     // silhouette hands over to the real thing instead of snapping into place.

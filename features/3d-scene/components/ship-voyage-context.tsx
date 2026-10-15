@@ -10,6 +10,7 @@ type ShipVoyageContextValue = {
 
 const ShipVoyageContext = createContext<ShipVoyageContextValue | null>(null);
 
+
 /**
  * Holds whether the ship is under way, for the button beside the zoom controls
  * (outside the Canvas) and the sea (inside it). It starts still.

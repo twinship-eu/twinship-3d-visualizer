@@ -2,7 +2,9 @@
 
 import { useMemo } from "react";
 import { SkyMesh } from "three/examples/jsm/objects/SkyMesh.js";
-import { getSunDirection, SKY_SCALE, SKY_UNIFORMS } from "../lib/3d-scene-config";
+import { SKY_SCALE, SKY_UNIFORMS } from "../lib/3d-scene-config";
+import { skyState } from "../lib/sky-state";
+import type { Vector3 } from "three/webgpu";
 
 /**
  * Builds a Sky configured from SKY_UNIFORMS. Also used to bake the scene IBL,
@@ -12,12 +14,13 @@ import { getSunDirection, SKY_SCALE, SKY_UNIFORMS } from "../lib/3d-scene-config
 export function createSky(
   // Widened to `number`: SKY_UNIFORMS is `as const`, so `Partial<typeof ...>`
   // would only accept the very literals it already holds.
-  overrides: Partial<Record<keyof typeof SKY_UNIFORMS, number>> = {}
+  overrides: Partial<Record<keyof typeof SKY_UNIFORMS, number>> = {},
+  sunDirection: Vector3 = skyState.sunDirection
 ): SkyMesh {
   const uniforms = { ...SKY_UNIFORMS, ...overrides };
   const sky = new SkyMesh();
   sky.scale.setScalar(SKY_SCALE);
-  sky.sunPosition.value.copy(getSunDirection());
+  sky.sunPosition.value.copy(sunDirection);
   sky.turbidity.value = uniforms.turbidity;
   sky.rayleigh.value = uniforms.rayleigh;
   sky.mieCoefficient.value = uniforms.mieCoefficient;

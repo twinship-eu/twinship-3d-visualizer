@@ -43,9 +43,9 @@ function HintList({ hints }: { hints: Hint[] }) {
     <>
       {hints.map(({ icon: Icon, label }, index) => (
         <div key={label} className="flex shrink-0 items-center gap-2">
-          {index > 0 && <span className="h-4 w-px bg-gray-200" aria-hidden />}
-          <span className="flex items-center gap-1.5 text-xs text-gray-700">
-            <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+          {index > 0 && <span className="h-4 w-px bg-line" aria-hidden />}
+          <span className="flex items-center gap-1.5 text-xs text-ink-2">
+            <Icon className="h-4 w-4 shrink-0 text-accent-ink" aria-hidden />
             {label}
           </span>
         </div>
@@ -56,8 +56,14 @@ function HintList({ hints }: { hints: Hint[] }) {
 
 export function StageControlHints({
   isDetailsOpen = false,
+  isHiddenBelowLg = false,
 }: {
-  /** Hides the touch hints below lg, where the sheet would cover them. */
+  /** Hides the touch hints below lg: the scene is a card there, among other content. */
+  isHiddenBelowLg?: boolean;
+  /**
+   * Hides the hints while a component's details are open: below lg the sheet
+   * would cover them, at lg its card runs down beside them.
+   */
   isDetailsOpen?: boolean;
 }) {
   return (
@@ -74,10 +80,10 @@ export function StageControlHints({
           // is no empty white strip beside the last hint. Still scrolls when
           // the hints are wider than the screen.
           "w-fit max-w-[calc(100vw-1rem)] overflow-x-auto whitespace-nowrap",
-          "rounded-md bg-white px-4 py-2 shadow-md",
+          "rounded-lg border border-glass-line bg-glass px-4 py-2 backdrop-blur",
           // The sheet covers this space, and orbit hints are not what anyone is
           // reading while a component's details are open.
-          isDetailsOpen && "hidden",
+          (isDetailsOpen || isHiddenBelowLg) && "hidden",
           "lg:hidden"
         )}
         aria-label="Stage touch controls"
@@ -88,16 +94,16 @@ export function StageControlHints({
       {/* At lg: the fixed-width centred bar, unchanged. */}
       <div
         className={cn(
-          "pointer-events-none absolute bottom-4 left-1/2 z-10 hidden w-[630px]",
-          "-translate-x-1/2 items-center gap-2 rounded-md bg-white px-4 py-2 shadow-md",
-          "lg:flex"
+          "pointer-events-none absolute bottom-4 left-1/2 z-10 hidden w-fit",
+          "-translate-x-1/2 items-center gap-2 rounded-lg border border-glass-line bg-glass px-4 py-2 backdrop-blur",
+          !isDetailsOpen && "lg:flex"
         )}
         aria-label="Stage interaction controls"
       >
         <HintList hints={DESKTOP_HINTS} />
-        <span className="h-4 w-px shrink-0 bg-gray-200" aria-hidden />
-        <span className="flex shrink-0 items-center gap-1.5 text-sm text-gray-700">
-          <kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-xs font-medium text-gray-600">
+        <span className="h-4 w-px shrink-0 bg-line" aria-hidden />
+        <span className="flex shrink-0 items-center gap-1.5 text-xs text-ink-2">
+          <kbd className="rounded border border-line-strong bg-card px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted">
             Esc
           </kbd>
           Deselect

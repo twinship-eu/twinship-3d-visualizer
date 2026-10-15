@@ -1,5 +1,5 @@
 export const SHIP_VISUALIZER_LAYOUT = {
-  MAX_LEFT_PANEL_WIDTH_PX: 330,
+  MAX_LEFT_PANEL_WIDTH_PX: 264,
 } as const;
 
 /**
@@ -14,7 +14,7 @@ export const SHIP_VISUALIZER_LAYOUT = {
  * Below `lg` the panel is an overlay capped at 85% of the viewport, so a narrow
  * phone always keeps a strip of scene visible beside it.
  */
-export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,330px)] lg:w-[330px]";
+export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,300px)] lg:w-[264px]";
 
 /**
  * The engine model, and the vessel the visualizer opens with.
@@ -51,6 +51,17 @@ export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
  * uncompressed — and upload faster; the file is a little smaller too (38 MB against 41).
  */
 export const ENGINE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-engine-ktx2.glb";
+
+/**
+ * The update export (TwinShip_UPDATE 1.glb): the hull and its top reworked, the
+ * container replaced by a truck, a new radio mast and new propellers — merged
+ * into the hull there, and split out again into their own `Propellers` node by
+ *   node scripts/split-propellers.mjs <raw> <split>
+ * then built as the engine model was (optimize, simplify Engine 0.25 then
+ * 0.5/0.02, Truck,Crane 0.5/0.005), and KTX2: 37.7 MB.
+ */
+export const UPDATE_SHIP_MODEL_GLB = "/ship/twinship-update.glb";
+export const UPDATE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-update-ktx2.glb";
 /** Off to load the WebP build instead, to compare. */
 const IS_KTX2_SHIP_TEXTURES_ENABLED = true;
 
@@ -62,8 +73,8 @@ const IS_KTX2_SHIP_TEXTURES_ENABLED = true;
  * history if a comparison is ever wanted again.
  */
 export const DEFAULT_SHIP_MODEL_PATH = IS_KTX2_SHIP_TEXTURES_ENABLED
-  ? ENGINE_SHIP_MODEL_KTX2_GLB
-  : ENGINE_SHIP_MODEL_GLB;
+  ? UPDATE_SHIP_MODEL_KTX2_GLB
+  : UPDATE_SHIP_MODEL_GLB;
 
 /** Default ship mesh color (unselected). */
 export const SHIP_COLOR = "#ffffff";
@@ -80,7 +91,12 @@ export const UNSELECTED_PART_OPACITY = 0.35;
 /** Opacity of a hovered part when a different part is selected (0 = invisible, 1 = opaque). */
 export const HOVERED_PART_OPACITY_WHEN_OTHER_SELECTED = 0.85;
 
-/** Default camera position when viewing the full ship. */
+/**
+ * Default camera position when viewing the full ship: off its port bow (+x
+ * is port, the bow at +z) and above the deck — the bow towards the camera,
+ * on the left. The Ontology puts the sun ahead of the camera
+ * (ONTOLOGY_SUN_HEADING_DEG).
+ */
 export const DEFAULT_CAMERA_POSITION: [number, number, number] = [60, 30, 60];
 
 /** Default camera target (look-at point) when viewing the full ship. */
@@ -157,11 +173,28 @@ export const PROPELLER_SPIN_DIRECTIONS: readonly [number, number] = [1, -1];
 export const SHIP_TREE_SECTIONS = [
   { id: "hull", label: "Hull" },
   { id: "superstructure", label: "Superstructure" },
-  { id: "deck", label: "Deck equipment" },
+  { id: "deck", label: "Cargo" },
   { id: "propeller", label: "Propeller system" },
   { id: "energy", label: "Energy system" },
   { id: "windAssisted", label: "Wind assisted propulsion system" },
 ] as const;
+
+/**
+ * Each system's colour, as the cockpit design gives it: its dot in the tree,
+ * on its component card and in its relations. Static class names, so
+ * Tailwind finds them (see SIDEBAR_WIDTH_CLASS).
+ */
+export const SECTION_DOT_CLASSES: Record<string, string> = {
+  "ship-model": "bg-system-energy",
+  hull: "bg-system-hull",
+  superstructure: "bg-system-superstructure",
+  deck: "bg-system-deck",
+  propeller: "bg-system-propeller",
+  energy: "bg-system-energy",
+  windAssisted: "bg-system-hull",
+};
+/** For a section with no colour of its own. */
+export const DEFAULT_SECTION_DOT_CLASS = "bg-muted";
 
 /** Section IDs whose elements cannot be selected. */
 export const NON_SELECTABLE_SECTION_IDS: readonly string[] = [];
@@ -173,3 +206,10 @@ export const NON_SELECTABLE_SECTION_IDS: readonly string[] = [];
 export const INSPECTABLE_NODE_ROUTES: Readonly<Record<string, string>> = {
   Engine: "/engine",
 };
+
+/**
+ * The inspect page's parameter for the ship page's query, as it was when the
+ * inspect button was pressed: its "Back to ship" opens the ship as it was left
+ * (the view, the tab, the panel open).
+ */
+export const RETURN_QUERY_PARAM = "from";

@@ -2,12 +2,8 @@ export type ObjectDetailParameter = {
   name: string;
   value: string;
   href?: string;
-};
-
-export type ConnectedComponent = {
-  id: string;
-  label: string;
-  category?: string;
+  /** The ontology property it shows, by its local name (twShaftPowerMaxInKW), when from the knowledge graph. */
+  property?: string;
 };
 
 export type ObjectDetails = {
@@ -16,5 +12,4 @@ export type ObjectDetails = {
   tags?: string[];
   description: string;
   parameters: ObjectDetailParameter[];
-  connectedComponents: ConnectedComponent[];
 };

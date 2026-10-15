@@ -1,0 +1,145 @@
+"use client";
+
+import { Activity, MessageCircle, Ship, TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { getActiveAlarms, getActiveAnomalies, useLiveData, usePlayback } from "@/features/live-data/hooks/use-live-data";
+import { formatElapsed, formatUtcTime } from "@/features/live-data/lib/format-readings";
+import type { Alarm, LiveSnapshot } from "@/features/live-data/live-data-types";
+import { COCKPIT_BRAND, type CockpitPanel, type ViewerMode } from "../cockpit-config";
+import { NavigationReadouts } from "./navigation-readouts";
+import { ThemeToggle } from "./theme-toggle";
+import { AutonomyBadge } from "./autonomy-badge";
+import { ViewerModeSwitch } from "./viewer-mode-switch";
+
+type Props = {
+  mode: ViewerMode;
+  onModeChange: (mode: ViewerMode) => void;
+  /** Opens an active warning: the badge's action, on the first of them. */
+  onOpenAlarm: (alarm: Alarm) => void;
+  /** The panel open in Live data, and what opens or closes one. */
+  panel: CockpitPanel | null;
+  onPanelChange: (panel: CockpitPanel | null) => void;
+};
+
+// The event log opens from its tab on the scene's right edge: only the assistant here
+const PANEL_BUTTONS: { panel: CockpitPanel; label: string; Icon: typeof MessageCircle }[] = [
+  { panel: "assistant", label: "Ship assistant", Icon: MessageCircle },
+];
+
+const ORIGIN_LABELS: Record<LiveSnapshot["origin"], string> = { simulated: "SIM", recorded: "REC", stream: "STREAM" };
+
+/** Whether the snapshot comes from the simulation, a recording or the ship, and how often. */
+function sourceLabel(snapshot: LiveSnapshot) {
+  return `${ORIGIN_LABELS[snapshot.origin]} · ${snapshot.rateHz} Hz`;
+}
+
+/**
+ * The cockpit's top bar: who and what, the viewer mode, and — in Live data —
+ * the ship's readings, its autonomy, the data's source and the time. The
+ * warning badge and the theme toggle in both modes.
+ *
+ * Reads the live data itself, so its once-a-second updates re-render only the bar.
+ */
+export function CockpitTopBar({ mode, onModeChange, onOpenAlarm, panel, onPanelChange }: Props) {
+  const snapshot = useLiveData();
+  const playback = usePlayback();
+  const isReplaying = playback.viewedAt !== null && playback.latest !== null;
+  const activeAlarms = getActiveAlarms(snapshot);
+  const activeAlarmCount = activeAlarms.length;
+  const activeAnomalies = getActiveAnomalies(snapshot);
+  const isLive = mode === "live";
+
+  return (
+    // At lg only: below it, the phone's own header and tabs (MobileHeader, MobileTabBar)
+    <header className="hidden h-[52px] shrink-0 items-center gap-4 whitespace-nowrap border-b border-line bg-surface px-4 lg:flex">
+      <div className="flex shrink-0 items-center gap-2.5 lg:w-[248px]">
+        <Ship className="size-[22px] shrink-0 text-sim" aria-hidden />
+        <div className="hidden flex-col leading-[1.1] sm:flex">
+          <span className="text-[13px] font-bold tracking-[0.12em]">{COCKPIT_BRAND.title}</span>
+          <span className="text-[11px] text-muted">{COCKPIT_BRAND.subtitle}</span>
+        </div>
+      </div>
+
+      {/* The warnings are Live data's: none shown in the Ontology */}
+      <ViewerModeSwitch mode={mode} onChange={onModeChange} activeAlarmCount={0} />
+
+      {isLive ? (
+        <NavigationReadouts navigation={snapshot?.navigation ?? null} />
+      ) : (
+        <span className="hidden text-[13px] text-muted xl:inline">{COCKPIT_BRAND.ontologyCaption}</span>
+      )}
+
+      <div className="grow" />
+
+      {isLive &&
+        PANEL_BUTTONS.map(({ panel: option, label, Icon }) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onPanelChange(panel === option ? null : option)}
+            aria-label={label}
+            aria-pressed={panel === option}
+            title={label}
+            className={cn(
+              "flex size-[38px] shrink-0 cursor-pointer items-center justify-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              panel === option ? "border-accent-line bg-accent-soft text-accent-ink" : "border-line text-ink-2 hover:border-line-strong"
+            )}
+          >
+            <Icon className="size-[18px]" aria-hidden />
+          </button>
+        ))}
+
+      {isLive && activeAnomalies[0] && (
+        <button
+          type="button"
+          onClick={() => onOpenAlarm(activeAnomalies[0])}
+          aria-label={`${activeAnomalies.length} behaviour anomal${activeAnomalies.length === 1 ? "y" : "ies"}`}
+          className="flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-anomaly px-2.5 text-[13px] font-bold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Activity className="size-4" aria-hidden />
+          {activeAnomalies.length}
+        </button>
+      )}
+
+      {isLive && activeAlarms[0] && (
+        <button
+          type="button"
+          onClick={() => onOpenAlarm(activeAlarms[0])}
+          aria-label={`${activeAlarmCount} active warning${activeAlarmCount === 1 ? "" : "s"}`}
+          className="flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-alarm-badge px-2.5 text-[13px] font-bold text-alarm-badge-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <TriangleAlert className="size-4" aria-hidden />
+          {activeAlarmCount}
+        </button>
+      )}
+
+      {isLive && snapshot && (
+        <>
+          <AutonomyBadge level={snapshot.autonomyLevel} />
+          <div className="hidden shrink-0 items-center gap-2 lg:flex">
+            {isReplaying ? (
+              <>
+                <span className="size-2 rounded-full bg-warn" aria-hidden />
+                <span className="text-xs font-bold tracking-[0.1em] text-warn">
+                  REPLAY −{formatElapsed(playback.viewedAt!, playback.latest!)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="size-2 rounded-full bg-ok shadow-[0_0_0_3px_var(--color-ok-soft)]" aria-hidden />
+                <span className="text-xs font-bold tracking-[0.1em]">LIVE</span>
+              </>
+            )}
+            <span className="hidden font-mono text-[11px] text-muted 2xl:inline">{sourceLabel(snapshot)}</span>
+          </div>
+          <div className="hidden h-[38px] shrink-0 items-center gap-1.5 border-l border-line pl-4 xl:flex">
+            <span className="font-mono text-[15px] font-semibold tabular-nums">{formatUtcTime(snapshot.timestamp)}</span>
+            <span className="text-[11px] text-muted">UTC</span>
+          </div>
+        </>
+      )}
+
+      <ThemeToggle />
+    </header>
+  );
+}

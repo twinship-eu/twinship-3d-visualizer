@@ -10,29 +10,29 @@ const SKELETON_SECTIONS = [
   { label: "Ship model", childCount: 1 },
   { label: "Hull", childCount: 4 },
   { label: "Superstructure", childCount: 3 },
-  { label: "Deck equipment", childCount: 3 },
+  { label: "Cargo", childCount: 3 },
   { label: "Propulsion", childCount: 3 },
 ] as const;
 
 export function OntologyExplorerSkeleton() {
   return (
     <div
-      className="flex h-full min-h-0 shrink-0 flex-col border-r border-border bg-white dark:bg-sidebar"
+      className="flex h-full min-h-0 shrink-0 flex-col border-r border-line bg-surface"
       style={{ width: LOADER_PANEL_WIDTH_PX }}
     >
-      <div className="shrink-0 border-b border-border px-3 py-3">
+      <div className="shrink-0 border-b border-line px-3 py-3">
         <div className="mb-3 flex items-center justify-center gap-2">
           <Ship
-            className="size-5 shrink-0 text-primary opacity-70"
+            className="size-5 shrink-0 text-muted"
             aria-hidden
           />
           <div
-            className="h-4 w-32 rounded bg-sidebar-accent animate-pulse"
+            className="h-4 w-32 rounded bg-btn animate-pulse"
             aria-hidden
           />
         </div>
         <div
-          className="h-9 w-full rounded-md border border-border bg-sidebar-accent/50 animate-pulse"
+          className="h-9 w-full rounded-md border border-line bg-card animate-pulse"
           aria-hidden
         />
       </div>
@@ -44,9 +44,9 @@ export function OntologyExplorerSkeleton() {
                 className="flex items-center gap-2 rounded px-2 py-1.5"
                 style={{ paddingLeft: 8 }}
               >
-                <div className="size-4 shrink-0 rounded bg-sidebar-accent animate-pulse" />
+                <div className="size-4 shrink-0 rounded bg-btn animate-pulse" />
                 <div
-                  className="h-4 flex-1 max-w-[70%] rounded bg-sidebar-accent animate-pulse"
+                  className="h-4 flex-1 max-w-[70%] rounded bg-btn animate-pulse"
                   style={{ animationDelay: `${sectionIndex * 50}ms` }}
                 />
               </div>
@@ -56,9 +56,9 @@ export function OntologyExplorerSkeleton() {
                   className="flex items-center gap-2 rounded px-2 py-1.5"
                   style={{ paddingLeft: 8 + 14 }}
                 >
-                  <div className="size-4 shrink-0 rounded bg-sidebar-accent/70 animate-pulse" />
+                  <div className="size-4 shrink-0 rounded bg-btn animate-pulse" />
                   <div
-                    className="h-3.5 w-24 rounded bg-sidebar-accent/70 animate-pulse"
+                    className="h-3.5 w-24 rounded bg-btn animate-pulse"
                     style={{
                       animationDelay: `${(sectionIndex * 50 + childIndex * 30) % 500}ms`,
                     }}

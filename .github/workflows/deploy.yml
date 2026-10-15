@@ -83,6 +83,22 @@ jobs:
             --namespace ${{ env.NAMESPACE }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      # The ship assistant's key (Settings → Secrets and variables → Actions → OLLAMA_API_KEY),
+      # kept in the cluster as a Kubernetes secret: never in the image, never in the logs
+      - name: Create Ollama key secret
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: |
+          if [[ -z "$OLLAMA_API_KEY" ]]; then
+            echo "❌ ERROR: the OLLAMA_API_KEY secret is not set."
+            echo "   Go to: Settings → Secrets and variables → Actions → New repository secret → OLLAMA_API_KEY"
+            exit 1
+          fi
+          kubectl create secret generic ${{ env.APP_NAME }}-ollama \
+            --from-literal=OLLAMA_API_KEY="$OLLAMA_API_KEY" \
+            --namespace ${{ env.NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Deploy with Helm
         run: |
           helm upgrade --install ${{ env.APP_NAME }} ./chart \
@@ -92,6 +108,13 @@ jobs:
             --set ingress.host=${{ vars.COMPONENT_HOST }} \
             --wait \
             --timeout 5m
+
+      # The key into the app's container, read by the server at runtime (app/api/assistant/route.ts)
+      - name: Give the app the Ollama key
+        run: |
+          kubectl set env deployment/${{ env.APP_NAME }} \
+            --from=secret/${{ env.APP_NAME }}-ollama \
+            -n ${{ env.NAMESPACE }}
 
       - name: Verify rollout
         run: |

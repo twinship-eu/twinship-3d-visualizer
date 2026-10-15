@@ -1,0 +1,1317 @@
+{
+ "source": {
+  "pipeline": "twinship-data-pipeline",
+  "commit": "b2565d9",
+  "workbook": "data/RoRo Futuristic Vessel KG Working File.xlsx",
+  "exportedAt": "2026-09-29T10:28:48Z",
+  "unknownValue": -1
+ },
+ "instances": {
+  "FV-ALS-1": {
+   "label": "AIR LUBRICATION SYSTEM 1",
+   "types": [
+    "AC",
+    "AirLubricationSystem",
+    "ESD"
+   ],
+   "values": {
+    "twALSPowerInKW": -1.0,
+    "twALSPowerReductionEfficiencyPercentage": -1.0
+   }
+  },
+  "FV-AMMCELL-1": {
+   "label": "AMMONIA FUEL CELLS 1",
+   "types": [
+    "AC",
+    "ESD",
+    "FuelCellSystem"
+   ],
+   "values": {
+    "twAMMCELLPowerCapacityInKWh": -1.0
+   }
+  },
+  "FV-AUXLD-1": {
+   "label": "AUXILIARY LOADS - SHIP SERVICES AND HOTEL LOAD 1",
+   "types": [
+    "AC",
+    "AUXLOAD",
+    "HotelLoad",
+    "ShipServices"
+   ],
+   "values": {
+    "twAUXLDHotelLoadPowerInKW": -1.0,
+    "twAUXLDShipServicesPowerInKW": -1.0
+   }
+  },
+  "FV-CPP-1": {
+   "label": "CONTROLLABLE PITCH PROPELLER 1",
+   "types": [
+    "AC",
+    "CPP"
+   ],
+   "values": {
+    "twPropellerBlades": 4,
+    "twPropellerDiameterMm": 4800.0,
+    "twPropellerEfficiency": -1.0,
+    "twPropellerExpandedAreaRatioPercentage": -1.0,
+    "twPropellerHubRatio": -1.0,
+    "twPropellerPitchDiameterRatio": -1.0,
+    "twPropellerPitchMaxInPercentage": -1.0,
+    "twPropellerSkewAngleDegree": -1.0,
+    "twRudderAngleDegree": -1.0
+   }
+  },
+  "FV-CPP-2": {
+   "label": "CONTROLLABLE PITCH PROPELLER 2",
+   "types": [
+    "AC",
+    "CPP"
+   ],
+   "values": {
+    "twPropellerBlades": 4,
+    "twPropellerDiameterMm": 4800.0,
+    "twPropellerEfficiency": -1.0,
+    "twPropellerExpandedAreaRatioPercentage": -1.0,
+    "twPropellerHubRatio": -1.0,
+    "twPropellerPitchDiameterRatio": -1.0,
+    "twPropellerPitchMaxInPercentage": -1.0,
+    "twPropellerSkewAngleDegree": -1.0,
+    "twRudderAngleDegree": -1.0
+   }
+  },
+  "FV-DCB-1": {
+   "label": "DC BUS BIDIRECTIONAL CONVERTOR 1",
+   "types": [
+    "AC",
+    "BidirectionalConverterSystem",
+    "DC",
+    "ESD"
+   ],
+   "values": {
+    "twDCBMaxCurrent": -1.0,
+    "twDCBMaxVoltage": -1.0,
+    "twDCBMinVoltage": -1.0,
+    "twDCBNominalVoltage": -1.0
+   }
+  },
+  "FV-DW-1": {
+   "label": "DYNAMIC WING 1",
+   "types": [
+    "AC",
+    "DynamicWing",
+    "ESD"
+   ],
+   "values": {
+    "twDWPowerInKW": -1.0,
+    "twDWPowerReductionEfficiencyPercentage": -1.0
+   }
+  },
+  "FV-EMM-1": {
+   "label": "ELECTRIC MOTOR 1",
+   "types": [
+    "AC",
+    "ElectricMotorSystem"
+   ],
+   "values": {
+    "twEMPowerInMWh": -1.0,
+    "twFCFrequencyInHz": -1.0,
+    "twFCVoltageInVolts": -1.0
+   }
+  },
+  "FV-EMM-2": {
+   "label": "ELECTRIC MOTOR 2",
+   "types": [
+    "AC",
+    "ElectricMotorSystem"
+   ],
+   "values": {
+    "twEMPowerInMWh": -1.0,
+    "twFCFrequencyInHz": -1.0,
+    "twFCVoltageInVolts": -1.0
+   }
+  },
+  "FV-EMSH-1": {
+   "label": "ELECTRIC MOTOR SHAFT 1",
+   "types": [
+    "ElectricMotorShaft"
+   ],
+   "values": {
+    "twEMSHSpeedInRevPerMin": -1.0,
+    "twEMSHTorqueInKN": -1.0
+   }
+  },
+  "FV-EMSH-2": {
+   "label": "ELECTRIC MOTOR SHAFT 2",
+   "types": [
+    "ElectricMotorShaft"
+   ],
+   "values": {
+    "twEMSHSpeedInRevPerMin": -1.0,
+    "twEMSHTorqueInKN": -1.0
+   }
+  },
+  "FV-ESS-1": {
+   "label": "ENERGY STORAGE SYSTEM 1",
+   "types": [
+    "DC",
+    "ESD",
+    "EnergyStorageSystem"
+   ],
+   "values": {
+    "twESSCRate": -1.0,
+    "twESSCapacityInMWh": 7.0,
+    "twESSCycleLife": -1,
+    "twESSDepthOfDischargePercentage": -1.0,
+    "twESSVolumeInM3": -1.0,
+    "twESSWeightInKg": -1.0
+   }
+  },
+  "FV-FC-1": {
+   "label": "FREQUENCY CONVERTOR 1",
+   "types": [
+    "AC",
+    "DC",
+    "FrequencyConverterSystem"
+   ],
+   "values": {
+    "twEMPowerInMWh": -1.0,
+    "twFCFrequencyInHz": -1.0,
+    "twFCVoltageInVolts": -1.0
+   }
+  },
+  "FV-FC-2": {
+   "label": "FREQUENCY CONVERTOR 2",
+   "types": [
+    "AC",
+    "DC",
+    "FrequencyConverterSystem"
+   ],
+   "values": {
+    "twEMPowerInMWh": -1.0,
+    "twFCFrequencyInHz": -1.0,
+    "twFCVoltageInVolts": -1.0
+   }
+  },
+  "FV-GN-1": {
+   "label": "FUTURISTIC RORO VESSEL GENSET 1",
+   "types": [
+    "AC",
+    "DieselElectricConfiguration",
+    "FourStroke",
+    "GenSetSystem"
+   ],
+   "values": {
+    "twCommonFuelMode": -1,
+    "twElectricalEfficiencyPercentage": -1.0,
+    "twFlowrateMaxInKgPerHr": -1.0,
+    "twFuelConsumptionTotalInMT": -1.0,
+    "twFuelFlowTemperatureMaxInDegC": -1.0,
+    "twGeneratorFrequency": -1.0,
+    "twGeneratorVoltageInV": -1.0,
+    "twInletAirPressureMaxInHPa": -1.0,
+    "twInletAirTemperatureMaxInDegC": -1.0,
+    "twLtCoolingSeawater1TemperatureMaxInDegC": -1.0,
+    "twLtCoolingSeawater2TemperatureMaxInDegC": -1.0,
+    "twMeCoolingWaterTemperatureMaxInDegC": -1.0,
+    "twPowerPropulsionTotalInKw": -1.0,
+    "twScavengerAirRecTemperatureMaxInDegC": -1.0,
+    "twShaftPowerMaxInKW": 6300.0,
+    "twShaftSpeedMaxInRevPerMin": 720.0,
+    "twShaftTorqueMaxInKnm": -1.0
+   }
+  },
+  "FV-GN-2": {
+   "label": "FUTURISTIC RORO VESSEL GENSET 2",
+   "types": [
+    "AC",
+    "DieselElectricConfiguration",
+    "FourStroke",
+    "GenSetSystem"
+   ],
+   "values": {
+    "twCommonFuelMode": -1,
+    "twElectricalEfficiencyPercentage": -1.0,
+    "twFlowrateMaxInKgPerHr": -1.0,
+    "twFuelConsumptionTotalInMT": -1.0,
+    "twFuelFlowTemperatureMaxInDegC": -1.0,
+    "twGeneratorFrequency": -1.0,
+    "twGeneratorVoltageInV": -1.0,
+    "twInletAirPressureMaxInHPa": -1.0,
+    "twInletAirTemperatureMaxInDegC": -1.0,
+    "twLtCoolingSeawater1TemperatureMaxInDegC": -1.0,
+    "twLtCoolingSeawater2TemperatureMaxInDegC": -1.0,
+    "twMeCoolingWaterTemperatureMaxInDegC": -1.0,
+    "twPowerPropulsionTotalInKw": -1.0,
+    "twScavengerAirRecTemperatureMaxInDegC": -1.0,
+    "twShaftPowerMaxInKW": 6300.0,
+    "twShaftSpeedMaxInRevPerMin": 720.0,
+    "twShaftTorqueMaxInKnm": -1.0
+   }
+  },
+  "FV-GR-1": {
+   "label": "GATE RUDDER 1",
+   "types": [
+    "AC",
+    "ESD",
+    "GateRudder"
+   ],
+   "values": {
+    "twGRSPowerInKW": -1.0,
+    "twGRSPowerReductionEfficiencyPercentage": -1.0
+   }
+  },
+  "FV-GR-2": {
+   "label": "GATE RUDDER 2",
+   "types": [
+    "AC",
+    "ESD",
+    "GateRudder"
+   ],
+   "values": {
+    "twGRSPowerInKW": -1.0,
+    "twGRSPowerReductionEfficiencyPercentage": -1.0
+   }
+  },
+  "FV-OSP-1": {
+   "label": "ON SHORE POWER CONNECTION 1",
+   "types": [
+    "AC",
+    "OSP"
+   ],
+   "values": {
+    "twOSPPowerInKWh": -1.0,
+    "twOSPTimeInHours": -1.0
+   }
+  },
+  "FV-PMS-1": {
+   "label": "MAIN SWITCHBOARD AC - POWER MANAGEMENT SYSTEM 1",
+   "types": [
+    "AC",
+    "Pms"
+   ],
+   "values": {}
+  },
+  "FV-RR-1": {
+   "label": "FUTURISTIC RORO VESSEL",
+   "types": [
+    "RoRo",
+    "VesselSystem"
+   ],
+   "values": {
+    "twDisplacementMaxInMT": -1.0,
+    "twVesselDepthOfWaterMaxInM": -1.0,
+    "twVesselDraftAftMaxInM": -1.0,
+    "twVesselDraftForMaxInM": -1.0,
+    "twVesselDraftMidPortMaxInM": -1.0,
+    "twVesselDraftMidStbdMaxInM": -1.0
+   }
+  },
+  "FV-SCR-1": {
+   "label": "SELECTIVE CATALYTIC REDUCTION 1",
+   "types": [
+    "SCR"
+   ],
+   "values": {
+    "twSCRCatalystVolumeInM3": -1.0,
+    "twSCRExhaustGasFlowrateInKgPerHr": -1.0,
+    "twSCRNOReductionEfficiency": -1.0,
+    "twSCROpTempCentigrade": -1.0
+   }
+  },
+  "FV-SCR-2": {
+   "label": "SELECTIVE CATALYTIC REDUCTION 2",
+   "types": [
+    "SCR"
+   ],
+   "values": {
+    "twSCRCatalystVolumeInM3": -1.0,
+    "twSCRExhaustGasFlowrateInKgPerHr": -1.0,
+    "twSCRNOReductionEfficiency": -1.0,
+    "twSCROpTempCentigrade": -1.0
+   }
+  },
+  "FV-TH-1": {
+   "label": "BOW THRUSTER 1",
+   "types": [
+    "AC",
+    "Bow",
+    "BowThruster"
+   ],
+   "values": {
+    "twBowThrusterPowerMaxInKW": 1800.0
+   }
+  },
+  "FV-TH-2": {
+   "label": "BOW THRUSTER 2",
+   "types": [
+    "AC",
+    "Bow",
+    "BowThruster"
+   ],
+   "values": {
+    "twBowThrusterPowerMaxInKW": 1800.0
+   }
+  },
+  "FV-WASP-1": {
+   "label": "WIND ASSISTED PROPULSION SYSTEM - SUCTION SAIL 1",
+   "types": [
+    "AC",
+    "ESD",
+    "SuctionSail",
+    "WindAssistedPropulsionSystem"
+   ],
+   "values": {
+    "twWASPPowerInKW": -1.0,
+    "twWASPPowerReductionEfficiencyPercentage": -1.0
+   }
+  },
+  "FV-WASP-2": {
+   "label": "WIND ASSISTED PROPULSION SYSTEM - SUCTION SAIL 2",
+   "types": [
+    "AC",
+    "ESD",
+    "SuctionSail",
+    "WindAssistedPropulsionSystem"
+   ],
+   "values": {
+    "twWASPPowerInKW": -1.0,
+    "twWASPPowerReductionEfficiencyPercentage": -1.0
+   }
+  },
+  "AMM": {
+   "label": "AMM",
+   "types": [
+    "Fuel"
+   ],
+   "values": {}
+  },
+  "BF": {
+   "label": "BF",
+   "types": [
+    "Fuel"
+   ],
+   "values": {}
+  }
+ },
+ "relations": [
+  {
+   "subject": "FV-ALS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-ALS-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-AMMCELL-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-AMMCELL-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-AMMCELL-1",
+   "predicate": "tws:consume",
+   "object": "AMM"
+  },
+  {
+   "subject": "FV-AUXLD-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-AUXLD-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-CPP-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-CPP-1",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-EMSH-1"
+  },
+  {
+   "subject": "FV-CPP-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-CPP-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-CPP-2",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-EMSH-2"
+  },
+  {
+   "subject": "FV-CPP-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-DCB-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-ESS-1"
+  },
+  {
+   "subject": "FV-DCB-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-DCB-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-DW-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-DW-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-EMM-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-FC-1"
+  },
+  {
+   "subject": "FV-EMM-1",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-EMSH-1"
+  },
+  {
+   "subject": "FV-EMM-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-EMM-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-FC-2"
+  },
+  {
+   "subject": "FV-EMM-2",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-EMSH-2"
+  },
+  {
+   "subject": "FV-EMM-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-EMSH-1",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-CPP-1"
+  },
+  {
+   "subject": "FV-EMSH-1",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-EMM-1"
+  },
+  {
+   "subject": "FV-EMSH-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-EMSH-2",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-CPP-2"
+  },
+  {
+   "subject": "FV-EMSH-2",
+   "predicate": "ido:directlyConnectedTo",
+   "object": "FV-EMM-2"
+  },
+  {
+   "subject": "FV-EMSH-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-ESS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-DCB-1"
+  },
+  {
+   "subject": "FV-ESS-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-FC-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-EMM-1"
+  },
+  {
+   "subject": "FV-FC-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-FC-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-FC-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-EMM-2"
+  },
+  {
+   "subject": "FV-FC-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-FC-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-GN-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-GN-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-SCR-1"
+  },
+  {
+   "subject": "FV-GN-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-GN-1",
+   "predicate": "tws:consume",
+   "object": "AMM"
+  },
+  {
+   "subject": "FV-GN-1",
+   "predicate": "tws:consume",
+   "object": "BF"
+  },
+  {
+   "subject": "FV-GN-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-GN-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-SCR-2"
+  },
+  {
+   "subject": "FV-GN-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-GN-2",
+   "predicate": "tws:consume",
+   "object": "AMM"
+  },
+  {
+   "subject": "FV-GN-2",
+   "predicate": "tws:consume",
+   "object": "BF"
+  },
+  {
+   "subject": "FV-GR-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-GR-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-GR-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-GR-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-OSP-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-OSP-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-ALS-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-AMMCELL-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-AUXLD-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-CPP-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-CPP-2"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-DCB-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-DW-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-FC-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-FC-2"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-GN-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-GN-2"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-GR-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-GR-2"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-OSP-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-SCR-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-SCR-2"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-TH-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-TH-2"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-WASP-1"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-WASP-2"
+  },
+  {
+   "subject": "FV-PMS-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-SCR-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-GN-1"
+  },
+  {
+   "subject": "FV-SCR-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-SCR-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-SCR-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-GN-2"
+  },
+  {
+   "subject": "FV-SCR-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-SCR-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-TH-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-TH-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-TH-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-TH-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-WASP-1",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-WASP-1",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  },
+  {
+   "subject": "FV-WASP-2",
+   "predicate": "ido:connectedTo",
+   "object": "FV-PMS-1"
+  },
+  {
+   "subject": "FV-WASP-2",
+   "predicate": "ido:partOf",
+   "object": "FV-RR-1"
+  }
+ ],
+ "classes": {
+  "AC": {
+   "iri": "https://twin-ship.eu/twinship#AC",
+   "label": "Alternating Current",
+   "comment": "Classifies an electrical system or component as using alternating current (AC)."
+  },
+  "AUXLOAD": {
+   "iri": "https://twin-ship.eu/twinship#AUXLOAD",
+   "label": "Auxiliary Load",
+   "comment": "Auxiliary electrical loads including ship services and hotel load. Represents the non-propulsion electrical demand on the power management system."
+  },
+  "AirLubricationSystem": {
+   "iri": "https://twin-ship.eu/twinship#AirLubricationSystem",
+   "label": "Air Lubrication System",
+   "comment": "Reduces hull friction by creating a layer of air bubbles under the hull, improving fuel efficiency."
+  },
+  "BidirectionalConverterSystem": {
+   "iri": "https://twin-ship.eu/twinship#BidirectionalConverterSystem",
+   "label": "Bidirectional Converter System",
+   "comment": "DC bus bidirectional converter that converts between AC and DC power, enabling charging and discharging of energy storage systems through the main switchboard."
+  },
+  "Bow": {
+   "iri": "https://twin-ship.eu/twinship#Bow",
+   "label": "Bow",
+   "comment": "Classifies a thruster or maneuvering device as bow-mounted."
+  },
+  "BowThruster": {
+   "iri": "https://twin-ship.eu/twinship#BowThruster",
+   "label": "Bow Thruster",
+   "comment": "A dedicated bow thruster for vessel maneuvering. Uses existing bow thruster datatype properties."
+  },
+  "CPP": {
+   "iri": "https://twin-ship.eu/twinship#CPP",
+   "label": "Controllable Pitch Propeller",
+   "comment": "Controllable Pitch Propeller - a propeller where the blade pitch can be adjusted while rotating to optimize thrust and efficiency."
+  },
+  "DC": {
+   "iri": "https://twin-ship.eu/twinship#DC",
+   "label": "Direct Current",
+   "comment": "Classifies an electrical system or component as using direct current (DC)."
+  },
+  "DieselElectricConfiguration": {
+   "iri": "https://twin-ship.eu/twinship#DieselElectricConfiguration",
+   "label": "Diesel-Electric Configuration",
+   "comment": "Classifies a diesel-electric propulsion configuration where engines drive generators to produce electricity, which then powers electric motors for propulsion. Counterpart to MechanicalConfiguration for conventional direct-drive or geared propulsion."
+  },
+  "DynamicWing": {
+   "iri": "https://twin-ship.eu/twinship#DynamicWing",
+   "label": "Dynamic Wing",
+   "comment": "Active aerodynamic or hydrodynamic drag reduction device for improving vessel efficiency."
+  },
+  "ESD": {
+   "iri": "https://twin-ship.eu/twinship#ESD",
+   "label": "Energy Storage Device",
+   "comment": "Classifies a component as an energy storage device, capable of storing and releasing electrical energy."
+  },
+  "ElectricMotorShaft": {
+   "iri": "https://twin-ship.eu/twinship#ElectricMotorShaft",
+   "label": "Electric Motor Shaft",
+   "comment": "The propulsion shaft connecting an electric motor to a propeller. Carries shaft speed and torque properties."
+  },
+  "ElectricMotorSystem": {
+   "iri": "https://twin-ship.eu/twinship#ElectricMotorSystem",
+   "label": "Electric Motor System",
+   "comment": "AC electric motor that drives a propeller via a shaft. The diesel-electric equivalent of MainEngineSystem in the propulsion chain."
+  },
+  "EnergyStorageSystem": {
+   "iri": "https://twin-ship.eu/twinship#EnergyStorageSystem",
+   "label": "Energy Storage System",
+   "comment": "Battery or hybrid energy storage providing peak power, backup, and load balancing for diesel-electric vessels. Connected to the main switchboard via a bidirectional converter."
+  },
+  "FourStroke": {
+   "iri": "https://twin-ship.eu/twinship#FourStroke",
+   "label": "Four Stroke",
+   "comment": "A four-stroke internal combustion engine."
+  },
+  "FrequencyConverterSystem": {
+   "iri": "https://twin-ship.eu/twinship#FrequencyConverterSystem",
+   "label": "Frequency Converter System",
+   "comment": "Converts DC/AC electrical power to the frequency needed by electric motors in a diesel-electric propulsion system."
+  },
+  "Fuel": {
+   "iri": "https://twin-ship.eu/twinship#Fuel",
+   "label": "Fuel",
+   "comment": "Fuel type (e.g., HFO, MGO, MDO). Defined as individuals to allow engines and components to reference specific fuel types via the consume property."
+  },
+  "FuelCellSystem": {
+   "iri": "https://twin-ship.eu/twinship#FuelCellSystem",
+   "label": "Fuel Cell System",
+   "comment": "Fuel cell system for supplementary or backup power generation. Converts chemical energy from fuel (e.g., ammonia, hydrogen) directly into electrical energy."
+  },
+  "GateRudder": {
+   "iri": "https://twin-ship.eu/twinship#GateRudder",
+   "label": "Gate Rudder",
+   "comment": "A combined rudder and propulsion enhancement device. Unlike traditional rudders, gate rudders provide both steering and thrust augmentation."
+  },
+  "GenSetSystem": {
+   "iri": "https://twin-ship.eu/twinship#GenSetSystem",
+   "label": "Generator Set System",
+   "comment": "An integrated engine and generator unit that produces electrical power. The diesel-electric equivalent of MainEngineSystem — its primary purpose is electrical energy production rather than mechanical propulsion. Subclass of EngineSystem because it is physically a diesel engine that consumes fuel and has combustion/shaft properties."
+  },
+  "HotelLoad": {
+   "iri": "https://twin-ship.eu/twinship#HotelLoad",
+   "label": "Hotel Load",
+   "comment": "Classifies a load as hotel load (HVAC, lighting, galley, passenger comfort systems, etc.)."
+  },
+  "OSP": {
+   "iri": "https://twin-ship.eu/twinship#OSP",
+   "label": "On Shore Power",
+   "comment": "Shore power connection for zero-emission port operations. Allows a vessel to receive electrical power from the shore grid."
+  },
+  "Pms": {
+   "iri": "https://twin-ship.eu/twinship#Pms",
+   "label": "PMS",
+   "comment": "Power Management System - manages electrical power distribution on a vessel."
+  },
+  "RoRo": {
+   "iri": "https://twin-ship.eu/twinship#RoRo",
+   "label": "Roll-on/Roll-off",
+   "comment": "Roll-on/Roll-off vessel - a cargo ship designed to carry wheeled cargo that is driven on and off the ship."
+  },
+  "SCR": {
+   "iri": "https://twin-ship.eu/twinship#SCR",
+   "label": "Selective Catalytic Reduction",
+   "comment": "Selective Catalytic Reduction (SCR) system for NOx emissions reduction using a catalytic process."
+  },
+  "ShipServices": {
+   "iri": "https://twin-ship.eu/twinship#ShipServices",
+   "label": "Ship Services",
+   "comment": "Classifies a load as ship services (navigation, machinery support, safety systems, etc.)."
+  },
+  "SuctionSail": {
+   "iri": "https://twin-ship.eu/twinship#SuctionSail",
+   "label": "Suction Sail",
+   "comment": "Classifies a wind-assisted propulsion system as a suction sail (Flettner rotor or similar technology)."
+  },
+  "VesselSystem": {
+   "iri": "https://twin-ship.eu/twinship#VesselSystem",
+   "label": "Vessel System",
+   "comment": "A maritime vessel."
+  },
+  "WindAssistedPropulsionSystem": {
+   "iri": "https://twin-ship.eu/twinship#WindAssistedPropulsionSystem",
+   "label": "Wind Assisted Propulsion System",
+   "comment": "Wind-assisted propulsion system (WASP) such as suction sails or rotor sails that harness wind energy to supplement vessel propulsion."
+  }
+ },
+ "properties": {
+  "twALSPowerInKW": {
+   "iri": "https://twin-ship.eu/twinship#twALSPowerInKW",
+   "label": "twinship ALS power in kW",
+   "comment": "Air Lubrication System power in kilowatts. Value -1 indicates unknown."
+  },
+  "twALSPowerReductionEfficiencyPercentage": {
+   "iri": "https://twin-ship.eu/twinship#twALSPowerReductionEfficiencyPercentage",
+   "label": "twinship ALS power reduction efficiency percentage",
+   "comment": "Air Lubrication System power reduction efficiency as a percentage. Value -1 indicates unknown."
+  },
+  "twAMMCELLPowerCapacityInKWh": {
+   "iri": "https://twin-ship.eu/twinship#twAMMCELLPowerCapacityInKWh",
+   "label": "twinship AMMCELL power capacity in KWh",
+   "comment": "Ammonia fuel cell power capacity in kilowatt-hours. Value -1 indicates unknown."
+  },
+  "twAUXLDHotelLoadPowerInKW": {
+   "iri": "https://twin-ship.eu/twinship#twAUXLDHotelLoadPowerInKW",
+   "label": "twinship AUXLD hotel load power in kW",
+   "comment": "Auxiliary load hotel load power demand in kilowatts. Value -1 indicates unknown."
+  },
+  "twAUXLDShipServicesPowerInKW": {
+   "iri": "https://twin-ship.eu/twinship#twAUXLDShipServicesPowerInKW",
+   "label": "twinship AUXLD ship services power in kW",
+   "comment": "Auxiliary load ship services power demand in kilowatts. Value -1 indicates unknown."
+  },
+  "twBowThrusterPowerMaxInKW": {
+   "iri": "https://twin-ship.eu/twinship#twBowThrusterPowerMaxInKW",
+   "label": "twinship bow thruster power max in kW",
+   "comment": "Maximum bow thruster power output in kilowatts. Value -1 indicates unknown."
+  },
+  "twCommonFuelMode": {
+   "iri": "https://twin-ship.eu/twinship#twCommonFuelMode",
+   "label": "twinship common fuel mode",
+   "comment": "Common fuel mode indicator across systems. Values: 1 (active), 0 (inactive), -1 (unknown)."
+  },
+  "twDCBMaxCurrent": {
+   "iri": "https://twin-ship.eu/twinship#twDCBMaxCurrent",
+   "label": "twinship DCB max current",
+   "comment": "DC bus maximum current. Value -1 indicates unknown."
+  },
+  "twDCBMaxVoltage": {
+   "iri": "https://twin-ship.eu/twinship#twDCBMaxVoltage",
+   "label": "twinship DCB max voltage",
+   "comment": "DC bus maximum voltage. Value -1 indicates unknown."
+  },
+  "twDCBMinVoltage": {
+   "iri": "https://twin-ship.eu/twinship#twDCBMinVoltage",
+   "label": "twinship DCB min voltage",
+   "comment": "DC bus minimum voltage. Value -1 indicates unknown."
+  },
+  "twDCBNominalVoltage": {
+   "iri": "https://twin-ship.eu/twinship#twDCBNominalVoltage",
+   "label": "twinship DCB nominal voltage",
+   "comment": "DC bus nominal voltage. Value -1 indicates unknown."
+  },
+  "twDWPowerInKW": {
+   "iri": "https://twin-ship.eu/twinship#twDWPowerInKW",
+   "label": "twinship DW power in kW",
+   "comment": "Dynamic Wing power in kilowatts. Value -1 indicates unknown."
+  },
+  "twDWPowerReductionEfficiencyPercentage": {
+   "iri": "https://twin-ship.eu/twinship#twDWPowerReductionEfficiencyPercentage",
+   "label": "twinship DW power reduction efficiency percentage",
+   "comment": "Dynamic Wing power reduction efficiency as a percentage. Value -1 indicates unknown."
+  },
+  "twDisplacementMaxInMT": {
+   "iri": "https://twin-ship.eu/twinship#twDisplacementMaxInMT",
+   "label": "twinship displacement max in MT",
+   "comment": "Maximum vessel displacement in metric tons. Value -1 indicates unknown."
+  },
+  "twEMPowerInMWh": {
+   "iri": "https://twin-ship.eu/twinship#twEMPowerInMWh",
+   "label": "twinship EM power in MWh",
+   "comment": "Electric motor power capacity in megawatt-hours. Value -1 indicates unknown."
+  },
+  "twEMSHSpeedInRevPerMin": {
+   "iri": "https://twin-ship.eu/twinship#twEMSHSpeedInRevPerMin",
+   "label": "twinship EMSH speed in rev per min",
+   "comment": "Electric motor shaft rotational speed in revolutions per minute. Value -1 indicates unknown."
+  },
+  "twEMSHTorqueInKN": {
+   "iri": "https://twin-ship.eu/twinship#twEMSHTorqueInKN",
+   "label": "twinship EMSH torque in kN",
+   "comment": "Electric motor shaft torque in kilonewtons. Value -1 indicates unknown."
+  },
+  "twESSCRate": {
+   "iri": "https://twin-ship.eu/twinship#twESSCRate",
+   "label": "twinship ESS C-rate",
+   "comment": "Energy Storage System C-rate (charge/discharge rate relative to capacity). Value -1 indicates unknown."
+  },
+  "twESSCapacityInMWh": {
+   "iri": "https://twin-ship.eu/twinship#twESSCapacityInMWh",
+   "label": "twinship ESS capacity in MWh",
+   "comment": "Energy Storage System total capacity in megawatt-hours. Value -1 indicates unknown."
+  },
+  "twESSCycleLife": {
+   "iri": "https://twin-ship.eu/twinship#twESSCycleLife",
+   "label": "twinship ESS cycle life",
+   "comment": "Energy Storage System rated cycle life (number of charge/discharge cycles). Value -1 indicates unknown."
+  },
+  "twESSDepthOfDischargePercentage": {
+   "iri": "https://twin-ship.eu/twinship#twESSDepthOfDischargePercentage",
+   "label": "twinship ESS depth of discharge percentage",
+   "comment": "Energy Storage System maximum depth of discharge as a percentage. Value -1 indicates unknown."
+  },
+  "twESSVolumeInM3": {
+   "iri": "https://twin-ship.eu/twinship#twESSVolumeInM3",
+   "label": "twinship ESS volume in m3",
+   "comment": "Energy Storage System total volume in cubic metres. Value -1 indicates unknown."
+  },
+  "twESSWeightInKg": {
+   "iri": "https://twin-ship.eu/twinship#twESSWeightInKg",
+   "label": "twinship ESS weight in kg",
+   "comment": "Energy Storage System total weight in kilograms. Value -1 indicates unknown."
+  },
+  "twElectricalEfficiencyPercentage": {
+   "iri": "https://twin-ship.eu/twinship#twElectricalEfficiencyPercentage",
+   "label": "twinship electrical efficiency percentage",
+   "comment": "Electrical efficiency as a percentage. Value -1 indicates unknown."
+  },
+  "twFCFrequencyInHz": {
+   "iri": "https://twin-ship.eu/twinship#twFCFrequencyInHz",
+   "label": "twinship FC frequency in Hz",
+   "comment": "Frequency converter output frequency in hertz. Value -1 indicates unknown."
+  },
+  "twFCVoltageInVolts": {
+   "iri": "https://twin-ship.eu/twinship#twFCVoltageInVolts",
+   "label": "twinship FC voltage in volts",
+   "comment": "Frequency converter voltage in volts. Value -1 indicates unknown."
+  },
+  "twFlowrateMaxInKgPerHr": {
+   "iri": "https://twin-ship.eu/twinship#twFlowrateMaxInKgPerHr",
+   "label": "twinship flowrate max in kg per hr",
+   "comment": "Maximum flow rate in kilograms per hour. Value -1 indicates unknown."
+  },
+  "twFuelConsumptionTotalInMT": {
+   "iri": "https://twin-ship.eu/twinship#twFuelConsumptionTotalInMT",
+   "label": "twinship fuel consumption total in MT",
+   "comment": "Total fuel consumption in metric tons. Value -1 indicates unknown."
+  },
+  "twFuelFlowTemperatureMaxInDegC": {
+   "iri": "https://twin-ship.eu/twinship#twFuelFlowTemperatureMaxInDegC",
+   "label": "twinship fuel flow temperature max in degrees C",
+   "comment": "Maximum fuel flow temperature in degrees Celsius. Value -1 indicates unknown."
+  },
+  "twGRSPowerInKW": {
+   "iri": "https://twin-ship.eu/twinship#twGRSPowerInKW",
+   "label": "twinship GRS power in kW",
+   "comment": "Gate Rudder System power in kilowatts. Value -1 indicates unknown."
+  },
+  "twGRSPowerReductionEfficiencyPercentage": {
+   "iri": "https://twin-ship.eu/twinship#twGRSPowerReductionEfficiencyPercentage",
+   "label": "twinship GRS power reduction efficiency percentage",
+   "comment": "Gate Rudder System power reduction efficiency as a percentage. Value -1 indicates unknown."
+  },
+  "twGeneratorFrequency": {
+   "iri": "https://twin-ship.eu/twinship#twGeneratorFrequency",
+   "label": "twinship generator frequency",
+   "comment": "Generator output frequency. Value -1 indicates unknown."
+  },
+  "twGeneratorVoltageInV": {
+   "iri": "https://twin-ship.eu/twinship#twGeneratorVoltageInV",
+   "label": "twinship generator voltage in V",
+   "comment": "Generator output voltage in volts. Value -1 indicates unknown."
+  },
+  "twInletAirPressureMaxInHPa": {
+   "iri": "https://twin-ship.eu/twinship#twInletAirPressureMaxInHPa",
+   "label": "twinship inlet air pressure max in hPa",
+   "comment": "Maximum inlet air pressure in hectopascals. Value -1 indicates unknown."
+  },
+  "twInletAirTemperatureMaxInDegC": {
+   "iri": "https://twin-ship.eu/twinship#twInletAirTemperatureMaxInDegC",
+   "label": "twinship inlet air temperature max in degrees C",
+   "comment": "Maximum inlet air temperature in degrees Celsius. Value -1 indicates unknown."
+  },
+  "twLtCoolingSeawater1TemperatureMaxInDegC": {
+   "iri": "https://twin-ship.eu/twinship#twLtCoolingSeawater1TemperatureMaxInDegC",
+   "label": "twinship LT cooling seawater 1 temperature max in degrees C",
+   "comment": "Maximum LT cooling seawater 1 temperature in degrees Celsius. Value -1 indicates unknown."
+  },
+  "twLtCoolingSeawater2TemperatureMaxInDegC": {
+   "iri": "https://twin-ship.eu/twinship#twLtCoolingSeawater2TemperatureMaxInDegC",
+   "label": "twinship LT cooling seawater 2 temperature max in degrees C",
+   "comment": "Maximum LT cooling seawater 2 temperature in degrees Celsius. Value -1 indicates unknown."
+  },
+  "twMeCoolingWaterTemperatureMaxInDegC": {
+   "iri": "https://twin-ship.eu/twinship#twMeCoolingWaterTemperatureMaxInDegC",
+   "label": "twinship ME cooling water temperature max in degrees C",
+   "comment": "Maximum main engine cooling water temperature in degrees Celsius. Value -1 indicates unknown."
+  },
+  "twOSPPowerInKWh": {
+   "iri": "https://twin-ship.eu/twinship#twOSPPowerInKWh",
+   "label": "twinship OSP power in KWh",
+   "comment": "On Shore Power capacity in kilowatt-hours. Value -1 indicates unknown."
+  },
+  "twOSPTimeInHours": {
+   "iri": "https://twin-ship.eu/twinship#twOSPTimeInHours",
+   "label": "twinship OSP time in hours",
+   "comment": "On Shore Power connection time in hours. Value -1 indicates unknown."
+  },
+  "twPowerPropulsionTotalInKw": {
+   "iri": "https://twin-ship.eu/twinship#twPowerPropulsionTotalInKw",
+   "label": "twinship power propulsion total in kW",
+   "comment": "Total propulsion power in kilowatts. Value -1 indicates unknown."
+  },
+  "twPropellerBlades": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerBlades",
+   "label": "twinship propeller blades",
+   "comment": "Number of propeller blades. Value -1 indicates unknown."
+  },
+  "twPropellerDiameterMm": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerDiameterMm",
+   "label": "twinship propeller diameter mm",
+   "comment": "Propeller diameter in millimetres. Value -1 indicates unknown."
+  },
+  "twPropellerEfficiency": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerEfficiency",
+   "label": "twinship propeller efficiency",
+   "comment": "Propeller efficiency (0-1 ratio). Value -1 indicates unknown."
+  },
+  "twPropellerExpandedAreaRatioPercentage": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerExpandedAreaRatioPercentage",
+   "label": "twinship propeller expanded area ratio percentage",
+   "comment": "Propeller expanded area ratio as a percentage. Value -1 indicates unknown."
+  },
+  "twPropellerHubRatio": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerHubRatio",
+   "label": "twinship propeller hub ratio",
+   "comment": "Propeller hub diameter ratio (hub diameter / propeller diameter). Typical values around 0.16-0.20. Value -1 indicates unknown."
+  },
+  "twPropellerPitchDiameterRatio": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerPitchDiameterRatio",
+   "label": "twinship propeller pitch diameter ratio",
+   "comment": "Propeller pitch to diameter ratio. Value -1 indicates unknown."
+  },
+  "twPropellerPitchMaxInPercentage": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerPitchMaxInPercentage",
+   "label": "twinship propeller pitch max in percentage",
+   "comment": "Maximum propeller pitch as a percentage of design pitch. Value -1 indicates unknown."
+  },
+  "twPropellerSkewAngleDegree": {
+   "iri": "https://twin-ship.eu/twinship#twPropellerSkewAngleDegree",
+   "label": "twinship propeller skew angle degree",
+   "comment": "Propeller skew angle in degrees. Value -1 indicates unknown."
+  },
+  "twRudderAngleDegree": {
+   "iri": "https://twin-ship.eu/twinship#twRudderAngleDegree",
+   "label": "twinship rudder angle degree",
+   "comment": "Rudder angle in degrees. Value -1 indicates unknown."
+  },
+  "twSCRCatalystVolumeInM3": {
+   "iri": "https://twin-ship.eu/twinship#twSCRCatalystVolumeInM3",
+   "label": "twinship SCR catalyst volume in m3",
+   "comment": "SCR catalyst volume in cubic metres. Value -1 indicates unknown."
+  },
+  "twSCRExhaustGasFlowrateInKgPerHr": {
+   "iri": "https://twin-ship.eu/twinship#twSCRExhaustGasFlowrateInKgPerHr",
+   "label": "twinship SCR exhaust gas flowrate in kg per hr",
+   "comment": "SCR exhaust gas flowrate in kilograms per hour. Value -1 indicates unknown."
+  },
+  "twSCRNOReductionEfficiency": {
+   "iri": "https://twin-ship.eu/twinship#twSCRNOReductionEfficiency",
+   "label": "twinship SCR NO reduction efficiency",
+   "comment": "SCR NOx reduction efficiency. Value -1 indicates unknown."
+  },
+  "twSCROpTempCentigrade": {
+   "iri": "https://twin-ship.eu/twinship#twSCROpTempCentigrade",
+   "label": "twinship SCR op temp centigrade",
+   "comment": "SCR operating temperature in degrees centigrade. Value -1 indicates unknown."
+  },
+  "twScavengerAirRecTemperatureMaxInDegC": {
+   "iri": "https://twin-ship.eu/twinship#twScavengerAirRecTemperatureMaxInDegC",
+   "label": "twinship scavenger air rec temperature max in degrees C",
+   "comment": "Maximum scavenger air receiver temperature in degrees Celsius. Value -1 indicates unknown."
+  },
+  "twShaftPowerMaxInKW": {
+   "iri": "https://twin-ship.eu/twinship#twShaftPowerMaxInKW",
+   "label": "twinship shaft power max in kW",
+   "comment": "Maximum shaft power in kilowatts. Value -1 indicates unknown."
+  },
+  "twShaftSpeedMaxInRevPerMin": {
+   "iri": "https://twin-ship.eu/twinship#twShaftSpeedMaxInRevPerMin",
+   "label": "twinship shaft speed max in rev per min",
+   "comment": "Maximum shaft rotational speed in revolutions per minute. Value -1 indicates unknown."
+  },
+  "twShaftTorqueMaxInKnm": {
+   "iri": "https://twin-ship.eu/twinship#twShaftTorqueMaxInKnm",
+   "label": "twinship shaft torque max in kNm",
+   "comment": "Maximum shaft torque in kilonewton-metres. Value -1 indicates unknown."
+  },
+  "twVesselDepthOfWaterMaxInM": {
+   "iri": "https://twin-ship.eu/twinship#twVesselDepthOfWaterMaxInM",
+   "label": "twinship vessel depth of water max in m",
+   "comment": "Maximum depth of water under the vessel in metres. Value -1 indicates unknown."
+  },
+  "twVesselDraftAftMaxInM": {
+   "iri": "https://twin-ship.eu/twinship#twVesselDraftAftMaxInM",
+   "label": "twinship vessel draft aft max in m",
+   "comment": "Maximum vessel draft at the aft in metres. Value -1 indicates unknown."
+  },
+  "twVesselDraftForMaxInM": {
+   "iri": "https://twin-ship.eu/twinship#twVesselDraftForMaxInM",
+   "label": "twinship vessel draft for max in m",
+   "comment": "Maximum vessel draft at the fore in metres. Value -1 indicates unknown."
+  },
+  "twVesselDraftMidPortMaxInM": {
+   "iri": "https://twin-ship.eu/twinship#twVesselDraftMidPortMaxInM",
+   "label": "twinship vessel draft mid port max in m",
+   "comment": "Maximum vessel draft at midship port side in metres. Value -1 indicates unknown."
+  },
+  "twVesselDraftMidStbdMaxInM": {
+   "iri": "https://twin-ship.eu/twinship#twVesselDraftMidStbdMaxInM",
+   "label": "twinship vessel draft mid stbd max in m",
+   "comment": "Maximum vessel draft at midship starboard side in metres. Value -1 indicates unknown."
+  },
+  "twWASPPowerInKW": {
+   "iri": "https://twin-ship.eu/twinship#twWASPPowerInKW",
+   "label": "twinship WASP power in kW",
+   "comment": "Wind Assisted Propulsion System power in kilowatts. Value -1 indicates unknown."
+  },
+  "twWASPPowerReductionEfficiencyPercentage": {
+   "iri": "https://twin-ship.eu/twinship#twWASPPowerReductionEfficiencyPercentage",
+   "label": "twinship WASP power reduction efficiency percentage",
+   "comment": "Wind Assisted Propulsion System power reduction efficiency as a percentage. Value -1 indicates unknown."
+  }
+ }
+}

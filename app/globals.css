@@ -22,6 +22,54 @@
   --color-ontology-4: var(--ontology-4);
   --color-ontology-5: var(--ontology-5);
   --font-display: var(--font-display);
+  --font-sans: var(--font-barlow), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  /* The cockpit's design tokens: see the themes below */
+  --color-canvas: var(--cp-bg);
+  --color-surface: var(--cp-surface);
+  --color-card: var(--cp-card);
+  --color-line: var(--cp-line);
+  --color-line-strong: var(--cp-line-strong);
+  --color-ink: var(--cp-text);
+  --color-ink-2: var(--cp-text-2);
+  --color-muted: var(--cp-muted);
+  --color-glass: var(--cp-glass);
+  --color-glass-line: var(--cp-glass-line);
+  --color-leader: var(--cp-leader);
+  --color-seg: var(--cp-seg);
+  --color-seg-on: var(--cp-seg-on);
+  --color-seg-on-ink: var(--cp-seg-on-text);
+  --color-seg-off: var(--cp-seg-off);
+  --color-accent: var(--cp-accent);
+  --color-accent-ink: var(--cp-accent-text);
+  --color-accent-soft: var(--cp-accent-bg);
+  --color-accent-line: var(--cp-accent-line);
+  --color-ok: var(--cp-ok);
+  --color-ok-soft: var(--cp-ok-bg);
+  --color-warn: var(--cp-warn);
+  --color-warn-ink: var(--cp-warn-text);
+  --color-warn-soft: var(--cp-warn-bg);
+  --color-warn-line: var(--cp-warn-line);
+  --color-anomaly: var(--cp-anomaly);
+  --color-anomaly-ink: var(--cp-anomaly-text);
+  --color-anomaly-soft: var(--cp-anomaly-bg);
+  --color-anomaly-line: var(--cp-anomaly-line);
+  --color-alarm: var(--cp-alarm);
+  --color-alarm-soft: var(--cp-alarm-bg);
+  --color-sim: var(--cp-sim);
+  --color-sim-soft: var(--cp-sim-bg);
+  --color-eye: var(--cp-eye);
+  --color-track: var(--cp-track);
+  --color-btn: var(--cp-btn);
+  --color-system-hull: var(--cp-system-hull);
+  --color-system-superstructure: var(--cp-system-superstructure);
+  --color-system-deck: var(--cp-system-deck);
+  --color-system-propeller: var(--cp-system-propeller);
+  --color-system-energy: var(--cp-system-energy);
+  /* The alarm badge keeps its amber in both themes */
+  --color-alarm-badge: #f5b544;
+  --color-alarm-badge-ink: #1a1204;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -68,6 +116,102 @@
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }
 
+/*
+ * The cockpit's themes (the TwinShip Bridge Cockpit design): dark by default,
+ * light with `data-theme="light"` on <html> — see ThemeProvider.
+ */
+:root,
+[data-theme="dark"] {
+  --cp-bg: #070c16;
+  --cp-surface: #0b1322;
+  --cp-card: #0f192b;
+  --cp-line: #1c2940;
+  --cp-line-strong: #2a3a55;
+  --cp-text: #e6edf7;
+  --cp-text-2: #c9d4e3;
+  --cp-muted: #8fa0b8;
+  --cp-glass: rgba(8, 14, 26, 0.8);
+  --cp-glass-line: rgba(255, 255, 255, 0.12);
+  --cp-leader: rgba(230, 237, 247, 0.75);
+  --cp-seg: rgba(255, 255, 255, 0.04);
+  --cp-seg-on: rgba(255, 255, 255, 0.14);
+  --cp-seg-on-text: #ffffff;
+  --cp-seg-off: #aebbd0;
+  --cp-accent: #38bdf8;
+  --cp-accent-text: #7dd3fc;
+  --cp-accent-bg: rgba(56, 189, 248, 0.12);
+  --cp-accent-line: rgba(56, 189, 248, 0.4);
+  --cp-ok: #4ade9b;
+  --cp-ok-bg: rgba(52, 211, 153, 0.14);
+  --cp-warn: #f5b544;
+  --cp-warn-text: #fcd58a;
+  --cp-warn-bg: rgba(245, 165, 36, 0.12);
+  --cp-warn-line: rgba(245, 181, 68, 0.5);
+  /* Behaviour anomalies: a danger orange-red, apart from the amber of a limit and the red of an alarm */
+  --cp-anomaly: #fb6b3a;
+  --cp-anomaly-text: #fdba8c;
+  --cp-anomaly-bg: rgba(251, 107, 58, 0.12);
+  --cp-anomaly-line: rgba(251, 107, 58, 0.5);
+  --cp-alarm: #f87171;
+  --cp-alarm-bg: rgba(248, 113, 113, 0.14);
+  --cp-sim: #c4b5fd;
+  --cp-sim-bg: rgba(167, 139, 250, 0.14);
+  --cp-eye: #a99bff;
+  --cp-system-hull: #f97316;
+  --cp-system-superstructure: #d59b3a;
+  --cp-system-deck: #22c55e;
+  --cp-system-propeller: #a78bfa;
+  --cp-system-energy: #38bdf8;
+  --cp-track: rgba(255, 255, 255, 0.14);
+  --cp-btn: rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --cp-bg: #eef2f7;
+  --cp-surface: #ffffff;
+  --cp-card: #f7f9fc;
+  --cp-line: #e2e8f0;
+  --cp-line-strong: #cbd5e1;
+  --cp-text: #0f172a;
+  --cp-text-2: #334155;
+  --cp-muted: #5b6b82;
+  --cp-glass: rgba(255, 255, 255, 0.92);
+  --cp-glass-line: rgba(15, 23, 42, 0.1);
+  --cp-leader: rgba(255, 255, 255, 0.95);
+  --cp-seg: #f1f5f9;
+  --cp-seg-on: #ffffff;
+  --cp-seg-on-text: #0f172a;
+  --cp-seg-off: #475569;
+  --cp-accent: #0284c7;
+  --cp-accent-text: #0369a1;
+  --cp-accent-bg: rgba(2, 132, 199, 0.08);
+  --cp-accent-line: rgba(2, 132, 199, 0.35);
+  --cp-ok: #15803d;
+  --cp-ok-bg: rgba(22, 163, 74, 0.1);
+  --cp-warn: #d97706;
+  --cp-warn-text: #92400e;
+  --cp-warn-bg: rgba(245, 158, 11, 0.12);
+  --cp-warn-line: rgba(217, 119, 6, 0.45);
+  --cp-anomaly: #ea4f1a;
+  --cp-anomaly-text: #b03a10;
+  --cp-anomaly-bg: rgba(234, 79, 26, 0.1);
+  --cp-anomaly-line: rgba(234, 79, 26, 0.45);
+  --cp-alarm: #dc2626;
+  --cp-alarm-bg: rgba(220, 38, 38, 0.1);
+  --cp-sim: #6d28d9;
+  --cp-sim-bg: rgba(124, 58, 237, 0.1);
+  --cp-eye: #6d5dd3;
+  --cp-system-hull: #ea580c;
+  --cp-system-superstructure: #b7791f;
+  --cp-system-deck: #16a34a;
+  --cp-system-propeller: #7c3aed;
+  --cp-system-energy: #0284c7;
+  --cp-track: rgba(15, 23, 42, 0.12);
+  --cp-btn: rgba(15, 23, 42, 0.06);
+  color-scheme: light;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -101,7 +245,7 @@
     @apply border-border outline-primary/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-canvas font-sans text-ink;
   }
 }
 
@@ -180,6 +324,18 @@
 #profiler-panel,
 .profiler-mini-panel {
   --text-primary: #e0e0e0;
+}
+
+/*
+ * The Inspector's toggle is fixed 15px from the page's top right, where the
+ * cockpit's top bar now is (52px tall), and under it the component card:
+ * moved to the scene's top left, past the 264px sidebar. Development only,
+ * like the Inspector.
+ */
+#profiler-toggle {
+  top: 67px !important;
+  right: auto !important;
+  left: 280px !important;
 }
 
 /**

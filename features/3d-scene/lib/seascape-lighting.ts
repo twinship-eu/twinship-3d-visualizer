@@ -71,19 +71,15 @@ export const skyColor = Fn(
   { direction: "vec3", return: "vec3" }
 );
 
-// A clear sky, for the surface sea: the Shadertoy's is nearly white for a wide
+// A clear sky, for the surface sea (its colours come from the time of day — see `sky-state.ts`): the Shadertoy's is nearly white for a wide
 // band above the horizon, and at an ordinary camera height most reflected rays
 // land in that band — every small tilt of the water flipped the reflection
 // between white and blue, and the sea filled with reflected "clouds".
-/** Straight up: a deep, clear blue. */
-const CLEAR_SKY_ZENITH = vec3(0.16, 0.38, 0.75);
-/** At the horizon: a pale, hazy blue. */
-const CLEAR_SKY_HORIZON = vec3(0.62, 0.76, 0.9);
 /** How close to the horizon the pale band stays: higher keeps it thinner. */
 const CLEAR_SKY_HORIZON_POWER = 4.0;
 /** An overcast sky: grey, a little lighter overhead than at the horizon. */
-const OVERCAST_SKY_ZENITH = vec3(0.62, 0.65, 0.69);
-const OVERCAST_SKY_HORIZON = vec3(0.55, 0.58, 0.62);
+const OVERCAST_SKY_ZENITH = vec3(0.5, 0.53, 0.57);
+const OVERCAST_SKY_HORIZON = vec3(0.46, 0.49, 0.53);
 
 /**
  * Real water's reflectance looking straight down (Schlick's F0 for a
@@ -96,18 +92,23 @@ const WATER_REFLECTANCE_AT_NORMAL = 0.02;
 
 /**
  * The clear sky in a given direction: deep blue overhead, pale towards the
- * horizon. Directions below the horizon get the horizon colour.
+ * horizon, by day. Directions below the horizon get the horizon colour.
+ *
+ * @param zenith the sky straight up, @param horizon at the horizon, @param dim
+ *               what the overcast greys keep of their light: all three from
+ *               the time of day, as parameters (a uniform read only inside
+ *               this Fn would not be declared, r183)
  */
 export const clearSkyColor = Fn(
-  ([direction, greyness]: [Node<"vec3">, Node<"float">]) => {
+  ([direction, greyness, zenith, horizon, dim]: [Node<"vec3">, Node<"float">, Node<"vec3">, Node<"vec3">, Node<"float">]) => {
     const towardsHorizon = pow(sub(1.0, max(direction.y, 0.0)), CLEAR_SKY_HORIZON_POWER);
-    const clear = mix(CLEAR_SKY_ZENITH, CLEAR_SKY_HORIZON, towardsHorizon);
-    // Under an overcast sky the whole dome is a flat grey, a little lighter overhead
-    const grey = mix(OVERCAST_SKY_HORIZON, OVERCAST_SKY_ZENITH, max(direction.y, 0.0));
+    const clear = mix(zenith, horizon, towardsHorizon);
+    // Under an overcast sky the whole dome is a flat grey, a little lighter overhead; dimmed with the light
+    const grey = mix(OVERCAST_SKY_HORIZON, OVERCAST_SKY_ZENITH, max(direction.y, 0.0)).mul(dim);
 
     return mix(clear, grey, greyness);
   },
-  { direction: "vec3", greyness: "float", return: "vec3" }
+  { direction: "vec3", greyness: "float", zenith: "vec3", horizon: "vec3", dim: "float", return: "vec3" }
 );
 
 /**
@@ -120,7 +121,7 @@ export const clearSkyColor = Fn(
  * up, as they would bounce off the next wave rather than see the sky below.
  */
 export const seaColor = Fn(
-  ([point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor, clearSky, greyness]: [
+  ([point, normal, viewDirection, toPoint, reflectivity, deepColor, lightColor, clearSky, greyness, zenith, horizon, dim]: [
     Node<"vec3">,
     Node<"vec3">,
     Node<"vec3">,
@@ -129,6 +130,9 @@ export const seaColor = Fn(
     Node<"vec3">,
     Node<"vec3">,
     Node<"float">,
+    Node<"float">,
+    Node<"vec3">,
+    Node<"vec3">,
     Node<"float">,
   ]) => {
     // Fresnel: water facing the viewer shows its depth; water seen edge-on
@@ -142,7 +146,7 @@ export const seaColor = Fn(
 
     const reflected = reflect(viewDirection, normal);
     const turnedUp = vec3(reflected.x, reflected.y.abs(), reflected.z);
-    const reflection = mix(skyColor(reflected), clearSkyColor(turnedUp, greyness), clearSky);
+    const reflection = mix(skyColor(reflected), clearSkyColor(turnedUp, greyness, zenith, horizon, dim), clearSky);
     const color = mix(deepColor, reflection, fresnel).toVar();
 
     // Crests above the mean level catch light. Faded with distance so the far
@@ -163,6 +167,9 @@ export const seaColor = Fn(
     lightColor: "vec3",
     clearSky: "float",
     greyness: "float",
+    zenith: "vec3",
+    horizon: "vec3",
+    dim: "float",
     return: "vec3",
   }
 );
@@ -214,8 +221,12 @@ export const specularLight = Fn(
  *                      horizon fade and the gamma lift, like the rest
  * @param clearSky      0 the Shadertoy's sky and Fresnel, 1 the clear sky — see seaColor
  * @param greyness      how overcast the sky is, 0 to 1 (`seascape-weather.ts`), and
- * @param sunlight      how much of the sun gets through: parameters, as a uniform
- *                      read only inside this Fn would not be declared (r183)
+ * @param sunlight      the sun's light that gets through, its colour and strength: with the
+ *                      sky's colours below, parameters, as a uniform read only
+ *                      inside this Fn would not be declared (r183)
+ * @param zenith        the sky straight up and @param horizon at the horizon, and
+ * @param dim           what the overcast greys keep of their light (`sky-state.ts`)
+ * @param ambient       what light the water has beside the sun's, 1 by day, little at night
  * @param reflectionNormal the normal the sky's reflection and the Fresnel see;
  *                      the Shadertoy passes `normal` again. The surface passes
  *                      one with little of the short chop — see its fragment shader
@@ -236,6 +247,10 @@ export const shadeSea = Fn(
     reflectionNormal,
     greyness,
     sunlight,
+    zenith,
+    horizon,
+    dim,
+    ambient,
   ]: [
     Node<"vec3">,
     Node<"vec3">,
@@ -250,21 +265,29 @@ export const shadeSea = Fn(
     Node<"float">,
     Node<"vec3">,
     Node<"float">,
+    Node<"vec3">,
+    Node<"vec3">,
+    Node<"vec3">,
+    Node<"float">,
     Node<"float">,
   ]) => {
-    // Water colour, plus a little diffuse light and the sun's highlight
+    // Water colour, plus a little diffuse light and the sun's highlight. The
+    // water's own colour is the light it has: little at night
     const color = seaColor(
       point,
       reflectionNormal,
       viewDirection,
       toPoint,
       reflectivity,
-      deepColor,
-      lightColor,
+      deepColor.mul(ambient),
+      lightColor.mul(ambient),
       clearSky,
-      greyness
+      greyness,
+      zenith,
+      horizon,
+      dim
     ).toVar();
-    color.addAssign(lightColor.mul(diffuseLight(normal, lightDirection, 80.0)).mul(0.12));
+    color.addAssign(lightColor.mul(sunlight).mul(diffuseLight(normal, lightDirection, 80.0)).mul(0.12));
     // The sun's glints: only as much as the clouds let through
     color.addAssign(specularLight(normal, lightDirection, viewDirection, shininess).mul(sunlight));
     color.addAssign(subsurface);
@@ -297,7 +320,11 @@ export const shadeSea = Fn(
     clearSky: "float",
     reflectionNormal: "vec3",
     greyness: "float",
-    sunlight: "float",
+    sunlight: "vec3",
+    zenith: "vec3",
+    horizon: "vec3",
+    dim: "float",
+    ambient: "float",
     return: "vec4",
   }
 );

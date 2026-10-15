@@ -44,6 +44,8 @@ const RESPONSE = {
   pitch: { period: 5, damping: 0.7 },
   roll: { period: 14, damping: 0.15 },
 } as const;
+/** The roll's natural period, s: what an attitude display gives as the roll period when nothing measures it. */
+export const ROLL_NATURAL_PERIOD_S = RESPONSE.roll.period;
 /**
  * How far the ship's heave may drift from the sea under it, in world units.
  * The spring alone lags a long wave by a quarter of a turn or so, and on a
@@ -96,6 +98,13 @@ export const shipMotion = {
    * camera kept drifting after the part it had framed.
    */
   waveY: 0,
+  /**
+   * The pitch and roll the ship is drawn at, radians, as last placed: the
+   * waves' while it rides them, none while held level for inspecting a part.
+   * Written by the ship's component, read by an attitude display.
+   */
+  shownPitch: 0,
+  shownRoll: 0,
   /** The ship's speed through the water, in m/s — written by the sea, read by the propellers. */
   speed: 0,
 };

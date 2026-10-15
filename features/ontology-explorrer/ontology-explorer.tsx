@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { SearchIcon, Ship, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SearchIcon, X } from "lucide-react";
 import { ShipTreeNode } from "../ship-visualizer/ship-visualizer-types";
 import { filterShipTree } from "../ship-visualizer/lib/filter-tree";
 import TreeNode from "./components/three-node";
 import { OntologyExplorerSkeleton } from "./components/ontology-explorer-skeleton";
+import { getSectionIdOf } from "../ship-visualizer/lib/section-colors";
 
 
 type Props = {
@@ -22,6 +22,10 @@ type Props = {
    * panel is an overlay; a docked column has nothing to dismiss.
    */
   onClose?: () => void;
+  /** Shown at the panel's foot, under the tree: e.g. a live warning. */
+  footer?: React.ReactNode;
+  /** What each row shows beside its label: e.g. its live reading. */
+  renderReading?: (node: ShipTreeNode) => React.ReactNode;
 };
 
 export function OntologyExplorer({
@@ -32,6 +36,8 @@ export function OntologyExplorer({
   selectedNodeId,
   isLoading = false,
   onClose,
+  footer,
+  renderReading,
 }: Props) {
   const [search, setSearch] = useState("");
   const [opacityByNodeId, setOpacityByNodeId] = useState<Record<string, number>>(
@@ -76,65 +82,58 @@ export function OntologyExplorer({
       never emitted by Tailwind: utilities are found by scanning source text, so
       a class assembled from a variable at runtime does not exist in the CSS.
     */
-    <div className="flex h-full min-h-0 w-full flex-col border-r border-border bg-white dark:bg-sidebar">
-      <div className="shrink-0 border-b border-border px-3 py-3">
-        <div className="mb-3 flex items-center gap-2">
-          {/*
-            Spacer that balances the close button, so the title stays optically
-            centred whether or not the button is there.
-          */}
-          {onClose && <span className="size-8 shrink-0 lg:hidden" aria-hidden />}
-          <div className="flex flex-1 items-center justify-center gap-2">
-            <Ship className="size-5 shrink-0 text-primary" aria-hidden />
-            <h2 className="text-sm font-bold uppercase tracking-wide text-text-primary">
-              Ontology Explorer
-            </h2>
-          </div>
+    <div className="flex h-full min-h-0 w-full flex-col border-r border-line bg-surface">
+      <div className="shrink-0 px-3.5 pt-3.5 pb-2.5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <label htmlFor="ontology-search" className="text-[11px] font-semibold tracking-[0.12em] text-muted">
+            ONTOLOGY EXPLORER
+          </label>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
               aria-label="Close components panel"
-              className="flex size-8 shrink-0 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:hidden"
+              className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
             >
               <X className="size-5" aria-hidden />
             </button>
           )}
         </div>
-        <Input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search components..."
-          className="w-full min-w-0 border-border bg-white dark:bg-sidebar"
-          icon={<SearchIcon className="size-4 text-text-tertiary" />}
-          iconPosition="left"
-          aria-label="Search ship components"
-        />
+        <div className="flex h-[34px] items-center gap-2 rounded-lg border border-line bg-card px-2.5 focus-within:border-accent-line">
+          <SearchIcon className="size-4 shrink-0 text-muted" aria-hidden />
+          <input
+            id="ontology-search"
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search components…"
+            className="min-w-0 grow border-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted"
+            aria-label="Search ship components"
+          />
+        </div>
       </div>
-      <div
-        ref={scrollContainerRef}
-        className="min-h-0 flex-1 overflow-y-auto p-3"
-      >
+      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {filteredTree.length === 0 ? (
-          <p className="text-sm text-text-tertiary">No matches</p>
+          <p className="px-1.5 text-[13px] text-muted">No matches</p>
         ) : (
-          filteredTree.map((node, index) => (
+          filteredTree.map((node) => (
             <TreeNode
               key={node.id}
               node={node}
               depth={0}
-              categoryIndex={index}
+              sectionId={getSectionIdOf(node)}
               getIsVisible={isVisible}
               opacity={getOpacity(node.id)}
               onToggleSectionVisible={onToggleSectionVisible}
               onOpacityChange={setOpacity}
               onSelect={onSelect}
               selectedNodeId={selectedNodeId}
+              renderReading={renderReading}
             />
           ))
         )}
       </div>
+      {footer && <div className="flex min-h-0 shrink-0 flex-col">{footer}</div>}
     </div>
   );
 }

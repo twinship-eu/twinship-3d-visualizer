@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # JetBrains env
 .idea/
@@ -47,6 +48,11 @@ node_modules
 # Raw Blender export of the ship, the rebuild source for twinship-engine.glb.
 # ~240 MB, well past GitHub's 100 MB per-file limit.
 public/ship/twinship-engine-raw*.glb
+# The update's raw export (222 MB): the source of twinship-update*.glb, not shipped
+public/ship/TwinShip_UPDATE*.glb
+
+# Vessel recordings that must not be committed (e.g. partner data): see scripts/convert-timeseries.py
+public/live-data/*.local.json
 
 # Playwright MCP session dumps (screenshots, snapshots, console logs)
 .playwright-mcp/

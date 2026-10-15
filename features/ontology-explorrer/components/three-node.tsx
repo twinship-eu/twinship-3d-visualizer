@@ -3,123 +3,83 @@
 import { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import {
   INSPECTABLE_NODE_ROUTES,
+  RETURN_QUERY_PARAM,
   SHIP_TREE_SECTION_MAX_HEIGHT_PX,
 } from "@/features/ship-visualizer/ship-visualizer-config";
+import { getSectionDotClass } from "@/features/ship-visualizer/lib/section-colors";
 import { cn } from "@/lib/utils";
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  EyeIcon,
-  EyeOffIcon,
-  ScanSearchIcon,
-} from "lucide-react";
+import { EyeIcon, EyeOffIcon, ScanSearchIcon } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 const SHIP_MODEL_SECTION_ID = "ship-model" as const;
-
-const ONTOLOGY_COLOR_CLASSES = [
-  "bg-ontology-1",
-  "bg-ontology-2",
-  "bg-ontology-3",
-  "bg-ontology-4",
-  "bg-ontology-5",
-] as const;
-
-function getCategoryColorClass(categoryIndex: number): string {
-  return ONTOLOGY_COLOR_CLASSES[categoryIndex % ONTOLOGY_COLOR_CLASSES.length];
-}
 
 type Props = {
   node: ShipTreeNode;
   depth: number;
-  categoryIndex: number;
+  /** The top-level section this node is under: its colour. */
+  sectionId: string;
   getIsVisible: (nodeId: string) => boolean;
   opacity: number;
   onToggleSectionVisible: (node: ShipTreeNode, visible: boolean) => void;
   onOpacityChange: (nodeId: string, value: number) => void;
   onSelect?: (node: ShipTreeNode) => void;
   selectedNodeId?: string | null;
+  /** What the row shows beside its label: e.g. its live reading. */
+  renderReading?: (node: ShipTreeNode) => React.ReactNode;
 };
 
+/**
+ * A row of the ontology tree, as the cockpit design draws it: sections in
+ * bold with their system's dot and an eye to hide them, components indented
+ * under them. The sections stay open — the tree is short enough to see whole.
+ */
 export default function TreeNode({
   node,
   depth,
-  categoryIndex,
+  sectionId,
   getIsVisible,
   opacity,
   onToggleSectionVisible,
   onOpacityChange,
   onSelect,
   selectedNodeId,
+  renderReading,
 }: Props) {
-  const [isExpandedInternal, setIsExpandedInternal] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
+  const isSection = depth === 0;
   const isSelected = selectedNodeId === node.id;
   const isVisible = getIsVisible(node.id);
-  const colorClass = getCategoryColorClass(categoryIndex);
   const isShipModelSection = node.id === SHIP_MODEL_SECTION_ID;
-  const isExpanded = isShipModelSection ? true : isExpandedInternal;
   const inspectRoute = INSPECTABLE_NODE_ROUTES[node.label];
+  // The ship page's query goes with it, for "Back to ship" to come back to it
+  const shipQuery = useSearchParams().toString();
+  const inspectHref = inspectRoute && (shipQuery ? `${inspectRoute}?${new URLSearchParams({ [RETURN_QUERY_PARAM]: shipQuery })}` : inspectRoute);
 
   return (
-    <div
-      className={cn(
-        "select-none rounded-md",
-        isSelected && "bg-sidebar-accent"
-      )}
-    >
+    <div className={cn("select-none", isSection && "mt-1 first:mt-0")}>
       <div
         data-node-id={node.id}
         className={cn(
-          "flex items-center gap-2 rounded px-2 py-1.5 text-sm text-text-primary",
-          isVisible
-            ? "cursor-pointer hover:bg-sidebar-accent"
-            : "cursor-not-allowed opacity-50 text-text-tertiary"
+          "flex h-[26px] items-center gap-2 rounded-md text-[13px]",
+          isSection ? "px-1.5 font-semibold text-ink" : "pr-1.5 pl-[22px] text-ink-2",
+          isSelected && "bg-accent-soft font-semibold text-ink shadow-[inset_0_0_0_1px_var(--color-accent-line)]",
+          isVisible ? "cursor-pointer hover:bg-btn" : "cursor-not-allowed opacity-50"
         )}
-        style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={() => {
-          if (hasChildren && !isShipModelSection)
-            setIsExpandedInternal((e) => !e);
           if (isVisible) onSelect?.(node);
         }}
       >
-        {hasChildren ? (
-          <button
-            type="button"
-            className="flex shrink-0 items-center justify-center border-0 bg-transparent p-0 text-text-tertiary hover:text-text-primary"
-            aria-label={isExpanded ? "Collapse" : "Expand"}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isShipModelSection)
-                setIsExpandedInternal((e2) => !e2);
-            }}
-          >
-            {isExpanded ? (
-              <ChevronDownIcon className="size-4" />
-            ) : (
-              <ChevronRightIcon className="size-4" />
-            )}
-          </button>
-        ) : (
-          <span className="size-4 shrink-0" />
-        )}
         <span
-          className={cn("size-2 shrink-0 rounded-full", colorClass)}
+          className={cn("shrink-0 rounded-full", isSection ? "size-[7px]" : "size-1.5", getSectionDotClass(sectionId))}
           aria-hidden
         />
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate",
-            hasChildren ? "font-semibold" : "font-normal"
-          )}
-        >
-          {node.label}
-        </span>
+        <span className="min-w-0 flex-1 truncate">{node.label}</span>
+        {renderReading?.(node)}
         {inspectRoute && (
           <Link
-            href={inspectRoute}
-            className="shrink-0 rounded p-0.5 text-primary hover:bg-primary/10"
+            href={inspectHref}
+            className="shrink-0 rounded p-0.5 text-accent hover:bg-btn"
             aria-label={`Inspect ${node.label}`}
             title={`Inspect ${node.label}`}
             // The row selects on click; this only navigates
@@ -131,47 +91,38 @@ export default function TreeNode({
         {hasChildren && !isShipModelSection && (
           <button
             type="button"
-            className="shrink-0 rounded p-0.5 text-primary hover:bg-primary/10"
-            aria-label={isVisible ? "Hide section" : "Show section"}
-            onClick={(e) => {
-              e.stopPropagation();
+            className="shrink-0 cursor-pointer rounded p-0.5 text-eye hover:bg-btn"
+            aria-label={isVisible ? `Hide ${node.label}` : `Show ${node.label}`}
+            onClick={(event) => {
+              event.stopPropagation();
               onToggleSectionVisible(node, !isVisible);
             }}
           >
-            {isVisible ? (
-              <EyeIcon className="size-4" />
-            ) : (
-              <EyeOffIcon className="size-4 text-text-tertiary" />
-            )}
+            {isVisible ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4 text-muted" />}
           </button>
         )}
       </div>
-      {hasChildren && isExpanded && (
-        <>
-          <div
-            className={cn(depth === 0 && "min-h-0 overflow-y-auto")}
-            style={
-              depth === 0
-                ? { maxHeight: SHIP_TREE_SECTION_MAX_HEIGHT_PX }
-                : undefined
-            }
-          >
-            {node.children!.map((child) => (
-              <TreeNode
-                key={child.id}
-                node={child}
-                depth={depth + 1}
-                categoryIndex={categoryIndex}
-                getIsVisible={getIsVisible}
-                opacity={opacity}
-                onToggleSectionVisible={onToggleSectionVisible}
-                onOpacityChange={onOpacityChange}
-                onSelect={onSelect}
-                selectedNodeId={selectedNodeId}
-              />
-            ))}
-          </div>
-        </>
+      {hasChildren && (
+        <div
+          className={cn(isSection && "min-h-0 overflow-y-auto")}
+          style={isSection ? { maxHeight: SHIP_TREE_SECTION_MAX_HEIGHT_PX } : undefined}
+        >
+          {node.children!.map((child) => (
+            <TreeNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              sectionId={sectionId}
+              getIsVisible={getIsVisible}
+              opacity={opacity}
+              onToggleSectionVisible={onToggleSectionVisible}
+              onOpacityChange={onOpacityChange}
+              onSelect={onSelect}
+              selectedNodeId={selectedNodeId}
+              renderReading={renderReading}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

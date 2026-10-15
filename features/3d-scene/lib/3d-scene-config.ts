@@ -283,8 +283,11 @@ export const RING_WATERLINE_Y = 0.5;
  */
 export const IS_SCENE_INSPECTOR_ENABLED = process.env.NODE_ENV === "development";
 
-/** The backend readout is a development diagnostic, not product UI. */
-export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
+/**
+ * The backend readout is a development diagnostic, not product UI. Off for
+ * now even in development: it sat in the way of the cockpit's controls.
+ */
+export const IS_RENDERER_BADGE_ENABLED = false;
 
 /**
  * Per-frame draw call and triangle counts, which the Inspector does not
@@ -292,7 +295,9 @@ export const IS_RENDERER_BADGE_ENABLED = process.env.NODE_ENV === "development";
  *
  * **Do not delete the wiring to turn this off. Set this to `false`.**
  */
-export const IS_SCENE_STATS_ENABLED = process.env.NODE_ENV === "development";
+// Off for now, in development too: it sat in the way of the cockpit's controls.
+// Was: process.env.NODE_ENV === "development"
+export const IS_SCENE_STATS_ENABLED = false;
 
 export const SCENE_BACKGROUND_COLOR = "#c8d4e0";
 

@@ -1,12 +1,10 @@
 "use client";
 
-import {
-  DEFAULT_CAMERA_POSITION,
-  DEFAULT_CAMERA_TARGET,
-} from "@/features/ship-visualizer/ship-visualizer-config";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Vector3 } from "three/webgpu";
 import { Anchor, Navigation, RotateCw, Ship, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { homeCameraPose } from "../lib/compass-camera-pose";
 import { useCameraMotion } from "./camera-motion-context";
 import { useShipVoyage } from "./ship-voyage-context";
 import {
@@ -14,15 +12,23 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+
+type Point = [number, number, number];
 
 type ZoomActions = {
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+  /** Glides the camera to a position, looking at a target, over CAMERA_MOVE_SECONDS. */
+  moveCameraTo: (position: Point, target: Point) => void;
 };
+
+/** How long `moveCameraTo` takes, in seconds. */
+const CAMERA_MOVE_SECONDS = 0.8;
 
 type ZoomControlsContextValue = {
   actions: ZoomActions | null;
@@ -78,27 +84,113 @@ export function ZoomControlsBridge() {
   }, [camera, controls]);
 
   const resetZoom = useCallback(() => {
-    camera.position.set(...DEFAULT_CAMERA_POSITION);
+    // The ship's default view; in Live data the one the camera holds to its bearing, for the heading now
+    const pose = homeCameraPose();
+    camera.position.set(...pose.position);
     if (controls && "target" in controls) {
-      controls.target.set(...DEFAULT_CAMERA_TARGET);
+      controls.target.set(...pose.target);
       controls.update();
     }
   }, [camera, controls]);
 
+  /** A camera move under way: where from and to, and how far through, 0 to 1. */
+  const move = useRef<{
+    fromPosition: Vector3;
+    toPosition: Vector3;
+    fromTarget: Vector3;
+    toTarget: Vector3;
+    progress: number;
+  } | null>(null);
+
+  const moveCameraTo = useCallback(
+    (position: Point, target: Point) => {
+      const orbitTarget =
+        controls && "target" in controls ? controls.target : new Vector3();
+      move.current = {
+        fromPosition: camera.position.clone(),
+        toPosition: new Vector3(...position),
+        fromTarget: orbitTarget.clone(),
+        toTarget: new Vector3(...target),
+        progress: 0,
+      };
+    },
+    [camera, controls]
+  );
+
+  useFrame((_, delta) => {
+    const current = move.current;
+    if (!current) return;
+    current.progress = Math.min(1, current.progress + delta / CAMERA_MOVE_SECONDS);
+    // Eased out: fast away, gently into place
+    const eased = 1 - (1 - current.progress) ** 3;
+    camera.position.lerpVectors(current.fromPosition, current.toPosition, eased);
+    if (controls && "target" in controls) {
+      controls.target.lerpVectors(current.fromTarget, current.toTarget, eased);
+      controls.update();
+    }
+    if (current.progress >= 1) move.current = null;
+  });
+
   useEffect(() => {
-    setActions({ zoomIn, zoomOut, resetZoom });
+    setActions({ zoomIn, zoomOut, resetZoom, moveCameraTo });
     return () => setActions(null);
-  }, [setActions, zoomIn, zoomOut, resetZoom]);
+  }, [setActions, zoomIn, zoomOut, resetZoom, moveCameraTo]);
 
   return null;
 }
 
-/** Fixed DOM overlay; render outside Canvas so it does not move with zoom. */
-export function ZoomControlsOverlay() {
-  const actions = useZoomControls();
+const BUTTON_CLASS =
+  "flex size-10 cursor-pointer items-center justify-center rounded-md hover:bg-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:size-9";
+
+/** The camera's buttons and the ship's: zoom, reset, ride with the ship, under way or at anchor. */
+function ZoomControlButtons({ actions }: { actions: ZoomActions }) {
   const { isRidingShip, setIsRidingShip } = useCameraMotion();
   const { isTraveling, setIsTraveling } = useShipVoyage();
+  const divider = <div className="h-px w-6 bg-line" aria-hidden />;
 
+  return (
+    <div
+      className="pointer-events-auto flex flex-col items-center gap-0.5 rounded-lg border border-glass-line bg-glass p-[3px] text-ink backdrop-blur"
+    >
+      <button type="button" aria-label="Zoom in" onClick={actions.zoomIn} className={BUTTON_CLASS}>
+        <ZoomIn className="h-4 w-4" aria-hidden />
+      </button>
+      <button type="button" aria-label="Zoom out" onClick={actions.zoomOut} className={BUTTON_CLASS}>
+        <ZoomOut className="h-4 w-4" aria-hidden />
+      </button>
+      {divider}
+      <button type="button" aria-label="Reset zoom" onClick={actions.resetZoom} className={BUTTON_CLASS}>
+        <RotateCw className="h-4 w-4" aria-hidden />
+      </button>
+      {divider}
+      <button
+        type="button"
+        aria-label="Ride with the ship"
+        aria-pressed={isRidingShip}
+        title={isRidingShip ? "Stop riding with the ship" : "Ride with the ship"}
+        onClick={() => setIsRidingShip(!isRidingShip)}
+        className={cn(BUTTON_CLASS, isRidingShip && "bg-accent text-white hover:bg-accent")}
+      >
+        <Ship className="h-4 w-4" aria-hidden />
+      </button>
+      <button
+        type="button"
+        aria-label={isTraveling ? "Stop the ship" : "Set the ship under way"}
+        aria-pressed={isTraveling}
+        title={isTraveling ? "Stop the ship" : "Set the ship under way"}
+        onClick={() => setIsTraveling(!isTraveling)}
+        className={cn(BUTTON_CLASS, isTraveling && "bg-accent text-white hover:bg-accent")}
+      >
+        {isTraveling ? <Navigation className="h-4 w-4" aria-hidden /> : <Anchor className="h-4 w-4" aria-hidden />}
+      </button>
+    </div>
+  );
+}
+
+
+/** Fixed DOM overlay; render outside Canvas so it does not move with zoom. */
+export function ZoomControlsOverlay({ isHiddenBelowLg = false }: { isHiddenBelowLg?: boolean }) {
+  const actions = useZoomControls();
   if (!actions) return null;
 
   return (
@@ -107,68 +199,14 @@ export function ZoomControlsOverlay() {
         Below lg the controls sit just above the hint bar, which is 16px off the
         bottom and about 36px tall. 76px leaves a 24px gap between them.
       */
-      className="pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-4 lg:bottom-24"
+      className={cn(
+        "pointer-events-none absolute left-3 bottom-[76px] z-20 flex flex-col items-center gap-1 lg:left-4 lg:bottom-4",
+        isHiddenBelowLg && "max-lg:hidden"
+      )}
       aria-label="Zoom controls"
+      data-callout-avoid
     >
-      <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-md bg-white/95 p-1 shadow-md">
-        <button
-          type="button"
-          aria-label="Zoom in"
-          onClick={actions.zoomIn}
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
-        >
-          <ZoomIn className="h-4 w-4" aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Zoom out"
-          onClick={actions.zoomOut}
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
-        >
-          <ZoomOut className="h-4 w-4" aria-hidden />
-        </button>
-        <div className="h-px w-6 bg-gray-200" aria-hidden />
-        <button
-          type="button"
-          aria-label="Reset zoom"
-          onClick={actions.resetZoom}
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8"
-        >
-          <RotateCw className="h-4 w-4" aria-hidden />
-        </button>
-        <div className="h-px w-6 bg-gray-200" aria-hidden />
-        <button
-          type="button"
-          aria-label="Ride with the ship"
-          aria-pressed={isRidingShip}
-          title={isRidingShip ? "Stop riding with the ship" : "Ride with the ship"}
-          onClick={() => setIsRidingShip(!isRidingShip)}
-          className={cn(
-            "flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8",
-            isRidingShip && "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
-        >
-          <Ship className="h-4 w-4" aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label={isTraveling ? "Stop the ship" : "Set the ship under way"}
-          aria-pressed={isTraveling}
-          title={isTraveling ? "Stop the ship" : "Set the ship under way"}
-          onClick={() => setIsTraveling(!isTraveling)}
-          className={cn(
-            "flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:h-8 lg:w-8",
-            isTraveling && "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
-        >
-          {isTraveling ? (
-            <Navigation className="h-4 w-4" aria-hidden />
-          ) : (
-            <Anchor className="h-4 w-4" aria-hidden />
-          )}
-        </button>
-
-      </div>
+      <ZoomControlButtons actions={actions} />
     </div>
   );
 }

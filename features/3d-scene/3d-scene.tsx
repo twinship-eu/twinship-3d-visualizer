@@ -14,6 +14,7 @@ import {
 } from "./lib/3d-scene-config";
 import { SceneLights } from "./components/scene-lights";
 import { SceneSky } from "./components/scene-sky";
+import { SceneSkyDriver } from "./components/scene-sky-driver";
 import { SceneEnvironmentMap } from "./components/scene-environment-map";
 // Water replaced by the raymarched seascape on this branch. Kept, not deleted.
 // import { SceneWater } from "./components/scene-water";
@@ -48,6 +49,7 @@ import {
 import { CameraMotionProvider } from "./components/camera-motion-context";
 import { ShipVoyageProvider } from "./components/ship-voyage-context";
 import { SceneCameraFollow } from "./components/scene-camera-follow";
+import { SceneCompassCamera } from "./components/scene-compass-camera";
 import { SceneRenderPipeline } from "./components/scene-render-pipeline";
 import { SceneWeather } from "./components/scene-weather";
 import { SceneAdaptiveResolution } from "./components/scene-adaptive-resolution";
@@ -67,6 +69,16 @@ type Props = {
   isDetailsOpen?: boolean;
   /** Scale for grid/fog (e.g. from model bounds); default 1. */
   sceneScale?: number;
+  /**
+   * DOM over the scene, inside its providers: for controls that move the
+   * camera or set the ship under way (`useZoomControls`, `useShipVoyage`).
+   */
+  overlay?: React.ReactNode;
+  /**
+   * Below lg, the scene is a small card among other content: no zoom
+   * controls and no gesture hints on it.
+   */
+  isCompactBelowLg?: boolean;
 };
 
 
@@ -75,19 +87,31 @@ export function Scene({
   className,
   children,
   isDetailsOpen = false,
+  overlay,
+  isCompactBelowLg = false,
 }: Props) {
   return (
     <div
       className={cn("relative", className ?? "h-full min-h-0 w-full")}
       style={{ backgroundColor: SCENE_BACKGROUND_COLOR }}
     >
-      <SceneWithInteraction>{children}</SceneWithInteraction>
-      <StageControlHints isDetailsOpen={isDetailsOpen} />
+      <SceneWithInteraction overlay={overlay} isCompactBelowLg={isCompactBelowLg}>
+        {children}
+      </SceneWithInteraction>
+      <StageControlHints isDetailsOpen={isDetailsOpen} isHiddenBelowLg={isCompactBelowLg} />
     </div>
   );
 }
 
-function SceneWithInteraction({ children }: { children: React.ReactNode }) {
+function SceneWithInteraction({
+  children,
+  overlay,
+  isCompactBelowLg,
+}: {
+  children: React.ReactNode;
+  overlay?: React.ReactNode;
+  isCompactBelowLg: boolean;
+}) {
   const [isOrbitControlsActive, setIsOrbitControlsActive] = useState(false);
   const [isWebGPU, setIsWebGPU] = useState<boolean | null>(null);
   // Deliberately false until mounted: branching on the query string during the
@@ -125,6 +149,7 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
             SkyMesh stays for the raymarched background. (The ship's lighting
             probe bakes its own sky and does not depend on this one.)
           */}
+          <SceneSkyDriver />
           {!IS_SEASCAPE_SURFACE_ENABLED && <SceneSky />}
           {IS_SEASCAPE_SURFACE_ENABLED && <SceneSeascapeAtmosphere />}
           <SceneEnvironmentMap />
@@ -146,11 +171,13 @@ function SceneWithInteraction({ children }: { children: React.ReactNode }) {
             onEnd={() => setIsOrbitControlsActive(false)}
           />
           <SceneCameraFollow />
+          <SceneCompassCamera />
           <SceneRenderPipeline />
           <SceneAdaptiveResolution />
           <ZoomControlsBridge />
         </Canvas>
-        <ZoomControlsOverlay />
+        <ZoomControlsOverlay isHiddenBelowLg={isCompactBelowLg} />
+        {overlay}
         {IS_RENDERER_BADGE_ENABLED && <RendererBackendBadge isWebGPU={isWebGPU} />}
         {IS_SCENE_STATS_ENABLED && <SceneStatsOverlay />}
         {isDiagnosticsOn && <SceneDiagnosticsOverlay />}

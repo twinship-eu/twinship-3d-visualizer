@@ -23,8 +23,8 @@ const FAIR_CLOUD_START = 0.64;
 const OVERCAST_CLOUD_START = 0.12;
 const CLOUD_SOLIDITY = 0.18;
 /** The cloud deck's greys, overcast and with rain in it: heavy, darker undersides. */
-const OVERCAST_LIT = vec3(0.72, 0.75, 0.78);
-const OVERCAST_SHADE = vec3(0.5, 0.53, 0.57);
+const OVERCAST_LIT = vec3(0.6, 0.63, 0.67);
+const OVERCAST_SHADE = vec3(0.36, 0.39, 0.43);
 const RAIN_SHADE = vec3(0.36, 0.39, 0.43);
 /** How fast they drift across the sky, in layer units per second. */
 const CLOUD_DRIFT = vec2(0.004, 0.0015);
@@ -37,11 +37,13 @@ const CLOUD_LIT = vec3(1.0, 1.0, 1.0);
 const CLOUD_SHADE = vec3(0.78, 0.82, 0.88);
 
 /**
- * The sky with clouds over it, looking in `direction`.
+ * The cloud layer looking in `direction`: how much of the sky it covers (0 to
+ * 1) and its colour there.
  *
- * @param sky the sky's colour there, without clouds
+ * @param light the light the clouds are lit with, white by day; a sunset's
+ *              pink or the night's dark, from the time of day (`sky-state.ts`)
  */
-export function withClouds(sky: Node<"vec3">, direction: Node<"vec3">) {
+export function cloudsAt(direction: Node<"vec3">, light: Node<"vec3">) {
   // The layer as a flat ceiling: where the view meets it, in its own units
   const height = max(direction.y, 0.02);
   const onLayer = direction.xz.div(height).add(CLOUD_DRIFT.mul(time));
@@ -63,7 +65,18 @@ export function withClouds(sky: Node<"vec3">, direction: Node<"vec3">) {
   const grey = overcast();
   const lit = mix(CLOUD_LIT, OVERCAST_LIT, grey);
   const shade = mix(mix(CLOUD_SHADE, OVERCAST_SHADE, grey), RAIN_SHADE, weather.rain);
-  const cloudColor = mix(shade, lit, smoothstep(start, 1.0, shape));
+  const color = mix(shade, lit, smoothstep(start, 1.0, shape)).mul(light);
 
-  return mix(sky, cloudColor, cover);
+  return { cover, color };
+}
+
+/**
+ * The sky with clouds over it, looking in `direction`.
+ *
+ * @param sky the sky's colour there, without clouds
+ */
+export function withClouds(sky: Node<"vec3">, direction: Node<"vec3">, light: Node<"vec3">) {
+  const clouds = cloudsAt(direction, light);
+
+  return mix(sky, clouds.color, clouds.cover);
 }

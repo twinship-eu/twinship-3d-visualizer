@@ -27,6 +27,11 @@
  *   ... with 3 trains in octaves 1-2, SSS     -21%   <- current
  */
 import {
+  cameraFar,
+  cameraProjectionMatrixInverse,
+  cameraWorldMatrix,
+  getViewPosition,
+  cameraNear,
   cameraPosition,
   Discard,
   dot,
@@ -37,7 +42,9 @@ import {
   Fn,
   fwidth,
   length,
+  linearDepth,
   max,
+  min,
   mix,
   modelWorldMatrix,
   normalize,
@@ -45,6 +52,7 @@ import {
   pow,
   positionWorld,
   screenSize,
+  screenUV,
   smoothstep,
   texture,
   time,
@@ -54,13 +62,17 @@ import {
   vec2,
   vec3,
   vec4,
+  viewportDepthTexture,
+  viewportLinearDepth,
+  viewportSharedTexture,
 } from "three/tsl";
-import { Color, Vector4, type Node, type Texture, type Vector3 } from "three/webgpu";
+import { Color, Vector4, type Node, type Texture } from "three/webgpu";
 import type { ContactFoam } from "./seascape-contact-foam";
 import type { SeaFrame } from "./seascape-sea-frame";
 import type { Wake } from "./seascape-wake";
+import type { FoamMemory } from "./seascape-foam-memory";
 import { valueNoise } from "./seascape-noise";
-import { surfaceFromBelow } from "./seascape-underwater";
+import { snellWindow, sunRays, surfaceFromBelow, underwater, underwaterFogFactor } from "./seascape-underwater";
 import { rainRingsSlope } from "./seascape-rain-rings";
 import { overcast, weather } from "./seascape-weather";
 import {
@@ -72,6 +84,9 @@ import {
 import type { FftSurfaceNodes } from "./seascape-fft-surface";
 import { crestFoamColor, crestFoamDensity, foamGrain, hullFoamDensity } from "./seascape-foam-tsl";
 import { shadeSea } from "./seascape-lighting";
+import { bowWaveFoam, bowWaveHeight, bowWaveSlope } from "./seascape-bow-wave";
+import { seaSunVisibility } from "./seascape-shadow";
+import { skyUniforms } from "./sky-state";
 import { WAVES_AMPLITUDE } from "./seascape-waves";
 import {
   packWindSeaState,
@@ -135,10 +150,11 @@ const CHURN_HEIGHT = 0.35;
 
 // Residual foam
 /**
- * Off: its patches read as flat decals on the water. The buoys show the ship
- * moving instead (`seascape-buoys.ts`). Kept, to try again with a better look.
+ * How opaque it is by default: none. Its patches read as flat decals on the
+ * water, and the buoys show the ship moving instead (`seascape-buoys.ts`).
+ * The Inspector turns it up (uniforms.residualFoamStrength), to compare.
  */
-const IS_RESIDUAL_FOAM_ENABLED = false;
+const DEFAULT_RESIDUAL_FOAM_STRENGTH = 0;
 /** Size of its patches across the waves' travel, in world units, and how much longer they are along it. */
 const RESIDUAL_FOAM_SIZE = 14;
 const RESIDUAL_FOAM_STRETCH = 3;
@@ -150,8 +166,19 @@ const RESIDUAL_FOAM_DRIFT = 0.3;
 /** Hs, in world units, below which the sea leaves none, and at which it leaves its most. */
 const RESIDUAL_FOAM_CALM_HS = 0.5;
 const RESIDUAL_FOAM_ROUGH_HS = 4;
-/** How opaque it gets against a whitecap: thin, old foam. */
+/** How opaque it gets against a whitecap at full strength: thin, old foam. */
 const RESIDUAL_FOAM_STRENGTH = 0.55;
+
+// Foam left in the water by breaking crests (see `seascape-foam-memory.ts`)
+/** How opaque it is against a fresh whitecap: it thins as it ages, and the memory fades it. */
+/**
+ * Off by default: the memory is coarse (2.5 m a texel), so up close its foam
+ * was soft white blobs, smeared along as the crests stamped it and swept back
+ * and forth as the ship stopped and started. The Inspector can still turn it on.
+ */
+const DEFAULT_LEFT_FOAM_STRENGTH = 0;
+/** The breaking foam's grain where it is stamped into the memory: the memory has none of its own. */
+const LEFT_FOAM_STAMP_GRAIN = 0.5;
 
 // The water thrown up behind the stern
 /** Height of its mounds right behind the stern, in world units. */
@@ -191,6 +218,57 @@ const SCATTER_SUN_WRAP_SHARE = 0.6;
  */
 const SCATTER_FACING_NONE = -0.05;
 const SCATTER_FACING_FULL = 0.45;
+
+// Sunlight through the wave faces (see "bodyLight" in the fragment shader)
+/**
+ * How tightly it follows the faces turned to the sun: the cosine between a
+ * face's normal and the sun, to this power. Sharp, since the sun is high and
+ * most faces lean only a little: the ones leaning towards it must stand out.
+ */
+const BODY_LIGHT_SHARPNESS = 4.0;
+/** How much of it reaches a trough, against a crest: the water there is thick, and shadowed. */
+const BODY_LIGHT_TROUGH_SHARE = 0.4;
+// The water seen through: what is under it shows through, less the thicker the water over it
+/** How fast the water takes the light of what is under it, per world unit of water: the hull shows through its first metre or two, gone well above the keel. */
+const DEFAULT_WATER_ABSORPTION = 1.2;
+
+/** From below: things behind the surface within this reach (world units) show through it, fully from the nearer. */
+const BEHIND_NEAR = 60;
+const BEHIND_FAR = 400;
+/** How much of what stands behind the surface from below shows through Snell's window. */
+const SEEN_THROUGH_FROM_BELOW = 0.8;
+/** ...and how much of that outside the window, where physically only the water's own reflection is: the ship is to be watched from below too. */
+const SEEN_OUTSIDE_WINDOW = 0.55;
+
+/**
+ * Whether the sea reads the picture behind it (the ship, below the surface and
+ * above it from below) and shifts it by the waves' tilt, with the red taken
+ * first. Off: the sea is blended over it instead, still, one tint.
+ */
+const IS_BACKDROP_REFRACTION_ENABLED = true;
+/** How far the view is shifted by the surface's tilt, in screen widths per unit of slope. */
+const DEFAULT_REFRACTION = 0.02;
+/** The thickness (world units) of water from which the shift is complete: a thin sheet bends little. */
+const REFRACTION_FULL_AT = 4;
+/** Relative absorption of red, green and blue: red first (clear ocean water, after the Beer-Lambert example). */
+/** In the 0-1 linear depth: how far behind the surface a shifted lookup must be to be used. */
+const REFRACTION_DEPTH_MARGIN = 0.0002;
+/** How far below the surface here a shifted lookup must land to be bent through it, in world units. */
+const UNDERWATER_MARGIN = 0.15;
+const WATER_ABSORPTION_BY_CHANNEL = vec3(1.0, 0.25, 0.06);
+
+/** From below: the share of the water's haze at which the surface starts fading out, and is gone. */
+const FAR_FADE_FROM = 0.8;
+const FAR_FADE_TO = 0.97;
+
+/** What the sun's light on the water keeps in the ship's shadow. */
+const SHADE_SUN_SHARE = 0.12;
+
+/** How much of its light the sea keeps under a fully overcast sky. */
+const STORM_SEA_LIGHT = 0.55;
+
+/** How strong it is by default; the Inspector changes it live (uniforms.bodyLightStrength). */
+const DEFAULT_BODY_LIGHT_STRENGTH = 0.55;
 
 // Subsurface scattering
 /**
@@ -296,8 +374,6 @@ type SurfaceOptions = {
   foamTexture: Texture;
   /** Tangent-space normal map for the short chop, tiling. */
   detailNormalsTexture: Texture;
-  /** Towards the scene's sun, so the water is lit as the ship is. */
-  sunDirection: Vector3;
   /**
    * The FFT ocean's cascades, to draw the waves from (see
    * `seascape-fft-surface.ts`). Without them, the analytic waves and the chop
@@ -314,6 +390,11 @@ type SurfaceOptions = {
   seaFrame: SeaFrame;
   /** The trail the ship leaves, for its foam (see `seascape-wake.ts`). */
   wake?: Wake;
+  /**
+   * The foam breaking crests leave in the water (see `seascape-foam-memory.ts`):
+   * given its stamp here, and drawn behind the crests. FFT only.
+   */
+  foamMemory?: FoamMemory;
   /**
    * Where along z the ship's own waves start — its bow — in the ship's frame
    * (see `seascape-kelvin-wake.ts`). Without it, the ship raises no waves.
@@ -356,11 +437,11 @@ export function createSeascapeSurfaceNodes({
   wind,
   foamTexture,
   detailNormalsTexture,
-  sunDirection,
   fft,
   contactFoam,
   seaFrame,
   wake,
+  foamMemory,
   bowZ,
   kelvinTrack,
 }: SurfaceOptions) {
@@ -402,7 +483,6 @@ export function createSeascapeSurfaceNodes({
     /** The foam mask. Set `.value` to another texture to swap it without a rebuild. */
     foamMap: texture(foamTexture),
     /** Towards the sun: the highlights, the diffuse light, the glow and the foam's shading. */
-    sunDirection: uniform(sunDirection.clone().normalize()),
     /** The ship's speed through the water, in m/s: how big its own waves are. */
     shipSpeed: uniform(0),
     /**
@@ -412,6 +492,16 @@ export function createSeascapeSurfaceNodes({
     hasShipWaves: uniform(0),
     /** The same for its wake and the churn behind the stern. */
     hasWake: uniform(0),
+    /** The foam left in the water by breaking crests: how opaque, 0 for none. */
+    leftFoamStrength: uniform(DEFAULT_LEFT_FOAM_STRENGTH),
+    /** The sun's light through the wave faces turned to it: how strong, 0 for none. */
+    bodyLightStrength: uniform(DEFAULT_BODY_LIGHT_STRENGTH),
+    waterAbsorption: uniform(DEFAULT_WATER_ABSORPTION),
+    refraction: uniform(DEFAULT_REFRACTION),
+    /** The hull's wake foam: the white water along the sides and behind; live from the Inspector. */
+    wakeFoamStrength: uniform(WAKE_FOAM_STRENGTH),
+    /** The residual foam's patches: how opaque, 0 for none (see DEFAULT_RESIDUAL_FOAM_STRENGTH). */
+    residualFoamStrength: uniform(DEFAULT_RESIDUAL_FOAM_STRENGTH),
     /** Light shining through the crests towards the camera. */
     subsurfaceColor: uniform(new Color(SEASCAPE_SURFACE_DEFAULTS.subsurfaceColor)),
     subsurfaceStrength: uniform(SEASCAPE_SURFACE_DEFAULTS.subsurfaceStrength),
@@ -424,6 +514,16 @@ export function createSeascapeSurfaceNodes({
   applyWindSeaState(uniforms, wind, SEASCAPE_SURFACE_DEFAULTS.foamAmount);
 
   const sea: WindSeaNodes = { ...uniforms.windSea, cellSize: uniforms.cellSize };
+
+  // The memory's stamp: where the crests break now, at a point of the ship's
+  // frame — the same whitecaps the sea draws, from the big waves there
+  if (fft && foamMemory) {
+    foamMemory.setStamp((world) => {
+      const seaPosition = onSea(world);
+      const waves = fft.largeWaves(seaPosition);
+      return windSeaWhitecaps(seaPosition, time, sea.travel, waves.z, waves.xy, uniforms.whitecapLevels, float(LEFT_FOAM_STAMP_GRAIN));
+    });
+  }
 
   /**
    * Distance over which to measure the slope, in metres: grows with the square
@@ -458,7 +558,9 @@ export function createSeascapeSurfaceNodes({
 
   // The ship's own waves, which stay with it (in the ship's frame)
   const shipWavesAt = (world: Node<"vec2">) =>
-    shipWaves ? kelvinWakeHeight(world, shipWaves.track, shipWaves.bowZ) : float(0.0);
+    shipWaves
+      ? kelvinWakeHeight(world, shipWaves.track, shipWaves.bowZ).add(bowWaveHeight(world, shipWaves.bowZ))
+      : float(0.0);
   // This vertex's own cell: larger towards the grid's edge (see `cellGrowth`)
   const acrossGrid = uv().mul(2.0).sub(1.0);
   const vertexCell = uniforms.cellSize.mul(
@@ -556,9 +658,13 @@ export function createSeascapeSurfaceNodes({
     if (shipWaves) {
       If(uniforms.hasShipWaves.greaterThan(0.5), () => {
         shipWavesSlope.assign(
-          kelvinWakeSlope(positionWorld.xz, shipWaves.track, shipWaves.bowZ, SHIP_WAVES_SLOPE_STEP)
+          kelvinWakeSlope(positionWorld.xz, shipWaves.track, shipWaves.bowZ, SHIP_WAVES_SLOPE_STEP).add(
+            bowWaveSlope(positionWorld.xz, shipWaves.bowZ)
+          )
         );
-        shipWavesFoamAmount.assign(kelvinWakeFoam(positionWorld.xz, shipWaves.track, shipWaves.bowZ));
+        shipWavesFoamAmount.assign(
+          max(kelvinWakeFoam(positionWorld.xz, shipWaves.track, shipWaves.bowZ), bowWaveFoam(positionWorld.xz, shipWaves.bowZ))
+        );
       });
     }
     // The churned water behind the ship: propeller wash, a tumbling surface
@@ -633,7 +739,9 @@ export function createSeascapeSurfaceNodes({
     // waves are left out of them — added, they lit every band of the V turquoise
     const height = vertexWaves.z.add(pixelWaves.z);
 
-    const sun = vec3(uniforms.sunDirection);
+    const sun = vec3(skyUniforms.sunDirection);
+    // The ship's shadow on the water: the sun it does not shut out, never quite none (the sky still lights the shade)
+    const sunVisibility = mix(float(SHADE_SUN_SHARE), float(1.0), seaSunVisibility(positionWorld));
 
     // Subsurface scattering: looking towards the sun, light comes through the
     // thin tops of the waves and lights them turquoise from inside. Strongest
@@ -660,7 +768,21 @@ export function createSeascapeSurfaceNodes({
     const sunReach = max(dot(normal, sun), 0.0).mul(SCATTER_SUN_WRAP_SHARE).add(1.0 - SCATTER_SUN_WRAP_SHARE);
     const scatter = vec3(uniforms.scatterColor).mul(towardsViewer.mul(sunReach)).mul(uniforms.scatterStrength);
 
-    const subsurface = crestGlow.add(scatter);
+    // Sunlight through the wave faces. It enters the water where a face is
+    // turned to the sun and shines out where one is turned to the viewer — so
+    // with the sun behind you, the faces coming at you are lit and turquoise
+    // and their backs dark, which is what gives the sea its form there (no
+    // mirror glint can: it would need a slope over 1). Stronger on crests,
+    // where the water is thin; only as much as the clouds let through
+    const sunOnFace = pow(max(dot(normal, sun), 0.0), BODY_LIGHT_SHARPNESS);
+    const thin = mix(float(BODY_LIGHT_TROUGH_SHARE), float(1.0), onCrest);
+    const bodyLight = vec3(uniforms.scatterColor)
+      .mul(towardsViewer.mul(sunOnFace).mul(thin))
+      .mul(uniforms.bodyLightStrength)
+      .mul(vec3(skyUniforms.sunColor).mul(weather.sunlight).mul(sunVisibility));
+
+    // The glow and the scatter are the sun's light too: gone at night, warm at dusk
+    const subsurface = crestGlow.add(scatter).mul(vec3(skyUniforms.sunColor).mul(sunVisibility)).add(bodyLight);
 
     // The lighting's crest tint is the Shadertoy's, made for waves about
     // ±WAVES_AMPLITUDE high; so it is given the height as a share of Hs, the
@@ -682,7 +804,13 @@ export function createSeascapeSurfaceNodes({
       1.0,
       reflectionNormal,
       overcast(),
-      weather.sunlight
+      // The sun's light, in its colour, as the clouds let it through
+      vec3(skyUniforms.sunColor).mul(weather.sunlight).mul(sunVisibility),
+      vec3(skyUniforms.zenith),
+      vec3(skyUniforms.horizon),
+      skyUniforms.dim,
+      // A storm darkens the sea: the light it has is the sky's, and the sky is a lid
+      skyUniforms.ambient.mul(mix(float(1.0), float(STORM_SEA_LIGHT), overcast()))
     );
 
     // White water on the highest crests, laid over the water's colour. The
@@ -727,7 +855,7 @@ export function createSeascapeSurfaceNodes({
             smoothstep(sea.travel.w.mul(-0.5), sea.travel.w.mul(0.5), bigWaves.z)
           )
         );
-        wakeFoam.assign(crestFoamDensity(wakeOnWaves, grain, float(1.0)).mul(WAKE_FOAM_STRENGTH));
+        wakeFoam.assign(crestFoamDensity(wakeOnWaves, grain, float(1.0)).mul(uniforms.wakeFoamStrength));
       });
     }
     // The white V: fresh foam, its amount shaded by the grain into a veil
@@ -749,12 +877,15 @@ export function createSeascapeSurfaceNodes({
     const residualCoverage = smoothstep(RESIDUAL_FOAM_START, RESIDUAL_FOAM_FULL, residualNoise).mul(
       smoothstep(RESIDUAL_FOAM_CALM_HS, RESIDUAL_FOAM_ROUGH_HS, sea.travel.w)
     );
-    const residualFoam = crestFoamDensity(residualCoverage, grain, float(1.0)).mul(RESIDUAL_FOAM_STRENGTH);
+    const residualFoam = crestFoamDensity(residualCoverage, grain, float(1.0))
+      .mul(RESIDUAL_FOAM_STRENGTH)
+      .mul(uniforms.residualFoamStrength);
+    // Foam left by the crests that broke here: still in the water as they run on
+    const leftFoam = foamMemory
+      ? crestFoamDensity(foamMemory.sample(positionWorld.xz), grain, float(1.0)).mul(uniforms.leftFoamStrength)
+      : float(0.0);
 
-    const foam = max(
-      max(crestFoam, hullFoam),
-      max(wakeFoam, IS_RESIDUAL_FOAM_ENABLED ? max(shipWavesFoam, residualFoam) : shipWavesFoam)
-    );
+    const foam = max(max(max(crestFoam, hullFoam), max(wakeFoam, shipWavesFoam)), max(residualFoam, leftFoam));
     const foamColor = crestFoamColor(vec3(uniforms.foamColor), normal, sun);
 
     // No sea inside the hull: seen over the bulwarks or through an open deck,
@@ -765,18 +896,78 @@ export function createSeascapeSurfaceNodes({
     // the surface — the surface's underside. A branch, not a select, so each
     // pixel shades only the side it shows (neither reads a texture). What both
     // use is held in variables first, outside the branch
+    // Whether the sun can be seen through the surface here: not where the ship stands behind it
+    const depthBehind = viewportLinearDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).max(0.0);
+    const sunVisible = smoothstep(BEHIND_NEAR, BEHIND_FAR, depthBehind);
     const shared = { normal: normal.toVar(), viewDirection: viewDirection.toVar(), foam: foam.toVar(), foamColor: foamColor.toVar() };
     const seen = vec3(0.0).toVar();
     If(frontFacing, () => {
       seen.assign(mix(water.rgb, shared.foamColor, shared.foam));
     }).Else(() => {
+      // From inside the hull there is no sea to see from below: none drawn
+      Discard(underwater.isCameraInsideHull.greaterThan(0.5));
       // ...with its foam, seen from underneath: darker, lit through the water
       seen.assign(
-        mix(surfaceFromBelow(shared.normal, shared.viewDirection), shared.foamColor.mul(FOAM_FROM_BELOW), shared.foam)
+        mix(surfaceFromBelow(shared.normal, shared.viewDirection, sunVisible), shared.foamColor.mul(FOAM_FROM_BELOW), shared.foam)
       );
     });
 
-    return vec4(seen, 1.0);
+    // What is under the water — the hull below the waterline, the propellers —
+    // shows through, less the thicker the water over it: the depth behind the
+    // sea less the sea's own, along the view. What the water reflects (Fresnel)
+    // hides it, and so does foam. Nothing behind (the open sea has no floor) is
+    // the far plane: far too thick, the sea opaque. From below, always opaque
+    const behind = viewportLinearDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).max(0.0);
+    const transmittance = exp(behind.mul(uniforms.waterAbsorption).negate());
+    const facing = max(dot(shared.normal, shared.viewDirection.negate()), 0.0);
+    const reflected = pow(facing.oneMinus(), 5.0);
+    const clear = transmittance.mul(reflected.oneMinus()).mul(shared.foam.oneMinus());
+    // From below, the ship above the water shows through Snell's window: the
+    // surface lets most of the view through where something stands behind it
+    // within reach, and none where there is only sky (which it draws itself)
+    const somethingBehind = smoothstep(BEHIND_NEAR, BEHIND_FAR, behind).oneMinus();
+    const fromBelow = mix(float(SEEN_OUTSIDE_WINDOW), float(1.0), snellWindow(shared.normal, shared.viewDirection)).mul(somethingBehind).mul(SEEN_THROUGH_FROM_BELOW).oneMinus();
+    const opacity = frontFacing.select(clear.oneMinus(), fromBelow);
+    // The sun's shafts in the water in front of the surface — not where the ship
+    // stands behind it: they shone through it
+    const shafts = frontFacing.select(vec3(0.0), sunRays(shared.viewDirection).mul(somethingBehind.oneMinus()));
+    seen.addAssign(shafts);
+    // From below, the far surface fades out before the grid ends: there the water's haze has hidden
+    // it, and the open water behind it (with the beams) takes over without a line where the grid stops
+    const nearEnough = frontFacing.select(float(1.0), smoothstep(FAR_FADE_FROM, FAR_FADE_TO, underwaterFogFactor()).oneMinus());
+    if (!IS_BACKDROP_REFRACTION_ENABLED) return vec4(seen, opacity.mul(nearEnough));
+
+    // What is behind, read from the picture drawn so far (the opaque things,
+    // the ship) and shifted by the surface's tilt: the waves bend the view
+    // through them. Above, the water takes the red first, then the green; the
+    // blend by the thickness above is the same, the colour of what shows
+    // through per channel
+    const passes = opacity.oneMinus();
+    const tilt = shared.normal.xz.mul(uniforms.refraction).mul(min(behind.div(REFRACTION_FULL_AT), 1.0));
+    // ...but only from what lies behind the surface: a shifted lookup that lands
+    // on something nearer (the hull's own edge, above the water) is not bent
+    // through it, and drew a bright rim round the keel
+    const shifted = screenUV.add(tilt);
+    // ...and only from something there: the open sea has no floor, and past the
+    // hull's edge the lookup found the sky, a bright line round the keel
+    const shiftedRawDepth = viewportDepthTexture(shifted).x;
+    const shiftedDepth = linearDepth(shiftedRawDepth);
+    // ...and only from what is under the water: the hull above the waterline
+    // lies behind the surface too, seen from above, and a shifted lookup drew
+    // the transom and its name into the sea, wobbling with the waves
+    const shiftedWorld = cameraWorldMatrix.mul(vec4(getViewPosition(shifted, shiftedRawDepth, cameraProjectionMatrixInverse), 1.0)).xyz;
+    const isUnderwater = shiftedWorld.y.lessThan(positionWorld.y.sub(UNDERWATER_MARGIN));
+    const isBehind = shiftedDepth
+      .greaterThan(linearDepth().add(REFRACTION_DEPTH_MARGIN))
+      .and(shiftedDepth.sub(linearDepth()).mul(cameraFar.sub(cameraNear)).lessThan(BEHIND_FAR))
+      .and(isUnderwater);
+    const centre = isBehind.select(shifted, screenUV);
+    const behindColor = viewportSharedTexture(centre).rgb;
+    const absorbed = WATER_ABSORPTION_BY_CHANNEL.mul(behind.mul(uniforms.waterAbsorption)).negate();
+    const throughWater = vec3(exp(absorbed.x), exp(absorbed.y), exp(absorbed.z));
+    // Relative to the single transmittance the blend already took
+    const tint = frontFacing.select(throughWater.div(transmittance.max(1e-3)), vec3(1.0));
+    return vec4(seen.mul(opacity).add(behindColor.mul(tint).mul(passes)), nearEnough);
   })();
 
   return { positionNode, fragmentNode, uniforms };

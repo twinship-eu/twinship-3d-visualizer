@@ -31,7 +31,7 @@ export const MOCK_SHIP_TREE: ShipTreeNode[] = [
   },
   {
     id: "deck",
-    label: "Deck equipment",
+    label: "Cargo",
     children: [
       { id: "deck-crane", label: "Crane" },
       { id: "deck-hatch", label: "Hatch covers" },

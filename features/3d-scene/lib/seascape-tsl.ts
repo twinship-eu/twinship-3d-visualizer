@@ -160,6 +160,11 @@ export const seascapeBackgroundColor = Fn(() => {
     0.0,
     normal,
     0.0,
+    // The Shadertoy's own day: it does not follow the time of day
+    vec3(1.0),
+    vec3(0.16, 0.38, 0.75),
+    vec3(0.62, 0.76, 0.9),
+    1.0,
     1.0
   );
 });

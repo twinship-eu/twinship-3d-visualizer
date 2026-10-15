@@ -16,6 +16,7 @@ import {
   ANDROID_METALNESS_SCALE,
   ENVIRONMENT_MAP_INTENSITY,
   getShadowLightPosition,
+  SHADOW_LIGHT_DISTANCE,
   IS_ENVIRONMENT_LIGHTING_ENABLED,
   IS_SCENE_INSPECTOR_ENABLED,
   LIGHT_INTENSITY,
@@ -33,12 +34,17 @@ import {
   TONE_MAPPING_EXPOSURE,
 } from "../lib/webgpu-renderer";
 import { weatherState } from "../lib/seascape-weather";
+import { updateSeaShadow } from "../lib/seascape-shadow";
+import { skyState } from "../lib/sky-state";
 import { getPerformanceProfile } from "../lib/performance-profile";
 
 const SUN_POS = getShadowLightPosition();
 
 /** Opposite the sun on the horizontal, a bit lower — softens the dark hull side. */
-const FILL_POS = new Vector3(-SUN_POS.x, Math.max(SUN_POS.y * 0.45, 20), -SUN_POS.z);
+const fillPosition = (sun: Vector3) => new Vector3(-sun.x, Math.max(sun.y * 0.45, 20), -sun.z);
+const FILL_POS = fillPosition(SUN_POS);
+/** The fills (the phones' stand-in for the sky) at night: the share of their day strength they keep. */
+const NIGHT_FILL_SHARE = 0.4;
 
 /**
  * Live values behind the Inspector's Lights panel.
@@ -120,7 +126,14 @@ export function SceneLights() {
   useFrame((state) => {
     // The sun as much as the clouds let through (`seascape-weather.ts`)
     const sun = IS_SCENE_INSPECTOR_ENABLED ? LIGHT_TUNING.sun : LIGHT_INTENSITY.sun;
-    if (sunRef.current) sunRef.current.intensity = sun * weatherState.sunlight;
+    if (sunRef.current) {
+      // ...and as much as the hour gives: where the sun is, in its colour, none at night
+      sunRef.current.intensity = sun * weatherState.sunlight * skyState.lightStrength;
+      sunRef.current.color.copy(skyState.lightColor);
+      sunRef.current.position.copy(skyState.lightDirection).multiplyScalar(SHADOW_LIGHT_DISTANCE);
+      // The water reads the same shadow map
+      updateSeaShadow(sunRef.current);
+    }
     // The shadow map only every few frames, not by itself every frame
     if (sunRef.current) {
       sunRef.current.shadow.autoUpdate = false;
@@ -130,24 +143,38 @@ export function SceneLights() {
         framesSinceShadowRef.current = 0;
       }
     }
-    if (!IS_SCENE_INSPECTOR_ENABLED) return;
+    // The phones' fills follow the hour too
+    const fillShare = NIGHT_FILL_SHARE + (1 - NIGHT_FILL_SHARE) * skyState.daylight;
+    if (fillRef.current) fillRef.current.position.copy(fillPosition(skyState.lightDirection).multiplyScalar(SHADOW_LIGHT_DISTANCE));
+    // The probe the metal reflects: as strong as the hour leaves it
+    if (!useMobileFill) {
+      const probe = IS_SCENE_INSPECTOR_ENABLED
+        ? LIGHT_TUNING.skyLightsShip
+          ? LIGHT_TUNING.environment
+          : 0
+        : IS_ENVIRONMENT_LIGHTING_ENABLED
+          ? ENVIRONMENT_MAP_INTENSITY
+          : 0;
+      state.scene.environmentIntensity = probe * skyState.environmentLevel;
+    }
+    if (!IS_SCENE_INSPECTOR_ENABLED) {
+      if (ambientRef.current) ambientRef.current.intensity = LIGHT_INTENSITY.androidAmbient * fillShare;
+      if (hemisphereRef.current) hemisphereRef.current.intensity = LIGHT_INTENSITY.androidHemisphere * fillShare;
+      if (fillRef.current) fillRef.current.intensity = LIGHT_INTENSITY.androidFill * fillShare;
+      return;
+    }
     if (ambientRef.current) {
-      ambientRef.current.intensity = LIGHT_TUNING.ambient;
+      ambientRef.current.intensity = LIGHT_TUNING.ambient * fillShare;
       ambientRef.current.color.set(LIGHT_TUNING.ambientColor);
     }
     if (hemisphereRef.current) {
-      hemisphereRef.current.intensity = LIGHT_TUNING.hemisphere;
+      hemisphereRef.current.intensity = LIGHT_TUNING.hemisphere * fillShare;
       hemisphereRef.current.color.set(LIGHT_TUNING.hemisphereSky);
       hemisphereRef.current.groundColor.set(LIGHT_TUNING.hemisphereGround);
     }
     if (fillRef.current) {
-      fillRef.current.intensity = LIGHT_TUNING.fill;
+      fillRef.current.intensity = LIGHT_TUNING.fill * fillShare;
       fillRef.current.color.set(LIGHT_TUNING.fillColor);
-    }
-    if (!useMobileFill) {
-      state.scene.environmentIntensity = LIGHT_TUNING.skyLightsShip
-        ? LIGHT_TUNING.environment
-        : 0;
     }
     asSceneRenderer(state.gl).toneMappingExposure = LIGHT_TUNING.exposure;
   });
