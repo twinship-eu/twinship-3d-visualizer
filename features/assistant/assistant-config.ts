@@ -25,6 +25,14 @@ export const ASSISTANT_TEMPERATURE = 0.1;
 export const ASSISTANT_NUM_CTX = 8192;
 /** How long to wait for an answer, in ms. */
 export const ASSISTANT_TIMEOUT_MS = 90_000;
+/**
+ * The model's server fails now and then for a moment (a 500 or 503 while it is
+ * busy or reloads the model, a proxy's page instead of JSON): such a call is
+ * tried again this many times, this long apart and longer each time. A refused
+ * key, a missing model or a timeout is not tried again.
+ */
+export const ASSISTANT_RETRIES = 2;
+export const ASSISTANT_RETRY_DELAY_MS = 1000;
 
 /**
  * The route's limits, the site being open to anyone: questions per computer

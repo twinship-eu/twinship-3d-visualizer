@@ -2,6 +2,8 @@ import {
   ASSISTANT_NUM_CTX,
   ASSISTANT_RATE_LIMITS,
   ASSISTANT_REQUEST_LIMITS,
+  ASSISTANT_RETRIES,
+  ASSISTANT_RETRY_DELAY_MS,
   ASSISTANT_TEMPERATURE,
   ASSISTANT_TIMEOUT_MS,
   DEFAULT_ASSISTANT_MODEL,
@@ -102,8 +104,26 @@ const ANSWER_IN_WORDS = "Now give only the answer to my question, in words: 1-3 
  */
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-/** One call to the model; its reply's text, or why there is none. */
+/** A call's outcome: the reply's text, or why there is none — and whether trying again may help. */
+type ChatResult = { content: string } | { error: Response; isTransient: boolean };
+
+/** Upstream statuses that pass: the server busy, restarting, or behind a proxy that timed out. */
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** A call to the model, tried again while it fails in a way that passes. */
 async function chat(messages: ChatMessage[], isJson: boolean): Promise<{ content: string } | { error: Response }> {
+  for (let attempt = 0; ; attempt++) {
+    const result = await chatOnce(messages, isJson);
+    if (!("error" in result) || !result.isTransient || attempt >= ASSISTANT_RETRIES) return result;
+    console.warn(`Ship assistant: the model failed for a moment; trying again (${attempt + 1} of ${ASSISTANT_RETRIES}).`);
+    await wait(ASSISTANT_RETRY_DELAY_MS * (attempt + 1));
+  }
+}
+
+/** One call to the model; its reply's text, or why there is none. */
+async function chatOnce(messages: ChatMessage[], isJson: boolean): Promise<ChatResult> {
   let response: Response;
   try {
     response = await fetch(OLLAMA_CHAT_URL, {
@@ -122,9 +142,11 @@ async function chat(messages: ChatMessage[], isJson: boolean): Promise<{ content
       }),
     });
   } catch (error) {
-    const reason = error instanceof Error && error.name === "TimeoutError" ? "did not answer in time" : "could not be reached";
+    const isTimeout = error instanceof Error && error.name === "TimeoutError";
+    const reason = isTimeout ? "did not answer in time" : "could not be reached";
     console.error(`Ship assistant: the model at ${OLLAMA_CHAT_URL} ${reason}.`, error);
-    return { error: failure(502, `The assistant's model ${reason} (${new URL(OLLAMA_CHAT_URL).host}).`) };
+    // Unreachable for a moment is worth another try; a whole timeout again would keep the operator waiting minutes
+    return { error: failure(502, `The assistant's model ${reason} (${new URL(OLLAMA_CHAT_URL).host}).`), isTransient: !isTimeout };
   }
   if (response.status === 401 || response.status === 403) {
     console.error(`Ship assistant: the model refused the key (${response.status}).`);
@@ -133,17 +155,26 @@ async function chat(messages: ChatMessage[], isJson: boolean): Promise<{ content
         502,
         OLLAMA_API_KEY ? "The assistant's model refused its key: check OLLAMA_API_KEY." : "The assistant's model needs a key: set OLLAMA_API_KEY in .env.local."
       ),
+      isTransient: false,
     };
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     console.error(`Ship assistant: the model answered ${response.status}.`, detail);
-    return { error: failure(502, `The assistant's model answered ${response.status}${detail.includes("not found") ? `: ${ASSISTANT_MODEL} is not on the server (set ASSISTANT_MODEL)` : ""}.`) };
+    return {
+      error: failure(502, `The assistant's model answered ${response.status}${detail.includes("not found") ? `: ${ASSISTANT_MODEL} is not on the server (set ASSISTANT_MODEL)` : ""}.`),
+      isTransient: TRANSIENT_STATUSES.has(response.status),
+    };
   }
-  const data = (await response.json()) as OllamaChatResponse;
+  // A proxy's error page under a 200 is not JSON: a reply to try again, not a crash of the route
+  const data = (await response.json().catch(() => null)) as OllamaChatResponse | null;
+  if (!data) {
+    console.error("Ship assistant: the model's reply was not JSON.");
+    return { error: failure(502, "The assistant's model sent a reply that could not be read."), isTransient: true };
+  }
   const content = data.message?.content ?? data.response;
   if (data.error || typeof content !== "string" || !content.trim()) {
-    return { error: failure(502, data.error ?? "The assistant's model returned an empty reply.") };
+    return { error: failure(502, data.error ?? "The assistant's model returned an empty reply."), isTransient: true };
   }
   return { content };
 }
@@ -169,6 +200,17 @@ function replyObject(content: string): Record<string, unknown> | null {
  * answer is asked for again, in words, and put in.
  */
 export async function POST(request: Request) {
+  // Whatever goes wrong unforeseen, the chat gets a reason, not a bare 500
+  try {
+    return await answer(request);
+  } catch (error) {
+    console.error("Ship assistant: the question could not be answered.", error);
+    return failure(502, "The assistant could not answer this time: please ask again.");
+  }
+}
+
+/** The question checked against the limits, asked of the model, its answer put in words when it came without. */
+async function answer(request: Request) {
   const checked = await checkLimits(request);
   if ("error" in checked) return checked.error;
   const { body } = checked;
