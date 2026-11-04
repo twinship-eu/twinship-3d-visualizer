@@ -59,7 +59,7 @@ export const SYSTEMS_CALLOUTS: CalloutDefinition[] = [
   {
     id: "deck",
     title: "Crane · Truck with trailer",
-    objectName: "Crane",
+    objectName: "New_Crane",
     componentLabel: "Crane",
     dotClass: "bg-system-deck",
     placement: { side: "left", vertical: "above" },

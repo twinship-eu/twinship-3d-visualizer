@@ -17,64 +17,37 @@ export const SHIP_VISUALIZER_LAYOUT = {
 export const SIDEBAR_WIDTH_CLASS = "w-[min(85vw,300px)] lg:w-[264px]";
 
 /**
- * The engine model, and the vessel the visualizer opens with.
- *
- * Built from the ~226 MB raw Blender export in two stages:
- *   npm run optimize:ship-model <raw> <tmp>      2048px WebP + Meshopt
- *   node scripts/simplify-engine-mesh.mjs <tmp> <out> 0.25
- * and then, since, the engine to 87k (`... 0.5 Engine 0.02`), and the
- * container and the crane by the method that keeps hard edges' shading
- * (45.7k -> 22.8k and 12.7k -> 9.2k triangles, no difference seen):
- *   node scripts/simplify-mesh-keeping-shading.mjs <in> <out> 0.5 Container,Crane 0.005
- *
- * The second stage exists because the `Engine` node ships at 494,596 triangles
- * — more than the rest of the vessel combined, and in an object only ~10 units
- * long since it was resized to fit inside the hull. At full density, orbiting
- * close to it visibly stuttered; 25% (124,255 triangles) was chosen by
- * comparing 247k / 124k / 85k builds in the scene. Disabling the water's
- * reflection pass, tried first, did not help — triangle count was the cause.
- *
- * Every other node is untouched and identical to `SHIP_MODEL_JOINED_GLB`, so
- * sections, propeller spin, scale and waterline all carry over.
- *
- * ~40 MB against ~24 MB for the V2 build. The difference is textures, 34 maps
- * against 19, not geometry — lowering the PBR maps from 2048 to 1024 is the
- * lever if download size matters.
- */
-export const ENGINE_SHIP_MODEL_GLB = "/ship/twinship-engine.glb";
-
-/**
- * The same model with its textures GPU-compressed, as KTX2: built from it by
- *   scripts/encode-ship-textures-ktx2.sh <engine.glb> <out>
- * UASTC for the normal maps, ETC1S for the rest. They stay compressed in GPU
- * memory — ~130 MB against ~760 MB for the 34 WebP maps, which the GPU holds
- * uncompressed — and upload faster; the file is a little smaller too (38 MB against 41).
- */
-export const ENGINE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-engine-ktx2.glb";
-
-/**
- * The update export (TwinShip_UPDATE 1.glb): the hull and its top reworked, the
- * container replaced by a truck, a new radio mast and new propellers — merged
- * into the hull there, and split out again into their own `Propellers` node by
+ * The ship model, from the second update export (TwinShip_UPDATE 2.glb, ~229 MB,
+ * not shipped): the reworked hull, a truck on deck, the radio mast, the crane
+ * (`New_Crane`) and an inflatable life raft. Built in four stages:
  *   node scripts/split-propellers.mjs <raw> <split>
- * then built as the engine model was (optimize, simplify Engine 0.25 then
- * 0.5/0.02, Truck,Crane 0.5/0.005), and KTX2: 37.7 MB.
+ *   npm run optimize:ship-model <split> <opt>          2048px WebP + Meshopt
+ *   node scripts/simplify-engine-mesh.mjs <opt> <a> 0.25, then <a> <b> 0.5 Engine 0.02
+ *   node scripts/simplify-mesh-keeping-shading.mjs <b> <out> 0.5 Truck 0.005
+ * and its textures re-encoded as KTX2 by
+ *   scripts/encode-ship-textures-ktx2.sh <out> <out-ktx2>
+ *
+ * - The export merges the propellers into the hull; the viewer needs them as
+ *   their own `Propellers` node (tree, spin, callouts), so they are split out.
+ * - The `Engine` node ships at 494,596 triangles, more than the rest of the
+ *   vessel combined in an object ~10 units long: orbiting close to it
+ *   stuttered, and triangle count was the cause, not the water's reflection
+ *   pass. It ends at ~87k. The truck keeps its hard edges' shading at half its
+ *   triangles (44.4k -> 22.2k); the crane, at 6.7k, is left as it is.
+ * - KTX2: UASTC for the normal maps, ETC1S for the rest. They stay compressed
+ *   in GPU memory (~130 MB against ~760 MB for WebP maps, which the GPU holds
+ *   uncompressed) and upload faster. 39.9 MB against 44.5 MB for the WebP build.
+ *
+ * The engine viewer uses the same file and keeps only its `Engine` node.
+ * Earlier builds (V1, V2, the engine model, UPDATE 1) are in git history.
  */
-export const UPDATE_SHIP_MODEL_GLB = "/ship/twinship-update.glb";
-export const UPDATE_SHIP_MODEL_KTX2_GLB = "/ship/twinship-update-ktx2.glb";
+export const SHIP_MODEL_GLB = "/ship/twinship-update2.glb";
+export const SHIP_MODEL_KTX2_GLB = "/ship/twinship-update2-ktx2.glb";
 /** Off to load the WebP build instead, to compare. */
 const IS_KTX2_SHIP_TEXTURES_ENABLED = true;
 
-/**
- * Model the ship visualizer opens with, and the only one shipped.
- *
- * Earlier builds (V1, the V2 export and its raw source) were removed along
- * with the development-only toggle that compared them; recoverable from git
- * history if a comparison is ever wanted again.
- */
-export const DEFAULT_SHIP_MODEL_PATH = IS_KTX2_SHIP_TEXTURES_ENABLED
-  ? UPDATE_SHIP_MODEL_KTX2_GLB
-  : UPDATE_SHIP_MODEL_GLB;
+/** Model the ship visualizer opens with. */
+export const DEFAULT_SHIP_MODEL_PATH = IS_KTX2_SHIP_TEXTURES_ENABLED ? SHIP_MODEL_KTX2_GLB : SHIP_MODEL_GLB;
 
 /** Default ship mesh color (unselected). */
 export const SHIP_COLOR = "#ffffff";

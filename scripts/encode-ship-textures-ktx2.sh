@@ -23,8 +23,8 @@
 # then point KTX_HOME at a folder holding its bin/ (toktx) and lib/ (libktx).
 #
 # Usage: scripts/encode-ship-textures-ktx2.sh <source.glb> <output.glb>
-#   e.g. scripts/encode-ship-textures-ktx2.sh public/ship/twinship-engine.glb \
-#          public/ship/twinship-engine-ktx2.glb
+#   e.g. scripts/encode-ship-textures-ktx2.sh public/ship/twinship-update2.glb \
+#          public/ship/twinship-update2-ktx2.glb
 # =============================================================================
 
 set -euo pipefail
