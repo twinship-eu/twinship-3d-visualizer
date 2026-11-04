@@ -4,6 +4,15 @@
  * weather router's voyage assistant uses.
  */
 
+/**
+ * Off while the repository and the site are public: the assistant stays in the
+ * UI, but its route refuses every question with ASSISTANT_OFF_MESSAGE before
+ * calling the model, so the Ollama key is never spent. On again to answer.
+ */
+export const IS_ASSISTANT_ENABLED = false;
+/** What the chat shows when the assistant is off. */
+export const ASSISTANT_OFF_MESSAGE = "The ship assistant is off at the moment.";
+
 /** The viewer's own route to the model: the browser never calls the LLM itself. */
 export const ASSISTANT_ROUTE = "/api/assistant";
 

@@ -22,6 +22,9 @@ const FRIENDLY_LABELS: Record<string, string> = {
   Crane: "Crane",
   Crane_LP: "Crane",
   Crane_lp: "Crane",
+  // UPDATE 2 export: a new crane, under a new name, and a life raft
+  New_Crane: "Crane",
+  InflatableLifeRaft_Joined: "Life raft",
   Propellers: "Propellers",
   Propellers_LP: "Propellers",
   Engine: "Engine",

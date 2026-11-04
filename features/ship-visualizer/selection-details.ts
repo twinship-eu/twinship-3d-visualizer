@@ -83,6 +83,12 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
     description: "Deck crane used for handling cargo and equipment on board.",
     parameters: [],
   },
+  "Life raft": {
+    title: "Life raft",
+    tags: ["Safety"],
+    description: "Inflatable life raft in its canister on deck, launched in an emergency.",
+    parameters: [],
+  },
 };
 
 /**

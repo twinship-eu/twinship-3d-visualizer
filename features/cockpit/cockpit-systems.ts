@@ -14,6 +14,7 @@ export const COMPONENT_SYSTEMS: Record<string, SystemId> = {
   WAPS: "windAssist",
   "Truck with trailer": "deck",
   Crane: "deck",
+  "Life raft": "deck",
 };
 
 /** Each component's object in the ship's GLB, by its label in the ontology tree. */
@@ -23,7 +24,8 @@ export const COMPONENT_OBJECT_NAMES: Record<string, string> = {
   "Control room": "ControlRoom",
   Radio: "Radio_NEW",
   "Truck with trailer": "Truck",
-  Crane: "Crane",
+  Crane: "New_Crane",
+  "Life raft": "InflatableLifeRaft_Joined",
   Propellers: "Propellers",
   Engine: "Engine",
   WAPS: "WindTurbines",

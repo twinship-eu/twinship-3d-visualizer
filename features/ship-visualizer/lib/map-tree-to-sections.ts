@@ -13,7 +13,9 @@ function getSectionIdForLabel(label: string): SectionId {
   if (lower.includes("waps")) {
     return "windAssisted";
   }
-  if (lower.includes("crane") || lower.includes("container") || lower.includes("truck")) return "deck";
+  if (lower.includes("crane") || lower.includes("container") || lower.includes("truck") || lower.includes("life raft")) {
+    return "deck";
+  }
   if (lower.includes("solar")) return "hull";
   if (lower.includes("decal")) return "hull";
   if (lower.startsWith("base")) return "hull";

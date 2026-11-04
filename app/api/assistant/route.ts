@@ -1,5 +1,6 @@
 import {
   ASSISTANT_NUM_CTX,
+  ASSISTANT_OFF_MESSAGE,
   ASSISTANT_RATE_LIMITS,
   ASSISTANT_REQUEST_LIMITS,
   ASSISTANT_RETRIES,
@@ -9,6 +10,7 @@ import {
   DEFAULT_ASSISTANT_MODEL,
   DEFAULT_OLLAMA_CHAT_URL,
   HISTORY_TURNS,
+  IS_ASSISTANT_ENABLED,
 } from "@/features/assistant/assistant-config";
 import type { AssistantRequest } from "@/features/assistant/assistant-types";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/features/assistant/lib/assistant-prompt";
@@ -200,6 +202,8 @@ function replyObject(content: string): Record<string, unknown> | null {
  * answer is asked for again, in words, and put in.
  */
 export async function POST(request: Request) {
+  // Switched off: refused before the body is read or the model called
+  if (!IS_ASSISTANT_ENABLED) return failure(503, ASSISTANT_OFF_MESSAGE);
   // Whatever goes wrong unforeseen, the chat gets a reason, not a bare 500
   try {
     return await answer(request);

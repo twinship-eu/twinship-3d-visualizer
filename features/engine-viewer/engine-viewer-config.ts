@@ -1,10 +1,11 @@
-import { ENGINE_SHIP_MODEL_KTX2_GLB } from "@/features/ship-visualizer/ship-visualizer-config";
+import { DEFAULT_SHIP_MODEL_PATH } from "@/features/ship-visualizer/ship-visualizer-config";
 
 /**
  * The engine has no GLB of its own: it is the `Engine` node of the full ship
- * model, so this loads the ship and keeps only that node.
+ * model, so this loads the ship and keeps only that node. The same file as the
+ * ship view, so a visitor coming from there does not download it again.
  */
-export const ENGINE_MODEL_PATH = ENGINE_SHIP_MODEL_KTX2_GLB;
+export const ENGINE_MODEL_PATH = DEFAULT_SHIP_MODEL_PATH;
 
 /** Name of the node, in the ship model, that holds the engine. */
 export const ENGINE_NODE_NAME = "Engine";
