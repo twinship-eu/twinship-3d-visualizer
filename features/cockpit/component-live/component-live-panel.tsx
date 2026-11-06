@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { activeAlarmOn, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import { formatUtcTime } from "@/features/live-data/lib/format-readings";
 import { getObjectDetailsForNode } from "@/features/ship-visualizer/selection-details";
+import { useKnowledgeGraphQuery } from "@/features/ship-visualizer/queries/use-knowledge-graph-query";
 import { getSectionDotClass, getSectionIdOf } from "@/features/ship-visualizer/lib/section-colors";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { COMPONENT_LIVE } from "./component-live-config";
@@ -41,7 +42,8 @@ export function ComponentLivePanel({ node, onClose, onSelectRelated, onOpenInOnt
   const [tab, setTab] = useState<Tab>("live");
   const snapshot = useLiveData();
   const history = useLiveHistory();
-  const details = getObjectDetailsForNode(node);
+  const { graph } = useKnowledgeGraphQuery(node);
+  const details = getObjectDetailsForNode(node, graph);
   const definition = COMPONENT_LIVE[node.label];
   const alarm = activeAlarmOn(snapshot, node.label);
   const chip = STATE_CHIPS[componentState(node.label, snapshot, alarm)];

@@ -3,6 +3,7 @@
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { relationsOf } from "@/features/ship-visualizer/lib/ontology-relations";
+import { useKnowledgeGraphQuery } from "@/features/ship-visualizer/queries/use-knowledge-graph-query";
 import { getSectionDotClass } from "@/features/ship-visualizer/lib/section-colors";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { SHIP_TREE_SECTIONS } from "@/features/ship-visualizer/ship-visualizer-config";
@@ -21,7 +22,8 @@ type Props = {
  * Live data too, with an alarm or without.
  */
 export function ConnectedComponents({ node, onSelect }: Props) {
-  const connected = relationsOf(node).filter((relation) => relation.partLabel);
+  const { graph } = useKnowledgeGraphQuery(node);
+  const connected = relationsOf(node, graph).filter((relation) => relation.partLabel);
   if (connected.length === 0) return null;
 
   return (

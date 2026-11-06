@@ -52,3 +52,40 @@ export const RELATION_ORDER = ["partOf", "hasPart", "directlyConnectedTo", "conn
  * for them: set this to false then.
  */
 export const IS_ONLY_RELATIONS_TO_3D_PARTS = true;
+
+/**
+ * The viewer's route to the knowledge graph: GraphDB when it is set up, the
+ * bundled export otherwise. Asked each time a part is selected.
+ */
+export const KNOWLEDGE_GRAPH_ROUTE = "/api/knowledge-graph";
+
+/**
+ * The data pipeline's GraphDB, server side, from the environment (see
+ * .env.example): its address and the futuristic vessel's repository — fixed
+ * here, never taken from the request, so no other vessel's repository is
+ * reached — and, as GraphDB is behind Keycloak, a client's credentials.
+ */
+export const GRAPHDB_ENV = {
+  URL: "GRAPHDB_URL",
+  REPOSITORY: "GRAPHDB_REPOSITORY",
+  TOKEN_URL: "GRAPHDB_TOKEN_URL",
+  CLIENT_ID: "GRAPHDB_CLIENT_ID",
+  CLIENT_SECRET: "GRAPHDB_CLIENT_SECRET",
+} as const;
+/** How long to wait for Keycloak or GraphDB, in ms, before the bundled export is shown. */
+export const GRAPHDB_TIMEOUT_MS = 8000;
+/**
+ * The graph read from GraphDB is kept on the server, as it changes only when
+ * the pipeline runs: for this long, in ms, it is shown as it is. After it, the
+ * next selection still gets it at once, and GraphDB is read again for the
+ * ones after.
+ */
+export const GRAPHDB_FRESH_MS = 60_000;
+/**
+ * The oldest graph shown while GraphDB is read again, in ms. Older — GraphDB
+ * has not answered for that long — the selection waits for GraphDB, and gets
+ * the bundled export if it still does not answer.
+ */
+export const GRAPHDB_MAX_STALE_MS = 5 * 60_000;
+/** Where the pipeline names the vessels' instances. */
+export const INDIVIDUALS_NAMESPACE = "https://twin-ship.eu/individuals/";

@@ -2,11 +2,12 @@
 
 import { cn } from "@/lib/utils";
 import { useLiveData } from "@/features/live-data/hooks/use-live-data";
-import { KNOWLEDGE_GRAPH } from "../lib/knowledge-graph";
+import { useKnowledgeGraphQuery } from "../queries/use-knowledge-graph-query";
 import { relationsOf } from "../lib/ontology-relations";
 import { getSectionDotClass, getSectionIdOf } from "../lib/section-colors";
 import type { ShipTreeNode } from "../ship-visualizer-types";
 import { RelationTarget, relationKey } from "./relation-target";
+import { knowledgeGraphSourceText } from "./knowledge-graph-source";
 
 type Props = {
   selectedNode: ShipTreeNode;
@@ -27,7 +28,8 @@ const CARD_CLASS =
  */
 export function OntologyRelationsStrip({ selectedNode, onSelectRelated, onShowSensors }: Props) {
   const sensorCount = useLiveData()?.sensorCounts[selectedNode.label] ?? 0;
-  const relations = relationsOf(selectedNode);
+  const { graph, source, isQuerying } = useKnowledgeGraphQuery(selectedNode);
+  const relations = relationsOf(selectedNode, graph);
 
   return (
     <section
@@ -37,9 +39,9 @@ export function OntologyRelationsStrip({ selectedNode, onSelectRelated, onShowSe
       <div className="flex items-center gap-2 text-xs">
         <span className={cn("size-[7px] rounded-full", getSectionDotClass(getSectionIdOf(selectedNode)))} aria-hidden />
         <span className="font-bold">{selectedNode.label} · relations in the ontology</span>
-        <span className="text-muted">
+        <span className={cn("text-muted", isQuerying && "animate-pulse")} role="status">
           {relations.length > 0
-            ? `from the knowledge graph (${KNOWLEDGE_GRAPH.source.pipeline}) · click a 3D part to jump to it`
+            ? `${knowledgeGraphSourceText({ source, isQuerying })} · click a 3D part to jump to it`
             : "not in the knowledge graph yet: no relations to show"}
         </span>
       </div>

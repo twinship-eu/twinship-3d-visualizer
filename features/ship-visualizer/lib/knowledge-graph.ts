@@ -11,7 +11,8 @@ export type KnowledgeGraphInstance = {
   values: Record<string, string | number | boolean>;
 };
 
-type KnowledgeGraph = {
+/** The knowledge graph as the viewer reads it: the bundled export's shape, which the GraphDB route returns too. */
+export type KnowledgeGraph = {
   source: { pipeline: string; commit: string | null; workbook: string; exportedAt: string; unknownValue: number };
   instances: Record<string, KnowledgeGraphInstance>;
   relations: { subject: string; predicate: string; object: string }[];
@@ -19,6 +20,7 @@ type KnowledgeGraph = {
   properties: Record<string, OntologyTerm>;
 };
 
+/** The graph exported at build time: what the screens show while GraphDB is not set up or does not answer. */
 export const KNOWLEDGE_GRAPH = graph as KnowledgeGraph;
 
 const PART_OF_INSTANCE = new Map(
@@ -36,14 +38,14 @@ export function partOfInstance(instanceId: string): string | undefined {
 }
 
 /** What an instance is: its class, passing over the types that only qualify it (AC, four-stroke…). */
-export function classOf(instanceId: string): string {
-  const types = KNOWLEDGE_GRAPH.instances[instanceId]?.types ?? [];
+export function classOf(instanceId: string, graph = KNOWLEDGE_GRAPH): string {
+  const types = graph.instances[instanceId]?.types ?? [];
   const kinds = types.filter((type) => !QUALIFYING_TYPES.has(type));
   return kinds.find((type) => type.endsWith("System")) ?? kinds[0] ?? types[0] ?? "Thing";
 }
 
-export function classLabel(className: string): string {
-  return KNOWLEDGE_GRAPH.classes[className]?.label ?? className;
+export function classLabel(className: string, graph = KNOWLEDGE_GRAPH): string {
+  return graph.classes[className]?.label ?? className;
 }
 
 /** A class's or property's page in the ontology's documentation. */
@@ -81,12 +83,15 @@ const RELATION_NAMES: Record<string, (typeof RELATION_ORDER)[number]> = {
 const CONNECTION_PREDICATES = new Set(["ido:directlyConnectedTo", "ido:connectedTo", "tws:consume"]);
 /** How many steps a connection may take through instances without a 3D part. */
 const MAX_INDIRECT_STEPS = 4;
-let connectionGraph: Map<string, Set<string>> | null = null;
+/** Each graph's connections, built once a graph: the bundled one, and each answer of GraphDB. */
+const connectionGraphs = new WeakMap<KnowledgeGraph, Map<string, Set<string>>>();
 
-function connectionsOf(instanceId: string) {
+function connectionsOf(instanceId: string, graph: KnowledgeGraph) {
+  let connectionGraph = connectionGraphs.get(graph);
   if (!connectionGraph) {
     connectionGraph = new Map();
-    for (const { subject, predicate, object } of KNOWLEDGE_GRAPH.relations) {
+    connectionGraphs.set(graph, connectionGraph);
+    for (const { subject, predicate, object } of graph.relations) {
       if (!CONNECTION_PREDICATES.has(predicate)) continue;
       if (!connectionGraph.has(subject)) connectionGraph.set(subject, new Set());
       if (!connectionGraph.has(object)) connectionGraph.set(object, new Set());
@@ -101,14 +106,14 @@ function connectionsOf(instanceId: string) {
  * The other 3D parts a part is connected to, through instances the model has
  * no part for, nearest first: part label to the instance reached.
  */
-function indirectPartsFrom(own: Set<string>, partLabel: string) {
+function indirectPartsFrom(own: Set<string>, partLabel: string, graph: KnowledgeGraph) {
   const reached = new Map<string, string>();
   const seen = new Set(own);
   let frontier = [...own];
   for (let step = 0; step < MAX_INDIRECT_STEPS && frontier.length > 0; step++) {
     const next: string[] = [];
     for (const instanceId of frontier) {
-      for (const other of connectionsOf(instanceId)) {
+      for (const other of connectionsOf(instanceId, graph)) {
         if (seen.has(other)) continue;
         seen.add(other);
         const otherPart = partOfInstance(other);
@@ -130,7 +135,7 @@ function indirectPartsFrom(own: Set<string>, partLabel: string) {
  * and what is part of them (`hasPart`). Parts first, then the rest, each in
  * RELATION_ORDER. Empty for a part the graph does not have.
  */
-export function partRelationsOf(partLabel: string): PartRelation[] {
+export function partRelationsOf(partLabel: string, graph = KNOWLEDGE_GRAPH): PartRelation[] {
   const own = new Set(instancesOfPart(partLabel));
   if (own.size === 0) return [];
 
@@ -138,7 +143,7 @@ export function partRelationsOf(partLabel: string): PartRelation[] {
   const add = (relation: PartRelation["relation"], predicate: string, other: string) => {
     if (own.has(other)) return;
     const partLabelOfOther = partOfInstance(other);
-    const key = `${relation}|${partLabelOfOther ?? classOf(other)}`;
+    const key = `${relation}|${partLabelOfOther ?? classOf(other, graph)}`;
     const existing = grouped.get(key);
     if (existing) {
       if (!existing.instanceIds.includes(other)) existing.instanceIds.push(other);
@@ -148,12 +153,12 @@ export function partRelationsOf(partLabel: string): PartRelation[] {
       relation,
       predicate,
       partLabel: partLabelOfOther,
-      label: partLabelOfOther ?? classLabel(classOf(other)),
+      label: partLabelOfOther ?? classLabel(classOf(other, graph), graph),
       instanceIds: [other],
     });
   };
 
-  for (const { subject, predicate, object } of KNOWLEDGE_GRAPH.relations) {
+  for (const { subject, predicate, object } of graph.relations) {
     const relation = RELATION_NAMES[predicate];
     if (!relation) continue;
     if (own.has(subject)) add(relation, predicate, object);
@@ -165,7 +170,7 @@ export function partRelationsOf(partLabel: string): PartRelation[] {
   // that is no part of the 3D model. Only through connections (not the vessel
   // they are all part of), up to a few steps
   const shownParts = new Set([...grouped.values()].flatMap((relation) => (relation.partLabel ? [relation.partLabel] : [])));
-  for (const [partLabelOfOther, instanceId] of indirectPartsFrom(own, partLabel)) {
+  for (const [partLabelOfOther, instanceId] of indirectPartsFrom(own, partLabel, graph)) {
     if (shownParts.has(partLabelOfOther)) continue;
     grouped.set(`connectedTo|${partLabelOfOther}`, {
       relation: "connectedTo",
@@ -183,8 +188,8 @@ export function partRelationsOf(partLabel: string): PartRelation[] {
 }
 
 /** A value as the card shows it: the graph's -1 is "unknown", shown as nothing. */
-function displayValue(value: string | number | boolean | undefined) {
-  if (value === undefined || value === KNOWLEDGE_GRAPH.source.unknownValue || value === String(KNOWLEDGE_GRAPH.source.unknownValue)) {
+function displayValue(value: string | number | boolean | undefined, unknownValue: number) {
+  if (value === undefined || value === unknownValue || value === String(unknownValue)) {
     return "";
   }
   return typeof value === "number" ? String(Number.isInteger(value) ? value : Number(value.toFixed(3))) : String(value);
@@ -194,12 +199,12 @@ function displayValue(value: string | number | boolean | undefined) {
  * A part's parameters, from its instances' values: one row a property, its
  * values joined when they differ — those the graph knows first.
  */
-export function partParametersOf(partLabel: string) {
-  const instances = instancesOfPart(partLabel).map((id) => KNOWLEDGE_GRAPH.instances[id]).filter(Boolean);
+export function partParametersOf(partLabel: string, graph = KNOWLEDGE_GRAPH) {
+  const instances = instancesOfPart(partLabel).map((id) => graph.instances[id]).filter(Boolean);
   const names = [...new Set(instances.flatMap((instance) => Object.keys(instance.values)))].sort();
   const parameters = names.map((property) => {
-    const shown = [...new Set(instances.map((instance) => displayValue(instance.values[property])))];
-    const term = KNOWLEDGE_GRAPH.properties[property];
+    const shown = [...new Set(instances.map((instance) => displayValue(instance.values[property], graph.source.unknownValue)))];
+    const term = graph.properties[property];
     return {
       property,
       name: term?.label ?? property,

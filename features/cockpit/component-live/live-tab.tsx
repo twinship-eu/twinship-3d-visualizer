@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getObjectDetailsForNode } from "@/features/ship-visualizer/selection-details";
+import { useKnowledgeGraphQuery } from "@/features/ship-visualizer/queries/use-knowledge-graph-query";
 import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { Sparkline } from "../components/sparkline";
 import type { ComponentLiveDefinition } from "./component-live-types";
@@ -27,9 +28,11 @@ type Props = {
 /** A component's Live tab: its health, its readings now and their minute, its lifecycle. */
 export function LiveTab({ componentLabel, definition, snapshot, history }: Props) {
   const { health, readings, lifecycle } = definition;
+  const node = { id: componentLabel, label: componentLabel };
+  const { graph } = useKnowledgeGraphQuery(node);
   // Each ontology property's definition, by its local name (or name), for the readings that measure one
   const ontologyLinks = new Map(
-    getObjectDetailsForNode({ id: componentLabel, label: componentLabel }).parameters
+    getObjectDetailsForNode(node, graph).parameters
       .filter((parameter) => parameter.href)
       .map((parameter) => [parameter.property ?? parameter.name, parameter.href!])
   );
