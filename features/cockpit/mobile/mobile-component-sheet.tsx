@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { activeAlarmOn, useLiveData, useLiveHistory } from "@/features/live-data/hooks/use-live-data";
 import { getObjectDetailsForNode } from "@/features/ship-visualizer/selection-details";
+import { useKnowledgeGraphQuery } from "@/features/ship-visualizer/queries/use-knowledge-graph-query";
 import { getSectionDotClass, getSectionIdOf } from "@/features/ship-visualizer/lib/section-colors";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { AlarmFocus } from "../component-live/alarm-focus";
@@ -33,7 +34,8 @@ export function MobileComponentSheet({ node, sectionLabel, isShowingAlarm, onSho
   const [tab, setTab] = useState<"live" | "details">("live");
   const snapshot = useLiveData();
   const history = useLiveHistory();
-  const details = getObjectDetailsForNode(node);
+  const { graph } = useKnowledgeGraphQuery(node);
+  const details = getObjectDetailsForNode(node, graph);
   const definition = COMPONENT_LIVE[node.label];
   const alarm = activeAlarmOn(snapshot, node.label);
   const chip = STATE_CHIPS[componentState(node.label, snapshot, alarm)];

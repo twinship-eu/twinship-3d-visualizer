@@ -6,6 +6,9 @@ import type { ShipTreeNode } from "../ship-visualizer-types";
 import { getObjectDetailsForNode } from "../selection-details";
 import { getSectionDotClass, getSectionIdOf } from "../lib/section-colors";
 import { relationsOf, type OntologyRelation } from "../lib/ontology-relations";
+import { instancesOfPart } from "../lib/knowledge-graph";
+import { useKnowledgeGraphQuery } from "../queries/use-knowledge-graph-query";
+import { KnowledgeGraphSource } from "./knowledge-graph-source";
 import { RelationTarget, relationKey } from "./relation-target";
 
 const SECTION_HEADER_CLASS = "text-[11px] font-semibold tracking-[0.12em] text-accent-ink";
@@ -45,11 +48,13 @@ export function SelectionDetailsModal({
   onShowLiveData,
   isDesktopHidden = false,
 }: Props) {
+  const { graph, source, isQuerying } = useKnowledgeGraphQuery(selectedNode);
   if (selectedNode === null) return null;
 
-  const details = getObjectDetailsForNode(selectedNode);
+  const details = getObjectDetailsForNode(selectedNode, graph);
   const { title, titleHref, tags, description, parameters } = details;
-  const relations = relationsOf(selectedNode);
+  const relations = relationsOf(selectedNode, graph);
+  const isInKnowledgeGraph = instancesOfPart(selectedNode.label).length > 0;
   const displayTitle = title ?? selectedNode.label;
   const dotClass = getSectionDotClass(getSectionIdOf(selectedNode));
 
@@ -121,6 +126,7 @@ export function SelectionDetailsModal({
             ))}
           </div>
         )}
+        {isInKnowledgeGraph && <KnowledgeGraphSource source={source} isQuerying={isQuerying} />}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 py-3.5 text-[13px]">

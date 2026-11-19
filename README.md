@@ -48,9 +48,40 @@ The viewer is built around the **TwinShip ontology** and keeps strong ties to it
 | **Component classes** | Component titles and details link to ontology classes (e.g. `PropellerSystem`, `MainEngineSystem`, `WindAssistedPropulsionSystem`) via `#https://twin-ship.eu/twinship#<ClassName>`. |
 | **Parameters** | Parameter names in the details modal link to ontology properties (e.g. `twPropellerBlades`, `twShaftPowerMaxInKW`, `twWASPPowerInKW`, `twWASPPowerReductionEfficiencyPercentage`). |
 | **Structure** | The explorer tree is organized into sections that match ontology-related domains: Hull, Superstructure, Deck equipment, Propeller system, Energy system, Wind assisted propulsion system. |
-| **Relationships** | “Connected components” in the modal are derived from ontology-aligned data (see `selection-details.ts`), so navigation between related parts reflects the ontology. |
+| **Relationships** | “Connected components” and the relations strip come from the knowledge graph (`ido:partOf`, `ido:connectedTo`, `ido:directlyConnectedTo`, `tws:consume`), so navigation between related parts reflects it. |
 
-Data that backs these links (descriptions, parameter names, `href`s, connected components) lives in the codebase (e.g. `features/ship-visualizer/selection-details.ts`); the ontology itself is hosted externally. Adding or changing links is done by editing that configuration to point at the desired ontology URLs and fragments.
+A component's class, description, parameters and relations come from the **knowledge graph** (below), not from hand-written lists. A link is the ontology's page plus the term's IRI as the fragment, `ONTOLOGY_PAGE_URL` + `https://twin-ship.eu/twinship#twShaftPowerMaxInKW`: the page's anchors are the full IRIs, so every term the graph returns links without a mapping (the IDO terms too). An IRI opened on its own does not resolve: twin-ship.eu has no page for it.
+
+The one hand-written binding is `PART_INSTANCES` in `features/ship-visualizer/ship-knowledge-graph-config.ts`: which 3D part shows which of the graph's instances (Engine → `FV-GN-1`, `FV-GN-2`). The graph knows nothing of the 3D model.
+
+### Knowledge graph: GraphDB, or the bundled export
+
+When a part is selected, its screens ask `/api/knowledge-graph`, and say where the answer came from:
+
+- **GraphDB** (*queried from GraphDB*): the route reads the futuristic vessel's repository in the [data pipeline](https://github.com/twinship-eu/twinship-data-pipeline)'s GraphDB with SPARQL, server side (`features/ship-visualizer/lib/graphdb-knowledge-graph.ts`). Only stored facts are read: GraphDB's reasoning would also return every `directlyConnectedTo` again as `connectedTo`. The graph is kept on the server and read again at most once a minute (`GRAPHDB_FRESH_MS`), however many parts are selected: past that minute, the next selection still gets the kept graph at once while GraphDB is read again in the background. A graph older than five minutes (`GRAPHDB_MAX_STALE_MS`, GraphDB not answering meanwhile) is no longer shown: the selection waits for GraphDB, then falls back to the bundled export. Each query, its row count and its first rows are logged under `[knowledge-graph]`.
+- **The bundled export** (*from the bundled knowledge graph export*): `features/ship-visualizer/data/futuristic-vessel-kg.json`, written by `scripts/export-knowledge-graph.py` from the same pipeline. Used, quietly, when GraphDB is not set up, does not answer, or refuses the login; the route logs a warning.
+
+GraphDB is set up with these variables in `.env.local` (server side only, see `.env.example`):
+
+| Variable | What |
+|----------|------|
+| `GRAPHDB_URL` | GraphDB's address, e.g. `http://localhost:7200` |
+| `GRAPHDB_REPOSITORY` | The futuristic vessel's repository, `futuristic-vessel`. Fixed here, never taken from the request: the same GraphDB holds the other vessels' repositories, which the viewer must not reach. |
+| `GRAPHDB_TOKEN_URL` | Keycloak's token endpoint, as GraphDB is behind it: `http://keycloak:8080/realms/twinship/protocol/openid-connect/token` locally |
+| `GRAPHDB_CLIENT_ID`, `GRAPHDB_CLIENT_SECRET` | A Keycloak client's credentials (client credentials grant) |
+
+Without `GRAPHDB_URL` and `GRAPHDB_REPOSITORY`, the bundled export is shown. Without the three Keycloak variables, GraphDB is asked without a token.
+
+**Running GraphDB locally**, from the data pipeline's repository:
+
+```bash
+# Once: the browser and the viewer reach Keycloak by its Docker name
+echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts
+
+docker compose up -d --build
+```
+
+This starts GraphDB (http://localhost:7200), Keycloak, and Dagster, whose sensor runs the pipeline and uploads each vessel to its repository (`futuristic-vessel` for this one). Locally, the pipeline's own Keycloak client serves the viewer too: `GRAPHDB_CLIENT_ID=dagster-pipeline`, `GRAPHDB_CLIENT_SECRET` set to the pipeline's `KEYCLOAK_CLIENT_SECRET` (`local-dev-dagster-client-secret` when its `.env` does not set one). A deployment needs its own client for the viewer, with its secret kept out of the repository.
 
 ---
 
@@ -136,7 +167,7 @@ Main constants live in **`features/ship-visualizer/ship-visualizer-config.ts`**:
 - **Animation:** floating (bob, pitch, roll), interaction Y offset, transition and idle reset
 - **Sections:** `SHIP_TREE_SECTIONS` (Hull, Superstructure, Deck equipment, Propeller system, Energy system, Wind assisted propulsion system), plus `NON_SELECTABLE_SECTION_IDS` (e.g. deck)
 
-Ontology base URLs and fragment IDs are not centralized; they are set in **`selection-details.ts`** per component and parameter (all point to `https://ontology.twin-ship.eu/`).
+The knowledge graph's settings live in **`features/ship-visualizer/ship-knowledge-graph-config.ts`**: `PART_INSTANCES`, `ONTOLOGY_PAGE_URL` (the ontology's page, `https://ontology.twin-ship.eu/index-en.html#`), the GraphDB variables' names and its timeout.
 
 ---
 

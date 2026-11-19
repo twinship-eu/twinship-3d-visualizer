@@ -7,6 +7,7 @@ import {
   KNOWLEDGE_GRAPH,
   ontologyPageOf,
   partParametersOf,
+  type KnowledgeGraph,
 } from "./lib/knowledge-graph";
 import { getSectionIdOf } from "./lib/section-colors";
 import { SHIP_TREE_SECTIONS } from "./ship-visualizer-config";
@@ -95,14 +96,15 @@ const OBJECT_DETAILS_BY_LABEL: Record<string, ObjectDetails> = {
  * A part the knowledge graph has, as it says: its instances' class — linked
  * to the ontology — and its definition, and their values.
  */
-function knowledgeGraphDetails(node: ShipTreeNode): ObjectDetails {
+function knowledgeGraphDetails(node: ShipTreeNode, graph: KnowledgeGraph): ObjectDetails {
   const instanceIds = instancesOfPart(node.label);
-  const className = classOf(instanceIds[0]);
-  const term = KNOWLEDGE_GRAPH.classes[className];
+  const className = classOf(instanceIds[0], graph);
+  const term = graph.classes[className];
+  const labelOf = (name: string) => classLabel(name, graph);
   const section = SHIP_TREE_SECTIONS.find((candidate) => candidate.id === getSectionIdOf(node));
-  const kinds = [...new Set(instanceIds.flatMap((id) => KNOWLEDGE_GRAPH.instances[id]?.types ?? []))]
+  const kinds = [...new Set(instanceIds.flatMap((id) => graph.instances[id]?.types ?? []))]
     .filter((type) => type !== className)
-    .map(classLabel);
+    .map(labelOf);
 
   return {
     title: node.label,
@@ -110,17 +112,18 @@ function knowledgeGraphDetails(node: ShipTreeNode): ObjectDetails {
     // The section, and the class unless it is the section by another spelling
     tags: [
       ...(section ? [section.label] : []),
-      ...(section?.label.toLowerCase() === classLabel(className).toLowerCase() ? [] : [classLabel(className)]),
+      ...(section?.label.toLowerCase() === labelOf(className).toLowerCase() ? [] : [labelOf(className)]),
     ],
     description: [
-      term?.comment ?? classLabel(className),
+      term?.comment ?? labelOf(className),
       `In the knowledge graph: ${instanceIds.join(", ")}${kinds.length ? ` — ${kinds.join(", ")}` : ""}.`,
     ].join(" "),
-    parameters: partParametersOf(node.label),
+    parameters: partParametersOf(node.label, graph),
   };
 }
 
-export function getObjectDetailsForNode(node: ShipTreeNode): ObjectDetails {
-  if (instancesOfPart(node.label).length > 0) return knowledgeGraphDetails(node);
+/** A part's details: from the knowledge graph given (the bundled export unless another is), or as written here. */
+export function getObjectDetailsForNode(node: ShipTreeNode, graph = KNOWLEDGE_GRAPH): ObjectDetails {
+  if (instancesOfPart(node.label).length > 0) return knowledgeGraphDetails(node, graph);
   return OBJECT_DETAILS_BY_LABEL[node.label] ?? DEFAULT_DETAILS;
 }

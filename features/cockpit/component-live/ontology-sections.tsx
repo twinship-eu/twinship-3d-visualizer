@@ -6,6 +6,8 @@ import type { LiveSnapshot } from "@/features/live-data/live-data-types";
 import { relationsOf } from "@/features/ship-visualizer/lib/ontology-relations";
 import { RelationTarget, relationKey } from "@/features/ship-visualizer/components/relation-target";
 import { getObjectDetailsForNode } from "@/features/ship-visualizer/selection-details";
+import { useKnowledgeGraphQuery } from "@/features/ship-visualizer/queries/use-knowledge-graph-query";
+import { KnowledgeGraphSource } from "@/features/ship-visualizer/components/knowledge-graph-source";
 import type { ShipTreeNode } from "@/features/ship-visualizer/ship-visualizer-types";
 import { ONTOLOGY_LIVE_VALUES } from "./ontology-live-values";
 
@@ -25,8 +27,9 @@ type DescriptionProps = {
  * with the way back to it in the Ontology.
  */
 export function OntologyDescription({ node, onSelectRelated, onOpenInOntology }: DescriptionProps) {
-  const { description } = getObjectDetailsForNode(node);
-  const relations = relationsOf(node);
+  const { graph, source, isQuerying } = useKnowledgeGraphQuery(node);
+  const { description } = getObjectDetailsForNode(node, graph);
+  const relations = relationsOf(node, graph);
 
   return (
     <div className="flex flex-col gap-5 px-6 py-5 text-sm">
@@ -34,6 +37,7 @@ export function OntologyDescription({ node, onSelectRelated, onOpenInOntology }:
       {relations.length > 0 && (
         <section className="flex flex-col gap-2">
           <h3 className={SECTION_LABEL_CLASS}>RELATIONS IN THE KNOWLEDGE GRAPH</h3>
+          <KnowledgeGraphSource source={source} isQuerying={isQuerying} />
           {relations.map((relation) => {
             const { partLabel } = relation;
             const content = (
@@ -83,7 +87,8 @@ type ParametersProps = { node: ShipTreeNode; snapshot: LiveSnapshot | null };
  * and, where the ship's data measures it, its live reading beside it.
  */
 export function OntologyParameters({ node, snapshot }: ParametersProps) {
-  const { parameters } = getObjectDetailsForNode(node);
+  const { graph } = useKnowledgeGraphQuery(node);
+  const { parameters } = getObjectDetailsForNode(node, graph);
   const liveValues: Partial<Record<string, (snapshot: LiveSnapshot) => string>> = ONTOLOGY_LIVE_VALUES[node.label] ?? {};
 
   if (parameters.length === 0) return <p className="px-6 py-5 text-sm text-muted">No parameters in the ontology yet.</p>;

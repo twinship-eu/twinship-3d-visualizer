@@ -1,6 +1,6 @@
 import type { ShipTreeNode } from "../ship-visualizer-types";
 import { IS_ONLY_RELATIONS_TO_3D_PARTS } from "../ship-knowledge-graph-config";
-import { partRelationsOf, type PartRelation } from "./knowledge-graph";
+import { KNOWLEDGE_GRAPH, partRelationsOf, type PartRelation } from "./knowledge-graph";
 import { getSectionIdOf } from "./section-colors";
 
 /**
@@ -14,8 +14,8 @@ export type OntologyRelation = PartRelation & {
 };
 
 /** A component's relations, from the knowledge graph (those to a 3D part, see `IS_ONLY_RELATIONS_TO_3D_PARTS`); none for a part it does not have. */
-export function relationsOf(node: ShipTreeNode): OntologyRelation[] {
-  return partRelationsOf(node.label)
+export function relationsOf(node: ShipTreeNode, graph = KNOWLEDGE_GRAPH): OntologyRelation[] {
+  return partRelationsOf(node.label, graph)
     .filter((relation) => !IS_ONLY_RELATIONS_TO_3D_PARTS || relation.partLabel)
     .map((relation) => ({
     ...relation,
