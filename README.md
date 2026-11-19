@@ -81,7 +81,7 @@ echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts
 docker compose up -d --build
 ```
 
-This starts GraphDB (http://localhost:7200), Keycloak, and Dagster, whose sensor runs the pipeline and uploads each vessel to its repository (`futuristic-vessel` for this one). Locally, the pipeline's own Keycloak client serves the viewer too: `GRAPHDB_CLIENT_ID=dagster-pipeline`, `GRAPHDB_CLIENT_SECRET=dagster-pipeline-secret` (the local realm's, in `keycloak/twinship-realm.json`). A deployment needs its own client for the viewer, with its secret kept out of the repository.
+This starts GraphDB (http://localhost:7200), Keycloak, and Dagster, whose sensor runs the pipeline and uploads each vessel to its repository (`futuristic-vessel` for this one). Locally, the pipeline's own Keycloak client serves the viewer too: `GRAPHDB_CLIENT_ID=dagster-pipeline`, `GRAPHDB_CLIENT_SECRET` set to the pipeline's `KEYCLOAK_CLIENT_SECRET` (`local-dev-dagster-client-secret` when its `.env` does not set one). A deployment needs its own client for the viewer, with its secret kept out of the repository.
 
 ---
 
